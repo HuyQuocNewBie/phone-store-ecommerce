@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import LoginPage from '../pages/LoginPage';
-import DashboardPage from '../pages/DashboardPage';
+import DashboardPage from '../pages/admin/DashboardPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
