@@ -3,6 +3,7 @@ import AdminRoute from '../components/AdminRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/admin/DashboardPage';
+import ProductManagementPage from '../pages/admin/ProductManagementPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -11,6 +12,7 @@ import DashboardPage from '../pages/admin/DashboardPage';
  *  /login                  → LoginPage (public)
  *  /admin                  → AdminRoute (yêu cầu MaVaiTro === 1)
  *    /admin/dashboard      → DashboardPage
+ *    /admin/products       → ProductManagementPage
  *    /admin/*              → redirect về dashboard
  *  /                       → redirect về /admin/dashboard (tạm thời, sẽ cập nhật khi có trang User)
  *  /*                      → redirect về /admin/dashboard
@@ -31,6 +33,7 @@ const AppRoutes = () => {
         }
       >
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="products" element={<ProductManagementPage />} />
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
