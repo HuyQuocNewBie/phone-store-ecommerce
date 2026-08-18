@@ -9,6 +9,7 @@ const orderRoutes = require('./orderRoutes');
 const userRoutes = require('./userRoutes');
 const categoryRoutes = require('./categoryRoutes');
 const manufacturerRoutes = require('./manufacturerRoutes');
+const voucherRoutes = require('./voucherRoutes');
 
 // Áp dụng middleware xác thực token & kiểm tra quyền Admin cho tất cả route Admin
 router.use(verifyToken, verifyAdmin);
@@ -21,5 +22,6 @@ router.use('/orders', orderRoutes);
 router.use('/users', userRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/manufacturers', manufacturerRoutes);
+router.use('/vouchers', voucherRoutes);
 
 module.exports = router;
