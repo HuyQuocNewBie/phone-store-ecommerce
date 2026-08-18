@@ -5,3 +5,43 @@
 :root {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
+
+/* ─── Admin Route Loading State ──────────────────────────────────────────── */
+.admin-route-loading {
+  min-height: 100vh;
+  background-color: #0f172a; /* slate-900 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #94a3b8; /* slate-400 */
+}
+
+.admin-route-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  animation: spin 1s linear infinite;
+  color: #0ea5e9; /* sky-500 */
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.admin-route-loading-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* ─── Login Page shake animation ─────────────────────────────────────────── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-8px); }
+  30%       { transform: translateX(8px); }
+  45%       { transform: translateX(-6px); }
+  60%       { transform: translateX(6px); }
+  75%       { transform: translateX(-3px); }
+  90%       { transform: translateX(3px); }
+}
