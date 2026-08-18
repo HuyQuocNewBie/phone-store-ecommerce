@@ -26,8 +26,8 @@ const navItems = [
   { icon: Building2,       label: 'Nhà sản xuất',      path: '/admin/manufacturers' },
   { icon: Boxes,           label: 'Tồn kho',           path: '/admin/inventory' },
   { icon: ShoppingCart,    label: 'Đơn hàng',          path: '/admin/orders' },
-  { icon: TicketPercent,   label: 'Mã giảm giá',       path: '/admin/coupons' },
-  { icon: BarChart3,       label: 'Thống kê',          path: '/admin/statistics' },
+  { icon: TicketPercent,   label: 'Mã giảm giá',       path: '/admin/vouchers' },
+  { icon: BarChart3,       label: 'Thống kê',          path: '/admin/analytics' },
 ];
 
 // ─── Sidebar Component ─────────────────────────────────────────────────────────
