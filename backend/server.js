@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 const authRoutes = require('./src/routes/authRoutes');
 const dashboardRoutes = require('./src/routes/admin/dashboardRoutes');
 const productRoutes = require('./src/routes/admin/productRoutes');
+const inventoryRoutes = require('./src/routes/admin/inventoryRoutes');
 
 // Basic status route
 app.get('/', (req, res) => {
@@ -31,6 +32,7 @@ app.get('/', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin/dashboard', dashboardRoutes);
 app.use('/api/v1/admin/products', productRoutes);
+app.use('/api/v1/admin/inventory', inventoryRoutes);
 
 // Centralized error handling middleware
 app.use(errorHandler);
