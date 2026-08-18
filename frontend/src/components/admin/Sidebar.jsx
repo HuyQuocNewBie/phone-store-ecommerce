@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -67,7 +67,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
         {navItems.map(({ icon: Icon, label, path }) => {
           const active = isActive(path);
           return (
-            <Link
+            <NavLink
               key={path}
               to={path}
               title={collapsed ? label : undefined}
@@ -113,7 +113,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
                   <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-800" />
                 </div>
               )}
-            </Link>
+            </NavLink>
           );
         })}
       </nav>

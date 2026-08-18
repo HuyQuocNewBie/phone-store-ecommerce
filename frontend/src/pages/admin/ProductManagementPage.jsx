@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import api from '../../services/api';
-import ProductFormModal from '../../components/admin/ProductFormModal';
 
 /**
  * ProductManagementPage
  * Trang Quản lý Sản phẩm dành cho Admin.
  */
 const ProductManagementPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // ─── State Management ────────────────────────────────────────────────────────
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Modal Thêm / Sửa State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fetchingDetailId, setFetchingDetailId] = useState(null);
 
   // Pop-up Xác nhận Xóa State
   const [deleteTarget, setDeleteTarget] = useState(null); // Product object to delete
@@ -50,6 +47,15 @@ const ProductManagementPage = () => {
     fetchProducts();
   }, []);
 
+  // ─── Lấy Toast thông báo từ location.state (sau khi lưu từ ProductFormPage) ─
+  useEffect(() => {
+    if (location.state?.toast) {
+      setToast(location.state.toast);
+      // Toast State Cleansing: Dọn dẹp location.state để tránh bị lặp lại Toast khi người dùng F5 refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   // Tự động tắt Toast thông báo sau 4 giây
   useEffect(() => {
     if (toast) {
@@ -70,80 +76,6 @@ const ProductManagementPage = () => {
   const filteredProducts = products.filter((p) =>
     p.TenSanPham?.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
-
-  // ─── Xử lý mở Modal Thêm mới ─────────────────────────────────────────────────
-  const handleOpenCreateModal = () => {
-    setEditingProduct(null);
-    setIsModalOpen(true);
-  };
-
-  // ─── Xử lý mở Modal Chỉnh sửa (Lấy chi tiết kèm thông số kỹ thuật) ───────────
-  const handleOpenEditModal = async (product) => {
-    try {
-      setFetchingDetailId(product.MaSanPham);
-      // Gọi API lấy chi tiết sản phẩm kèm thongsokythuat
-      const res = await api.get(`/admin/products/${product.MaSanPham}`);
-      if (res.data?.success && res.data.data) {
-        setEditingProduct(res.data.data);
-      } else {
-        setEditingProduct(product);
-      }
-      setIsModalOpen(true);
-    } catch (err) {
-      console.error('Lỗi khi lấy chi tiết sản phẩm:', err);
-      // Fallback dùng dữ liệu hiện có nếu API chi tiết lỗi
-      setEditingProduct(product);
-      setIsModalOpen(true);
-    } finally {
-      setFetchingDetailId(null);
-    }
-  };
-
-  // ─── Submit Form Thêm / Sửa Sản phẩm ─────────────────────────────────────────
-  const handleFormSubmit = async (formData, fallbackData) => {
-    try {
-      setIsSubmitting(true);
-
-      if (editingProduct) {
-        // Cập nhật sản phẩm (PUT)
-        const res = await api.put(`/admin/products/${editingProduct.MaSanPham}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-
-        if (res.data?.success) {
-          setToast({
-            type: 'success',
-            message: `Cập nhật sản phẩm "${fallbackData.TenSanPham}" thành công!`
-          });
-          setIsModalOpen(false);
-          fetchProducts();
-        }
-      } else {
-        // Thêm sản phẩm mới (POST)
-        const res = await api.post('/admin/products', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-
-        if (res.data?.success) {
-          setToast({
-            type: 'success',
-            message: `Thêm sản phẩm mới "${fallbackData.TenSanPham}" thành công!`
-          });
-          setIsModalOpen(false);
-          fetchProducts();
-        }
-      }
-    } catch (err) {
-      console.error('Lỗi khi lưu sản phẩm:', err);
-      const apiMsg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm. Vui lòng kiểm tra lại!';
-      setToast({
-        type: 'error',
-        message: apiMsg
-      });
-    } fontId: {
-      setIsSubmitting(false);
-    }
-  };
 
   // ─── Xử lý Xóa Sản Phẩm ─────────────────────────────────────────────────────
   const confirmDelete = (product) => {
@@ -167,7 +99,6 @@ const ProductManagementPage = () => {
       }
     } catch (err) {
       console.error('Lỗi khi xóa sản phẩm:', err);
-      // Kiểm tra lỗi ràng buộc đơn hàng từ backend (HTTP 400 / message ràng buộc)
       const errorMsg =
         err.response?.data?.message ||
         'Không thể xóa sản phẩm do đã có trong đơn hàng (ràng buộc chi tiết đơn hàng)';
@@ -219,10 +150,10 @@ const ProductManagementPage = () => {
           </p>
         </div>
 
-        {/* Nút Thêm Sản Phẩm */}
+        {/* Nút Thêm Sản Phẩm (Điều hướng đến trang /admin/products/create) */}
         <button
           id="btn-add-product"
-          onClick={handleOpenCreateModal}
+          onClick={() => navigate('/admin/products/create')}
           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
         >
           <Plus className="w-5 h-5" />
@@ -288,14 +219,6 @@ const ProductManagementPage = () => {
             <p className="text-slate-400 font-medium text-sm">
               {searchQuery ? `Không tìm thấy sản phẩm nào khớp với "${searchQuery}"` : 'Chưa có sản phẩm nào trong hệ thống.'}
             </p>
-            {!searchQuery && (
-              <button
-                onClick={handleOpenCreateModal}
-                className="px-4 py-2 bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold rounded-xl transition-all"
-              >
-                Thêm sản phẩm đầu tiên
-              </button>
-            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -378,18 +301,13 @@ const ProductManagementPage = () => {
                     {/* Hành động (Sửa, Xóa) */}
                     <td className="py-4 px-6 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
-                        {/* Nút Sửa */}
+                        {/* Nút Sửa (Điều hướng tới /admin/products/edit/:id) */}
                         <button
-                          onClick={() => handleOpenEditModal(item)}
-                          disabled={fetchingDetailId === item.MaSanPham}
+                          onClick={() => navigate(`/admin/products/edit/${item.MaSanPham}`)}
                           className="p-2 rounded-xl bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-400 border border-slate-700/80 hover:border-sky-500/30 transition-all"
                           title="Sửa sản phẩm"
                         >
-                          {fetchingDetailId === item.MaSanPham ? (
-                            <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
-                          ) : (
-                            <Edit3 className="w-4 h-4" />
-                          )}
+                          <Edit3 className="w-4 h-4" />
                         </button>
 
                         {/* Nút Xóa */}
@@ -409,15 +327,6 @@ const ProductManagementPage = () => {
           </div>
         )}
       </div>
-
-      {/* ── Modal Thêm / Sửa Sản phẩm ── */}
-      <ProductFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleFormSubmit}
-        initialData={editingProduct}
-        isSubmitting={isSubmitting}
-      />
 
       {/* ── Modal Confirmation Xóa Sản phẩm ── */}
       {deleteTarget && (
