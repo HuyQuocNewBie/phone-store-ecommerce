@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingCart, Users, Package,
-  BarChart3, Settings, LogOut, Bell, Search,
+  LayoutDashboard, ShoppingCart, Package,
+  BarChart3, Bell, Search,
   TrendingUp, DollarSign, AlertCircle, Loader2,
   RefreshCw, Star
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminLayout from './layouts/AdminLayout';
 import { useAuth } from './context/AuthContext';
 import api from './services/api';
 
@@ -131,73 +132,7 @@ const LoginPage = () => {
   );
 };
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',   path: '/admin/dashboard' },
-  { icon: Package,         label: 'Sản phẩm',    path: '/admin/products' },
-  { icon: ShoppingCart,    label: 'Đơn hàng',    path: '/admin/orders' },
-  { icon: Users,           label: 'Khách hàng',  path: '/admin/customers' },
-  { icon: BarChart3,       label: 'Báo cáo',     path: '/admin/reports' },
-  { icon: Settings,        label: 'Cài đặt',     path: '/admin/settings' },
-];
-
-const Sidebar = () => {
-  const { logout, user } = useAuth();
-  const current = window.location.pathname;
-
-  return (
-    <aside className="w-64 min-h-screen bg-slate-800/80 backdrop-blur-sm border-r border-slate-700/50 flex flex-col shrink-0">
-      <div className="p-6 border-b border-slate-700/50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-sky-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
-            <LayoutDashboard className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-100">PhoneStore</p>
-            <p className="text-xs text-slate-400">Admin Panel</p>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ icon: Icon, label, path }) => (
-          <Link
-            key={path}
-            to={path}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              current === path
-                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-700/50'
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </Link>
-        ))}
-      </nav>
-
-      <div className="p-4 border-t border-slate-700/50">
-        <div className="flex items-center gap-3 mb-3 px-1">
-          <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
-            {user?.TaiKhoan?.[0]?.toUpperCase() || 'A'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-100 truncate">{user?.TaiKhoan || 'Admin'}</p>
-            <p className="text-xs text-slate-400 truncate">{user?.Email || ''}</p>
-          </div>
-        </div>
-        <button
-          id="btn-logout"
-          onClick={logout}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
-        >
-          <LogOut className="w-4 h-4" />
-          Đăng xuất
-        </button>
-      </div>
-    </aside>
-  );
-};
+// ─── (Sidebar & AdminLayout đã được tách sang file riêng) ─────────────────────
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 const DashboardPage = () => {
@@ -309,30 +244,6 @@ const DashboardPage = () => {
 
   return (
     <div className="flex-1 p-6 overflow-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Tổng quan hệ thống Phone Store</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              id="input-search"
-              placeholder="Tìm kiếm..."
-              className="pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40 w-48 transition"
-            />
-          </div>
-          <button
-            id="btn-notifications"
-            className="relative p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-slate-100 transition"
-          >
-            <Bell className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
       {/* ── Stat Cards ── */}
       {errorCards && <ErrorAlert message={errorCards} onRetry={fetchCards} />}
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -543,32 +454,23 @@ const DashboardPage = () => {
   );
 };
 
-// ─── Admin Layout ─────────────────────────────────────────────────────────────
-const AdminLayout = ({ children }) => (
-  <div className="flex min-h-screen bg-slate-900">
-    <Sidebar />
-    {children}
-  </div>
-);
-
 // ─── App & Router ─────────────────────────────────────────────────────────────
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
-        path="/admin/*"
+        path="/admin"
         element={
           <ProtectedRoute>
-            <AdminLayout>
-              <Routes>
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="*" element={<Navigate to="dashboard" replace />} />
-              </Routes>
-            </AdminLayout>
+            <AdminLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Route>
       <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
     </Routes>
