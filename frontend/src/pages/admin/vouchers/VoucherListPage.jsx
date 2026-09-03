@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  TicketPercent, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
-  Trash2, Edit3, X, Calendar, DollarSign, Tag, Layers
+  TicketPercent, Plus, RefreshCw, Search, AlertCircle, Trash2, Edit3
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -25,40 +25,13 @@ const formatDateDisplay = (dateStr) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
-// ── Helper format Date sang datetime-local input string (YYYY-MM-DDTHH:mm) ──
-const toDatetimeLocalInput = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
 const VoucherListPage = () => {
+  const navigate = useNavigate();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [togglingId, setTogglingId] = useState(null);
-
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingVoucher, setEditingVoucher] = useState(null); // null = Add, object = Edit
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalError, setModalError] = useState(null);
-
-  // Form Fields
-  const [code, setCode] = useState('');
-  const [giaTriGiam, setGiaTriGiam] = useState('');
-  const [loaiGiam, setLoaiGiam] = useState('tien');
-  const [giaTriToiThieu, setGiaTriToiThieu] = useState('');
-  const [soLuong, setSoLuong] = useState('');
-  const [ngayHetHan, setNgayHetHan] = useState('');
-  const [trangThai, setTrangThai] = useState(1);
 
   // 1. Fetch Vouchers
   const fetchVouchers = useCallback(async () => {
@@ -100,132 +73,7 @@ const VoucherListPage = () => {
     }
   };
 
-  // Open Modal Add
-  const handleOpenAddModal = () => {
-    setEditingVoucher(null);
-    setCode('');
-    setGiaTriGiam('');
-    setLoaiGiam('tien');
-    setGiaTriToiThieu('');
-    setSoLuong('');
-
-    // Mặc định ngày hết hạn là 7 ngày sau
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    setNgayHetHan(toDatetimeLocalInput(nextWeek));
-
-    setTrangThai(1);
-    setModalError(null);
-    setIsModalOpen(true);
-  };
-
-  // Open Modal Edit
-  const handleOpenEditModal = (v) => {
-    setEditingVoucher(v);
-    setCode(v.Code || '');
-    setGiaTriGiam(v.GiaTriGiam || '');
-    setLoaiGiam(v.LoaiGiam || 'tien');
-    setGiaTriToiThieu(v.GiaTriToiThieu || '');
-    setSoLuong(v.SoLuong || '');
-    setNgayHetHan(toDatetimeLocalInput(v.NgayHetHan));
-    setTrangThai(v.TrangThai !== undefined ? v.TrangThai : 1);
-    setModalError(null);
-    setIsModalOpen(true);
-  };
-
-  // 3. Submit Modal (Thêm mới hoặc Chỉnh sửa với Validation chặt chẽ)
-  const handleSubmitVoucher = async (e) => {
-    e.preventDefault();
-    setModalError(null);
-
-    // Validation 1: Code
-    const trimmedCode = code.trim();
-    if (!trimmedCode) {
-      setModalError('Mã voucher (Code) không được để trống');
-      return;
-    }
-    if (/\s/.test(trimmedCode)) {
-      setModalError('Mã voucher không được chứa khoảng trắng');
-      return;
-    }
-    const formattedCode = trimmedCode.toUpperCase();
-
-    // Validation 2: Giá trị giảm (VND)
-    const numGiaTriGiam = Number(giaTriGiam);
-    if (!giaTriGiam || isNaN(numGiaTriGiam) || numGiaTriGiam <= 0) {
-      setModalError('Giá trị giảm phải là số lớn hơn 0 (tính bằng VNĐ)');
-      return;
-    }
-
-    // Validation 3: Giá trị tối thiểu
-    const numGiaTriToiThieu = Number(giaTriToiThieu);
-    if (!giaTriToiThieu || isNaN(numGiaTriToiThieu) || numGiaTriToiThieu <= 0) {
-      setModalError('Giá trị đơn hàng tối thiểu phải là số lớn hơn 0');
-      return;
-    }
-
-    if (numGiaTriGiam > numGiaTriToiThieu) {
-      setModalError('Giá trị giảm không được lớn hơn giá trị đơn hàng tối thiểu');
-      return;
-    }
-
-    // Validation 4: Số lượng
-    const numSoLuong = Number(soLuong);
-    if (!soLuong || isNaN(numSoLuong) || !Number.isInteger(numSoLuong) || numSoLuong <= 0) {
-      setModalError('Số lượng phát hành phải là số nguyên lớn hơn 0');
-      return;
-    }
-
-    // Validation 5: Ngày hết hạn > hiện tại
-    if (!ngayHetHan) {
-      setModalError('Ngày hết hạn không được để trống');
-      return;
-    }
-    const expireDateObj = new Date(ngayHetHan);
-    if (isNaN(expireDateObj.getTime())) {
-      setModalError('Ngày hết hạn không đúng định dạng hợp lệ');
-      return;
-    }
-    if (expireDateObj <= new Date()) {
-      setModalError('Ngày hết hạn phải lớn hơn thời điểm hiện tại');
-      return;
-    }
-
-    // Định dạng ISO Date gửi lên backend
-    const apiDateStr = expireDateObj.toISOString();
-
-    const payload = {
-      Code: formattedCode,
-      GiaTriGiam: numGiaTriGiam,
-      LoaiGiam: loaiGiam,
-      GiaTriToiThieu: numGiaTriToiThieu,
-      SoLuong: numSoLuong,
-      NgayHetHan: apiDateStr,
-      TrangThai: Number(trangThai)
-    };
-
-    setModalLoading(true);
-    try {
-      if (editingVoucher) {
-        const res = await api.put(`/admin/vouchers/${editingVoucher.MaVoucher}`, payload);
-        toast.success(res.data.message || 'Cập nhật mã giảm giá thành công', { id: `voucher-edit-${editingVoucher.MaVoucher}` });
-      } else {
-        const res = await api.post('/admin/vouchers', payload);
-        toast.success(res.data.message || 'Thêm mã giảm giá mới thành công', { id: 'voucher-add' });
-      }
-
-      setIsModalOpen(false);
-      fetchVouchers();
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Lỗi khi lưu mã giảm giá';
-      setModalError(errorMsg);
-      toast.error(errorMsg, { id: 'voucher-save-err' });
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  // 4. Delete Voucher
+  // 3. Delete Voucher
   const handleDeleteVoucher = async (voucherId, voucherCode) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa mã giảm giá "${voucherCode}"?`)) return;
 
@@ -267,11 +115,11 @@ const VoucherListPage = () => {
             Làm mới
           </button>
           <button
-            onClick={handleOpenAddModal}
+            onClick={() => navigate('/admin/vouchers/new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" />
-            Thêm mã mới
+            Thêm mã giảm giá
           </button>
         </div>
       </div>
@@ -358,7 +206,6 @@ const VoucherListPage = () => {
                         <td className="px-6 py-4 font-bold text-amber-400 tracking-wider">
                           {v.Code}
                         </td>
-                        {/* Cột "Giảm giá" tính theo VND */}
                         <td className="px-6 py-4 text-right font-bold text-emerald-400">
                           {formatVND(v.GiaTriGiam)}
                         </td>
@@ -402,7 +249,7 @@ const VoucherListPage = () => {
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
-                              onClick={() => handleOpenEditModal(v)}
+                              onClick={() => navigate(`/admin/vouchers/${v.MaVoucher}/edit`)}
                               className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
                               title="Sửa mã giảm giá"
                             >
@@ -426,168 +273,6 @@ const VoucherListPage = () => {
           </div>
         )}
       </div>
-
-      {/* Modal Thêm mới / Chỉnh sửa Voucher */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-800 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
-            {/* Header Modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/60 bg-slate-900/50">
-              <div className="flex items-center gap-2 text-slate-100 font-bold text-base">
-                <Tag className="w-5 h-5 text-sky-400" />
-                {editingVoucher ? `Chỉnh sửa Voucher #${editingVoucher.Code}` : 'Thêm mã giảm giá mới'}
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700/50 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body Form */}
-            <form onSubmit={handleSubmitVoucher} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
-              {modalError && (
-                <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{modalError}</span>
-                </div>
-              )}
-
-              {/* Code */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Mã Voucher (Code) <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Vd: SUMMER50, PHONESTORE2026..."
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-bold tracking-wider focus:outline-none focus:border-sky-500"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Viết hoa tự động, tuyệt đối không chứa khoảng trắng</p>
-              </div>
-
-              {/* Giá trị giảm & Đơn tối thiểu */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Giá trị giảm (VNĐ) <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1000"
-                    placeholder="Vd: 50000"
-                    value={giaTriGiam}
-                    onChange={(e) => setGiaTriGiam(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500"
-                  />
-                  {giaTriGiam && !isNaN(Number(giaTriGiam)) && Number(giaTriGiam) > 0 && (
-                    <p className="text-[11px] text-emerald-400 mt-1 font-medium">{formatVND(Number(giaTriGiam))}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Đơn hàng tối thiểu (VNĐ) <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1000"
-                    placeholder="Vd: 200000"
-                    value={giaTriToiThieu}
-                    onChange={(e) => setGiaTriToiThieu(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500"
-                  />
-                  {giaTriToiThieu && !isNaN(Number(giaTriToiThieu)) && Number(giaTriToiThieu) > 0 && (
-                    <p className="text-[11px] text-slate-400 mt-1 font-medium">{formatVND(Number(giaTriToiThieu))}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Số lượng & Ngày hết hạn */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Số lượng phát hành <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Vd: 100"
-                    value={soLuong}
-                    onChange={(e) => setSoLuong(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Ngày hết hạn <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={ngayHetHan}
-                    onChange={(e) => setNgayHetHan(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs font-semibold focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              {/* Trạng thái Bật/Tắt */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Trạng thái mã giảm giá
-                </label>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="TrangThai"
-                      checked={Number(trangThai) === 1}
-                      onChange={() => setTrangThai(1)}
-                      className="text-sky-500 focus:ring-sky-500"
-                    />
-                    <span>Bật (Kích hoạt ngay)</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="TrangThai"
-                      checked={Number(trangThai) === 0}
-                      onChange={() => setTrangThai(0)}
-                      className="text-slate-500 focus:ring-slate-500"
-                    />
-                    <span>Tắt (Tạm ẩn)</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700/60">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold transition-colors"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg hover:brightness-110 disabled:opacity-50 transition-all"
-                >
-                  {modalLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  {editingVoucher ? 'Cập nhật mã' : 'Thêm mã mới'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

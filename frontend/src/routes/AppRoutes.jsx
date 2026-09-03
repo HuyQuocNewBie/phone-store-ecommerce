@@ -12,6 +12,7 @@ import InventoryListPage from '../pages/admin/inventory/InventoryListPage';
 import CreateImportPage from '../pages/admin/inventory/CreateImportPage';
 import OrderListPage from '../pages/admin/orders/OrderListPage';
 import VoucherListPage from '../pages/admin/vouchers/VoucherListPage';
+import VoucherFormPage from '../pages/admin/vouchers/VoucherFormPage';
 import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 /**
@@ -59,6 +60,8 @@ const AppRoutes = () => {
         <Route path="inventory/import" element={<CreateImportPage />} />
         <Route path="orders" element={<OrderListPage />} />
         <Route path="vouchers" element={<VoucherListPage />} />
+        <Route path="vouchers/new" element={<VoucherFormPage />} />
+        <Route path="vouchers/:id/edit" element={<VoucherFormPage />} />
         <Route path="coupons" element={<Navigate to="../vouchers" replace />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="statistics" element={<Navigate to="../analytics" replace />} />
