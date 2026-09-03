@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   Building2, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Phone, Mail, MapPin
@@ -13,7 +14,6 @@ const ManufacturerManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,11 +26,6 @@ const ManufacturerManagementPage = () => {
   const [diaChi, setDiaChi] = useState('');
   const [soDienThoai, setSoDienThoai] = useState('');
   const [email, setEmail] = useState('');
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // Fetch Manufacturers
   const fetchManufacturers = useCallback(async () => {
@@ -120,16 +115,18 @@ const ManufacturerManagementPage = () => {
     try {
       if (editingManufacturer) {
         const res = await api.put(`/admin/manufacturers/${editingManufacturer.MaNhaSanXuat}`, payload);
-        showToast(res.data.message || 'Cập nhật nhà sản xuất thành công');
+        toast.success(res.data.message || 'Cập nhật nhà sản xuất thành công', { id: `mfg-edit-${editingManufacturer.MaNhaSanXuat}` });
       } else {
         const res = await api.post('/admin/manufacturers', payload);
-        showToast(res.data.message || 'Thêm nhà sản xuất thành công');
+        toast.success(res.data.message || 'Thêm nhà sản xuất thành công', { id: 'mfg-add' });
       }
 
       setIsModalOpen(false);
       fetchManufacturers();
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Lỗi khi lưu nhà sản xuất');
+      const msg = err.response?.data?.message || 'Lỗi khi lưu nhà sản xuất';
+      setModalError(msg);
+      toast.error(msg, { id: 'mfg-save-err' });
     } finally {
       setModalLoading(false);
     }
@@ -143,10 +140,10 @@ const ManufacturerManagementPage = () => {
 
     try {
       const res = await api.delete(`/admin/manufacturers/${m.MaNhaSanXuat}`);
-      showToast(res.data.message || 'Xóa nhà sản xuất thành công');
+      toast.success(res.data.message || 'Xóa nhà sản xuất thành công', { id: `mfg-delete-${m.MaNhaSanXuat}` });
       fetchManufacturers();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể xóa nhà sản xuất này', 'error');
+      toast.error(err.response?.data?.message || 'Không thể xóa nhà sản xuất này', { id: `mfg-delete-err-${m.MaNhaSanXuat}` });
     }
   };
 
@@ -163,23 +160,6 @@ const ManufacturerManagementPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all ${
-            toast.type === 'success'
-              ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-              : 'bg-slate-800 text-rose-400 border-rose-500/40'
-          }`}
-        >
-          {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import {
   Loader2, Eye, EyeOff, AlertCircle,
   Smartphone, ShieldCheck, BarChart3,
@@ -46,16 +47,22 @@ const LoginPage = () => {
     setLocalErr(null);
 
     if (!form.TaiKhoan.trim() || !form.MatKhau.trim()) {
-      setLocalErr('Vui lòng nhập đầy đủ tài khoản và mật khẩu.');
+      const errMsg = 'Vui lòng nhập đầy đủ tài khoản và mật khẩu.';
+      setLocalErr(errMsg);
+      toast.error(errMsg, { id: 'login-toast' });
       return;
     }
 
     const result = await login(form.TaiKhoan.trim(), form.MatKhau);
 
     if (result.success) {
+      toast.success('Đăng nhập thành công! Đang chuyển hướng...', { id: 'login-toast' });
       const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
       navigate(dest, { replace: true });
     } else {
+      const errMsg = result.message || 'Tài khoản hoặc mật khẩu không chính xác';
+      setLocalErr(errMsg);
+      toast.error(errMsg, { id: 'login-toast' });
       setShake(true);
       setTimeout(() => setShake(false), 600);
     }

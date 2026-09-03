@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   Boxes, Plus, RefreshCw, Search, AlertCircle, CheckCircle2, X, Trash2, PackagePlus
 } from 'lucide-react';
@@ -41,7 +42,6 @@ const InventoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,12 +53,6 @@ const InventoryPage = () => {
   ]);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
-
-  // Show Toast
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // 1. Lấy danh sách tồn kho
   const fetchStockList = useCallback(async () => {
@@ -155,13 +149,33 @@ const InventoryPage = () => {
     };
 
     setModalLoading(true);
-    try {
+    const importPromise = (async () => {
       const res = await api.post('/admin/inventory/import', payload);
-      showToast(res.data.message || 'Tạo phiếu nhập kho thành công!');
-      setIsModalOpen(false);
-      fetchStockList();
+      return res.data;
+    })();
+
+    toast.promise(
+      importPromise,
+      {
+        loading: 'Đang khởi tạo phiếu nhập kho...',
+        success: (data) => {
+          setIsModalOpen(false);
+          fetchStockList();
+          return data.message || 'Tạo phiếu nhập kho thành công!';
+        },
+        error: (err) => {
+          const errorMsg = err.response?.data?.message || 'Tạo phiếu nhập kho thất bại';
+          setModalError(errorMsg);
+          return errorMsg;
+        }
+      },
+      { id: 'inventory-import-toast' }
+    );
+
+    try {
+      await importPromise;
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Tạo phiếu nhập kho thất bại');
+      console.error('Lỗi khi khởi tạo phiếu nhập kho:', err);
     } finally {
       setModalLoading(false);
     }
@@ -181,17 +195,6 @@ const InventoryPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all transform animate-bounce ${
-          toast.type === 'success'
-            ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-            : 'bg-slate-800 text-rose-400 border-rose-500/40'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

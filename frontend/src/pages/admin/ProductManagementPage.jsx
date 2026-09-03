@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import api from '../../services/api';
 
@@ -20,9 +21,6 @@ const ProductManagementPage = () => {
   // Pop-up Xác nhận Xóa State
   const [deleteTarget, setDeleteTarget] = useState(null); // Product object to delete
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Alert / Toast Notification State
-  const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
 
   // ─── Lấy danh sách sản phẩm từ API ──────────────────────────────────────────
   const fetchProducts = async () => {
@@ -50,19 +48,16 @@ const ProductManagementPage = () => {
   // ─── Lấy Toast thông báo từ location.state (sau khi lưu từ ProductFormPage) ─
   useEffect(() => {
     if (location.state?.toast) {
-      setToast(location.state.toast);
+      const { type, message } = location.state.toast;
+      if (type === 'success') {
+        toast.success(message, { id: 'product-nav-toast' });
+      } else {
+        toast.error(message, { id: 'product-nav-toast' });
+      }
       // Toast State Cleansing: Dọn dẹp location.state để tránh bị lặp lại Toast khi người dùng F5 refresh
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
-
-  // Tự động tắt Toast thông báo sau 4 giây
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   // ─── Format Giá VNĐ ──────────────────────────────────────────────────────────
   const formatVND = (price) => {
@@ -90,9 +85,8 @@ const ProductManagementPage = () => {
       const res = await api.delete(`/admin/products/${deleteTarget.MaSanPham}`);
 
       if (res.data?.success) {
-        setToast({
-          type: 'success',
-          message: `Đã xóa sản phẩm "${deleteTarget.TenSanPham}" thành công!`
+        toast.success(`Đã xóa sản phẩm "${deleteTarget.TenSanPham}" thành công!`, {
+          id: `delete-product-${deleteTarget.MaSanPham}`
         });
         setDeleteTarget(null);
         fetchProducts();
@@ -103,10 +97,7 @@ const ProductManagementPage = () => {
         err.response?.data?.message ||
         'Không thể xóa sản phẩm do đã có trong đơn hàng (ràng buộc chi tiết đơn hàng)';
 
-      setToast({
-        type: 'error',
-        message: errorMsg
-      });
+      toast.error(errorMsg, { id: 'delete-product-err' });
       setDeleteTarget(null);
     } finally {
       setIsDeleting(false);
@@ -115,28 +106,6 @@ const ProductManagementPage = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-
-      {/* ── Toast Notification Banner ── */}
-      {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl backdrop-blur-md animate-in slide-in-from-top-3 duration-300 ${
-          toast.type === 'success'
-            ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
-            : 'bg-rose-950/90 border-rose-500/50 text-rose-200'
-        }`}>
-          {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-          )}
-          <p className="text-sm font-medium pr-2">{toast.message}</p>
-          <button
-            onClick={() => setToast(null)}
-            className="p-1 hover:bg-white/10 rounded-lg transition-colors ml-auto text-slate-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">

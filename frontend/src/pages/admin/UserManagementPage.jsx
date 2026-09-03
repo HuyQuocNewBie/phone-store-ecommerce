@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   Users, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Shield, UserCheck, Mail, Phone, MapPin
@@ -13,7 +14,6 @@ const UserManagementPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
-  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,11 +27,6 @@ const UserManagementPage = () => {
   const [maVaiTro, setMaVaiTro] = useState(2);
   const [soDienThoai, setSoDienThoai] = useState('');
   const [diaChi, setDiaChi] = useState('');
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // Fetch Users
   const fetchUsers = useCallback(async () => {
@@ -109,11 +104,13 @@ const UserManagementPage = () => {
     setModalLoading(true);
     try {
       const res = await api.put(`/admin/users/${editingUser.MaNguoiDung}`, payload);
-      showToast(res.data.message || 'Cập nhật người dùng thành công');
+      toast.success(res.data.message || 'Cập nhật người dùng thành công', { id: `user-edit-${editingUser.MaNguoiDung}` });
       setIsModalOpen(false);
       fetchUsers();
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Lỗi khi cập nhật người dùng');
+      const msg = err.response?.data?.message || 'Lỗi khi cập nhật người dùng';
+      setModalError(msg);
+      toast.error(msg, { id: 'user-save-err' });
     } finally {
       setModalLoading(false);
     }
@@ -122,7 +119,7 @@ const UserManagementPage = () => {
   // Delete User
   const handleDeleteUser = async (u) => {
     if (currentUser && Number(currentUser.MaNguoiDung) === Number(u.MaNguoiDung)) {
-      showToast('Bạn không thể tự xóa tài khoản của chính mình', 'error');
+      toast.error('Bạn không thể tự xóa tài khoản của chính mình', { id: 'self-delete-err' });
       return;
     }
 
@@ -132,10 +129,10 @@ const UserManagementPage = () => {
 
     try {
       const res = await api.delete(`/admin/users/${u.MaNguoiDung}`);
-      showToast(res.data.message || 'Xóa tài khoản thành công');
+      toast.success(res.data.message || 'Xóa tài khoản thành công', { id: `user-delete-${u.MaNguoiDung}` });
       fetchUsers();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể xóa tài khoản này', 'error');
+      toast.error(err.response?.data?.message || 'Không thể xóa tài khoản này', { id: `user-delete-err-${u.MaNguoiDung}` });
     }
   };
 
@@ -155,23 +152,6 @@ const UserManagementPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all ${
-            toast.type === 'success'
-              ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-              : 'bg-slate-800 text-rose-400 border-rose-500/40'
-          }`}
-        >
-          {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

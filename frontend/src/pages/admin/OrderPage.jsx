@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   ShoppingCart, RefreshCw, Search, AlertCircle, CheckCircle2, Filter
 } from 'lucide-react';
@@ -48,12 +49,6 @@ const OrderPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // 1. Tải danh sách đơn hàng từ API
   const fetchOrders = useCallback(async () => {
@@ -81,7 +76,8 @@ const OrderPage = () => {
         TrangThaiDonHang: newStatus
       });
 
-      showToast(res.data.message || `Đã cập nhật đơn hàng #${orderId} sang "${newStatus}"`);
+      const msg = res.data.message || `Đã cập nhật đơn hàng #${orderId} sang "${newStatus}"`;
+      toast.success(msg, { id: `order-status-${orderId}` });
 
       // Update state tại chỗ
       setOrders((prev) =>
@@ -90,7 +86,7 @@ const OrderPage = () => {
         )
       );
     } catch (err) {
-      showToast(err.response?.data?.message || 'Cập nhật trạng thái thất bại', 'error');
+      toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại', { id: `order-status-${orderId}` });
     } finally {
       setUpdatingId(null);
     }
@@ -109,17 +105,6 @@ const OrderPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all transform animate-bounce ${
-          toast.type === 'success'
-            ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-            : 'bg-slate-800 text-rose-400 border-rose-500/40'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

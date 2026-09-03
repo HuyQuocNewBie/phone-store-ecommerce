@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
   ArrowLeft,
   Plus,
@@ -306,7 +307,7 @@ const ProductFormPage = () => {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Dynamic Specs Validation & Filtering: Lọc bỏ các dòng thông số bị trống cả Tên lẫn Giá trị
+      // Dynamic Specs Validation & Filtering
       const flatSpecs = specGroups.flatMap((group) => {
         const gName = group.name.trim() || 'Thông số chung';
         return group.items
@@ -335,37 +336,55 @@ const ProductFormPage = () => {
 
       formData.append('thongsokythuat', JSON.stringify(flatSpecs));
 
-      let res;
-      if (isEditMode) {
-        res = await api.put(`/admin/products/${id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        res = await api.post('/admin/products', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
+      const savePromise = (async () => {
+        let res;
+        if (isEditMode) {
+          res = await api.put(`/admin/products/${id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          res = await api.post('/admin/products', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
 
-      if (res.data?.success) {
-        setIsDirty(false); // Clear dirty state
-        navigate('/admin/products', {
-          state: {
-            toast: {
-              type: 'success',
-              message: isEditMode
-                ? `Cập nhật sản phẩm "${tenSanPham.trim()}" thành công!`
-                : `Thêm sản phẩm mới "${tenSanPham.trim()}" thành công!`
-            }
+        if (!res.data?.success) {
+          throw new Error(res.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.');
+        }
+        return res.data;
+      })();
+
+      toast.promise(
+        savePromise,
+        {
+          loading: isEditMode ? 'Đang cập nhật sản phẩm & tải ảnh...' : 'Đang lưu sản phẩm mới & tải ảnh...',
+          success: () => {
+            setIsDirty(false);
+            const successMsg = isEditMode
+              ? `Cập nhật sản phẩm "${tenSanPham.trim()}" thành công!`
+              : `Thêm sản phẩm mới "${tenSanPham.trim()}" thành công!`;
+            navigate('/admin/products', {
+              state: {
+                toast: {
+                  type: 'success',
+                  message: successMsg
+                }
+              }
+            });
+            return successMsg;
+          },
+          error: (err) => {
+            const msg = err.message || err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.';
+            setSubmitError(msg);
+            return msg;
           }
-        });
-      } else {
-        setSubmitError(res.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.');
-      }
+        },
+        { id: 'product-save-toast' }
+      );
+
+      await savePromise;
     } catch (err) {
       console.error('Lỗi khi lưu sản phẩm:', err);
-      setSubmitError(
-        err.response?.data?.message || 'Có lỗi xảy ra khi kết nối máy chủ. Vui lòng thử lại!'
-      );
     } finally {
       setIsSubmitting(false);
     }

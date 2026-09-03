@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   Tag, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, FolderTree
@@ -10,7 +11,6 @@ const CategoryManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,11 +20,6 @@ const CategoryManagementPage = () => {
 
   // Form Field
   const [tenLoaiSanPham, setTenLoaiSanPham] = useState('');
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // Fetch Categories
   const fetchCategories = useCallback(async () => {
@@ -77,18 +72,20 @@ const CategoryManagementPage = () => {
         const res = await api.put(`/admin/categories/${editingCategory.MaLoaiSanPham}`, {
           TenLoaiSanPham: trimmedName,
         });
-        showToast(res.data.message || 'Cập nhật loại sản phẩm thành công');
+        toast.success(res.data.message || 'Cập nhật loại sản phẩm thành công', { id: `cat-edit-${editingCategory.MaLoaiSanPham}` });
       } else {
         const res = await api.post('/admin/categories', {
           TenLoaiSanPham: trimmedName,
         });
-        showToast(res.data.message || 'Thêm loại sản phẩm thành công');
+        toast.success(res.data.message || 'Thêm loại sản phẩm thành công', { id: 'cat-add' });
       }
 
       setIsModalOpen(false);
       fetchCategories();
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Lỗi khi lưu loại sản phẩm');
+      const msg = err.response?.data?.message || 'Lỗi khi lưu loại sản phẩm';
+      setModalError(msg);
+      toast.error(msg, { id: 'cat-save-err' });
     } finally {
       setModalLoading(false);
     }
@@ -102,10 +99,10 @@ const CategoryManagementPage = () => {
 
     try {
       const res = await api.delete(`/admin/categories/${cat.MaLoaiSanPham}`);
-      showToast(res.data.message || 'Xóa loại sản phẩm thành công');
+      toast.success(res.data.message || 'Xóa loại sản phẩm thành công', { id: `cat-delete-${cat.MaLoaiSanPham}` });
       fetchCategories();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể xóa loại sản phẩm này', 'error');
+      toast.error(err.response?.data?.message || 'Không thể xóa loại sản phẩm này', { id: `cat-delete-err-${cat.MaLoaiSanPham}` });
     }
   };
 
@@ -116,23 +113,6 @@ const CategoryManagementPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all ${
-            toast.type === 'success'
-              ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-              : 'bg-slate-800 text-rose-400 border-rose-500/40'
-          }`}
-        >
-          {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

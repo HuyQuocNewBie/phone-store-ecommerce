@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
   TicketPercent, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Calendar, DollarSign, Tag, Layers
@@ -43,7 +44,6 @@ const VoucherPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [togglingId, setTogglingId] = useState(null);
-  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,11 +59,6 @@ const VoucherPage = () => {
   const [soLuong, setSoLuong] = useState('');
   const [ngayHetHan, setNgayHetHan] = useState('');
   const [trangThai, setTrangThai] = useState(1);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   // 1. Fetch Vouchers
   const fetchVouchers = useCallback(async () => {
@@ -90,13 +85,16 @@ const VoucherPage = () => {
       const res = await api.patch(`/admin/vouchers/${voucherId}/toggle-status`);
       const newStatus = res.data.data?.TrangThai !== undefined ? res.data.data.TrangThai : (currentStatus === 1 ? 0 : 1);
 
-      showToast(res.data.message || `Đã ${newStatus === 1 ? 'Bật' : 'Tắt'} voucher #${voucherId}`);
+      const msg = res.data.message || `Đã ${newStatus === 1 ? 'Bật' : 'Tắt'} voucher #${voucherId}`;
+      toast.success(msg, { id: `voucher-toggle-${voucherId}` });
 
       setVouchers((prev) =>
         prev.map((v) => (v.MaVoucher === voucherId ? { ...v, TrangThai: newStatus } : v))
       );
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể đổi trạng thái voucher', 'error');
+      toast.error(err.response?.data?.message || 'Không thể đổi trạng thái voucher', {
+        id: `voucher-toggle-${voucherId}`
+      });
     } finally {
       setTogglingId(null);
     }
@@ -210,16 +208,18 @@ const VoucherPage = () => {
     try {
       if (editingVoucher) {
         const res = await api.put(`/admin/vouchers/${editingVoucher.MaVoucher}`, payload);
-        showToast(res.data.message || 'Cập nhật mã giảm giá thành công');
+        toast.success(res.data.message || 'Cập nhật mã giảm giá thành công', { id: `voucher-edit-${editingVoucher.MaVoucher}` });
       } else {
         const res = await api.post('/admin/vouchers', payload);
-        showToast(res.data.message || 'Thêm mã giảm giá mới thành công');
+        toast.success(res.data.message || 'Thêm mã giảm giá mới thành công', { id: 'voucher-add' });
       }
 
       setIsModalOpen(false);
       fetchVouchers();
     } catch (err) {
-      setModalError(err.response?.data?.message || 'Lỗi khi lưu mã giảm giá');
+      const errorMsg = err.response?.data?.message || 'Lỗi khi lưu mã giảm giá';
+      setModalError(errorMsg);
+      toast.error(errorMsg, { id: 'voucher-save-err' });
     } finally {
       setModalLoading(false);
     }
@@ -231,10 +231,10 @@ const VoucherPage = () => {
 
     try {
       const res = await api.delete(`/admin/vouchers/${voucherId}`);
-      showToast(res.data.message || 'Xóa mã giảm giá thành công');
+      toast.success(res.data.message || 'Xóa mã giảm giá thành công', { id: `voucher-delete-${voucherId}` });
       fetchVouchers();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể xóa mã giảm giá này', 'error');
+      toast.error(err.response?.data?.message || 'Không thể xóa mã giảm giá này', { id: `voucher-delete-err-${voucherId}` });
     }
   };
 
@@ -245,17 +245,6 @@ const VoucherPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all transform animate-bounce ${
-          toast.type === 'success'
-            ? 'bg-slate-800 text-emerald-400 border-emerald-500/40'
-            : 'bg-slate-800 text-rose-400 border-rose-500/40'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-          <span>{toast.message}</span>
-        </div>
-      )}
 
       {/* Header Page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
