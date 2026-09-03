@@ -106,7 +106,7 @@ const createProduct = async (req, res, next) => {
       });
     }
 
-    const numericTonKho = TonKho !== undefined && TonKho !== '' ? Number(TonKho) : 0;
+    const numericTonKho = TonKho !== undefined && TonKho !== '' && TonKho !== null ? Number(TonKho) : 0;
     if (isNaN(numericTonKho) || numericTonKho < 0) {
       return res.status(400).json({
         success: false,
@@ -256,7 +256,7 @@ const updateProduct = async (req, res, next) => {
       });
     }
 
-    const updatedTonKho = TonKho !== undefined ? Number(TonKho) : Number(currentProduct.TonKho);
+    const updatedTonKho = TonKho !== undefined && TonKho !== '' && TonKho !== null ? Number(TonKho) : Number(currentProduct.TonKho);
     if (isNaN(updatedTonKho) || updatedTonKho < 0) {
       connection.release();
       connection = null;

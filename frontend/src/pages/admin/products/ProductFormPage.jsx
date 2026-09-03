@@ -37,7 +37,6 @@ const ProductFormPage = () => {
   // ─── Form Fields State ──────────────────────────────────────────────────────
   const [tenSanPham, setTenSanPham] = useState('');
   const [gia, setGia] = useState('');
-  const [tonKho, setTonKho] = useState('');
   const [imageMode, setImageMode] = useState('file'); // 'file' | 'url'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -147,7 +146,6 @@ const ProductFormPage = () => {
           const product = res.data.data;
           setTenSanPham(product.TenSanPham || '');
           setGia(product.Gia !== undefined ? String(product.Gia) : '');
-          setTonKho(product.TonKho !== undefined ? String(product.TonKho) : '0');
 
           const existingImg = product.Anh || '';
           setInitialImage(existingImg);
@@ -290,11 +288,6 @@ const ProductFormPage = () => {
       newErrors.gia = 'Giá sản phẩm phải là số và lớn hơn 0';
     }
 
-    const numTonKho = Number(tonKho);
-    if (tonKho === '' || isNaN(numTonKho) || numTonKho < 0) {
-      newErrors.tonKho = 'Tồn kho phải là số và lớn hơn hoặc bằng 0';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -323,7 +316,9 @@ const ProductFormPage = () => {
       const formData = new FormData();
       formData.append('TenSanPham', tenSanPham.trim());
       formData.append('Gia', gia);
-      formData.append('TonKho', tonKho);
+      if (!isEditMode) {
+        formData.append('TonKho', '0');
+      }
 
       if (imageFile) {
         formData.append('file', imageFile);
@@ -520,63 +515,35 @@ const ProductFormPage = () => {
               )}
             </div>
 
-            {/* Giá bán & Tồn kho */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Giá bán */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Giá bán (VNĐ) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="number"
-                    value={gia}
-                    onChange={(e) => {
-                      setGia(e.target.value);
-                      markDirty();
-                    }}
-                    placeholder="29990000"
-                    min="0"
-                    step="1000"
-                    className={`w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border ${
-                      errors.gia
-                        ? 'border-rose-500/70 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
-                  />
+            {/* Giá bán */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Giá bán (VNĐ) <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <DollarSign className="w-4 h-4" />
                 </div>
-                {errors.gia && (
-                  <p className="mt-1 text-xs text-rose-400 font-medium">{errors.gia}</p>
-                )}
-              </div>
-
-              {/* Tồn kho */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Số lượng tồn kho <span className="text-rose-500">*</span>
-                </label>
                 <input
                   type="number"
-                  value={tonKho}
+                  value={gia}
                   onChange={(e) => {
-                    setTonKho(e.target.value);
+                    setGia(e.target.value);
                     markDirty();
                   }}
-                  placeholder="50"
+                  placeholder="29990000"
                   min="0"
-                  className={`w-full px-3.5 py-2.5 bg-slate-950 border ${
-                    errors.tonKho
+                  step="1000"
+                  className={`w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border ${
+                    errors.gia
                       ? 'border-rose-500/70 focus:ring-rose-500/20'
                       : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
                   } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
                 />
-                {errors.tonKho && (
-                  <p className="mt-1 text-xs text-rose-400 font-medium">{errors.tonKho}</p>
-                )}
               </div>
+              {errors.gia && (
+                <p className="mt-1 text-xs text-rose-400 font-medium">{errors.gia}</p>
+              )}
             </div>
           </div>
 
