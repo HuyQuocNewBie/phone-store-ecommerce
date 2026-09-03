@@ -4,7 +4,7 @@ import {
   TicketPercent, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Calendar, DollarSign, Tag, Layers
 } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 // ── Helper format VNĐ ──
 const formatVND = (value) => {
@@ -38,7 +38,7 @@ const toDatetimeLocalInput = (dateStr) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const VoucherPage = () => {
+const VoucherListPage = () => {
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -592,4 +592,4 @@ const VoucherPage = () => {
   );
 };
 
-export default VoucherPage;
+export default VoucherListPage;

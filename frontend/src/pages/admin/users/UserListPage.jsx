@@ -4,10 +4,10 @@ import {
   Users, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Shield, UserCheck, Mail, Phone, MapPin
 } from 'lucide-react';
-import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import api from '../../../services/api';
+import { useAuth } from '../../../context/AuthContext';
 
-const UserManagementPage = () => {
+const UserListPage = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -486,4 +486,4 @@ const UserManagementPage = () => {
   );
 };
 
-export default UserManagementPage;
+export default UserListPage;

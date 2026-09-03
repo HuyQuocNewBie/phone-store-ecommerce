@@ -4,12 +4,12 @@ import {
   Building2, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, Phone, Mail, MapPin
 } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 const PHONE_REGEX = /^0\d{9}$/;
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
-const ManufacturerManagementPage = () => {
+const ManufacturerListPage = () => {
   const [manufacturers, setManufacturers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -427,4 +427,4 @@ const ManufacturerManagementPage = () => {
   );
 };
 
-export default ManufacturerManagementPage;
+export default ManufacturerListPage;

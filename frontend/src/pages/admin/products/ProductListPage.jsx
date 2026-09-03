@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 /**
- * ProductManagementPage
+ * ProductListPage
  * Trang Quản lý Sản phẩm dành cho Admin.
  */
-const ProductManagementPage = () => {
+const ProductListPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -352,4 +352,4 @@ const ProductManagementPage = () => {
   );
 };
 
-export default ProductManagementPage;
+export default ProductListPage;

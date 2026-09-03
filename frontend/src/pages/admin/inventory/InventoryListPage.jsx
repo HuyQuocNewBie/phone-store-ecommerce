@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import {
   Boxes, Plus, RefreshCw, Search, AlertCircle, CheckCircle2, X, Trash2, PackagePlus
 } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 // ── Helper format tiền tệ VND ──
 const formatVND = (value) => {
@@ -37,7 +37,7 @@ const getStatusBadge = (trangThai, tonKho) => {
   );
 };
 
-const InventoryPage = () => {
+const InventoryListPage = () => {
   const [stockList, setStockList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -491,4 +491,4 @@ const InventoryPage = () => {
   );
 };
 
-export default InventoryPage;
+export default InventoryListPage;

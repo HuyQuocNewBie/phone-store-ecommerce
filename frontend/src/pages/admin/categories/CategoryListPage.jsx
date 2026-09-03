@@ -4,9 +4,9 @@ import {
   Tag, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
   Trash2, Edit3, X, FolderTree
 } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
-const CategoryManagementPage = () => {
+const CategoryListPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -311,4 +311,4 @@ const CategoryManagementPage = () => {
   );
 };
 
-export default CategoryManagementPage;
+export default CategoryListPage;

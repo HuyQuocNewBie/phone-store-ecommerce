@@ -5,7 +5,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 // ── Helper format VNĐ ──
 const formatVND = (value) => {

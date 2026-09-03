@@ -9,7 +9,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
   Legend, ReferenceLine,
 } from 'recharts';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatVND = (value) => {

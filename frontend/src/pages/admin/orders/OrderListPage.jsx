@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import {
   ShoppingCart, RefreshCw, Search, AlertCircle, CheckCircle2, Filter
 } from 'lucide-react';
-import api from '../../services/api';
+import api from '../../../services/api';
 
 // ── Helper Format VNĐ ──
 const formatVND = (value) => {
@@ -42,7 +42,7 @@ const STATUS_STYLE_MAP = {
   'Đã hủy': 'bg-rose-500/10 text-rose-400 border-rose-500/30'
 };
 
-const OrderPage = () => {
+const OrderListPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -266,4 +266,4 @@ const OrderPage = () => {
   );
 };
 
-export default OrderPage;
+export default OrderListPage;

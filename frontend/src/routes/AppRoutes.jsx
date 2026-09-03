@@ -2,16 +2,16 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import LoginPage from '../pages/LoginPage';
-import DashboardPage from '../pages/admin/DashboardPage';
-import ProductManagementPage from '../pages/admin/ProductManagementPage';
-import ProductFormPage from '../pages/admin/ProductFormPage';
-import UserManagementPage from '../pages/admin/UserManagementPage';
-import CategoryManagementPage from '../pages/admin/CategoryManagementPage';
-import ManufacturerManagementPage from '../pages/admin/ManufacturerManagementPage';
-import InventoryPage from '../pages/admin/InventoryPage';
-import OrderPage from '../pages/admin/OrderPage';
-import VoucherPage from '../pages/admin/VoucherPage';
-import AnalyticsPage from '../pages/admin/AnalyticsPage';
+import DashboardPage from '../pages/admin/dashboard/DashboardPage';
+import ProductListPage from '../pages/admin/products/ProductListPage';
+import ProductFormPage from '../pages/admin/products/ProductFormPage';
+import UserListPage from '../pages/admin/users/UserListPage';
+import CategoryListPage from '../pages/admin/categories/CategoryListPage';
+import ManufacturerListPage from '../pages/admin/manufacturers/ManufacturerListPage';
+import InventoryListPage from '../pages/admin/inventory/InventoryListPage';
+import OrderListPage from '../pages/admin/orders/OrderListPage';
+import VoucherListPage from '../pages/admin/vouchers/VoucherListPage';
+import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -48,15 +48,15 @@ const AppRoutes = () => {
         }
       >
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="products" element={<ProductManagementPage />} />
+        <Route path="products" element={<ProductListPage />} />
         <Route path="products/create" element={<ProductFormPage />} />
         <Route path="products/edit/:id" element={<ProductFormPage />} />
-        <Route path="users" element={<UserManagementPage />} />
-        <Route path="categories" element={<CategoryManagementPage />} />
-        <Route path="manufacturers" element={<ManufacturerManagementPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="orders" element={<OrderPage />} />
-        <Route path="vouchers" element={<VoucherPage />} />
+        <Route path="users" element={<UserListPage />} />
+        <Route path="categories" element={<CategoryListPage />} />
+        <Route path="manufacturers" element={<ManufacturerListPage />} />
+        <Route path="inventory" element={<InventoryListPage />} />
+        <Route path="orders" element={<OrderListPage />} />
+        <Route path="vouchers" element={<VoucherListPage />} />
         <Route path="coupons" element={<Navigate to="../vouchers" replace />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="statistics" element={<Navigate to="../analytics" replace />} />
