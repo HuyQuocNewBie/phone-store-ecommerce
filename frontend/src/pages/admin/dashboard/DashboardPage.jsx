@@ -68,11 +68,12 @@ const ErrorAlert = ({ message, onRetry }) => (
 );
 
 // ─── Custom Tooltip for LineChart ─────────────────────────────────────────────
-const CustomLineTooltip = ({ active, payload, label }) => {
+const CustomLineTooltip = ({ active, payload, label, timeFrame }) => {
   if (!active || !payload?.length) return null;
+  const titleText = timeFrame === 'year' ? `Năm ${label}` : `Tháng ${label}`;
   return (
     <div className="bg-slate-800 border border-slate-600/60 rounded-xl p-3 shadow-xl text-xs">
-      <p className="text-slate-400 mb-1.5 font-medium">Tháng {label}</p>
+      <p className="text-slate-400 mb-1.5 font-medium">{titleText}</p>
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
         <span className="text-slate-200 font-semibold">{formatVND(payload[0]?.value)}</span>
@@ -116,10 +117,12 @@ const CustomPieLegend = ({ payload }) => (
 
 // ─── Main Dashboard Page ──────────────────────────────────────────────────────
 const DashboardPage = () => {
-  const [cards, setCards]               = useState(null);
-  const [revenueChart, setRevenueChart] = useState([]);
-  const [orderStatus, setOrderStatus]   = useState([]);
-  const [topProducts, setTopProducts]   = useState([]);
+  const [cards, setCards]                       = useState(null);
+  const [timeFrame, setTimeFrame]               = useState('month'); // 'month' | 'year'
+  const [revenueMonthly, setRevenueMonthly]     = useState([]);
+  const [revenueYearly, setRevenueYearly]       = useState([]);
+  const [orderStatus, setOrderStatus]           = useState([]);
+  const [topProducts, setTopProducts]           = useState([]);
   const [loadingCards, setLoadingCards]             = useState(true);
   const [loadingRevenue, setLoadingRevenue]         = useState(true);
   const [loadingStatus, setLoadingStatus]           = useState(true);
@@ -143,8 +146,24 @@ const DashboardPage = () => {
   const fetchRevenueChart = useCallback(async () => {
     setLoadingRevenue(true); setErrorRevenue(null);
     try {
-      const res = await api.get('/admin/dashboard/charts/revenue-monthly');
-      setRevenueChart(res.data.data);
+      const [resMonthly, resYearly] = await Promise.all([
+        api.get('/admin/dashboard/charts/revenue-monthly'),
+        api.get('/admin/dashboard/charts/revenue-yearly').catch(() => null)
+      ]);
+      setRevenueMonthly(resMonthly.data.data);
+
+      if (resYearly && resYearly.data?.data) {
+        setRevenueYearly(resYearly.data.data);
+      } else {
+        const curY = new Date().getFullYear();
+        const totalThisYear = (resMonthly.data.data || []).reduce((s, r) => s + (r.doanhThu || 0), 0);
+        setRevenueYearly([
+          { nam: curY - 3, tenNam: `Năm ${curY - 3}`, doanhThu: 0 },
+          { nam: curY - 2, tenNam: `Năm ${curY - 2}`, doanhThu: 0 },
+          { nam: curY - 1, tenNam: `Năm ${curY - 1}`, doanhThu: 0 },
+          { nam: curY,     tenNam: `Năm ${curY}`,     doanhThu: totalThisYear },
+        ]);
+      }
     } catch (err) {
       setErrorRevenue(err.response?.data?.message || 'Không thể tải biểu đồ doanh thu');
     } finally { setLoadingRevenue(false); }
@@ -191,7 +210,7 @@ const DashboardPage = () => {
           iconBg: 'bg-sky-500/20',
           iconColor: 'text-sky-400',
           badge: 'text-sky-300 bg-sky-500/15',
-          badgeText: 'Tháng ' + new Date().getMonth(),
+          badgeText: 'Tháng ' + (new Date().getMonth() + 1),
         },
         {
           id: 'doanh-thu-nam',
@@ -238,9 +257,10 @@ const DashboardPage = () => {
       ]
     : [];
 
-  // ── Revenue chart max value for YAxis domain ─────────────────────────────────
-  const maxRevenue = revenueChart.length
-    ? Math.max(...revenueChart.map((d) => d.doanhThu), 1)
+  // ── Revenue chart dataset & max value for YAxis domain ───────────────────────
+  const activeRevenueChart = timeFrame === 'month' ? revenueMonthly : revenueYearly;
+  const maxRevenue = activeRevenueChart.length
+    ? Math.max(...activeRevenueChart.map((d) => d.doanhThu), 1)
     : 1;
 
   // ── PieChart total for percentage labels ─────────────────────────────────────
@@ -318,17 +338,35 @@ const DashboardPage = () => {
       {/* ── Charts Row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* LineChart — Doanh thu 12 tháng */}
+        {/* LineChart — Doanh thu */}
         <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">Doanh thu theo tháng</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Biểu đồ doanh thu 12 tháng năm {new Date().getFullYear()}</p>
+              <h2 className="text-sm font-semibold text-slate-100">Doanh thu</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {timeFrame === 'month'
+                  ? `Biểu đồ doanh thu 12 tháng năm ${new Date().getFullYear()}`
+                  : 'Biểu đồ doanh thu theo các năm'}
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-sky-400 bg-sky-500/10
-                            border border-sky-500/20 px-2.5 py-1 rounded-full font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-              Live
+            <div className="flex items-center gap-3">
+              {/* Dropdown Control styled Slate Dark Mode */}
+              <select
+                value={timeFrame}
+                onChange={(e) => setTimeFrame(e.target.value)}
+                className="bg-slate-900 border border-slate-700/80 text-slate-200 text-xs rounded-xl px-3 py-1.5
+                           focus:outline-none focus:ring-2 focus:ring-sky-500/50 hover:border-slate-600
+                           transition-colors duration-150 cursor-pointer font-medium"
+              >
+                <option value="month" className="bg-slate-800 text-slate-200">Theo tháng</option>
+                <option value="year" className="bg-slate-800 text-slate-200">Theo năm</option>
+              </select>
+
+              <div className="flex items-center gap-2 text-xs text-sky-400 bg-sky-500/10
+                              border border-sky-500/20 px-2.5 py-1 rounded-full font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                Live
+              </div>
             </div>
           </div>
 
@@ -336,14 +374,14 @@ const DashboardPage = () => {
             <SkeletonBox className="h-56" />
           ) : errorRevenue ? (
             <ErrorAlert message={errorRevenue} onRetry={fetchRevenueChart} />
-          ) : revenueChart.length === 0 ? (
+          ) : activeRevenueChart.length === 0 ? (
             <div className="h-56 flex flex-col items-center justify-center text-slate-600 gap-2">
               <BarChart3 className="w-8 h-8 opacity-40" />
               <p className="text-sm">Chưa có dữ liệu doanh thu</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={224}>
-              <LineChart data={revenueChart} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+              <LineChart data={activeRevenueChart} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#38bdf8" />
@@ -352,8 +390,8 @@ const DashboardPage = () => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis
-                  dataKey="thang"
-                  tickFormatter={(v) => `T${v}`}
+                  dataKey={timeFrame === 'month' ? 'thang' : 'nam'}
+                  tickFormatter={(v) => (timeFrame === 'month' ? `T${v}` : `${v}`)}
                   tick={{ fill: '#64748b', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -367,9 +405,10 @@ const DashboardPage = () => {
                   domain={[0, Math.ceil(maxRevenue * 1.2)]}
                   width={52}
                 />
-                <Tooltip content={<CustomLineTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1 }} />
+                <Tooltip content={<CustomLineTooltip timeFrame={timeFrame} />} cursor={{ stroke: '#334155', strokeWidth: 1 }} />
                 <ReferenceLine y={0} stroke="#334155" />
                 <Line
+                  key={timeFrame}
                   type="monotone"
                   dataKey="doanhThu"
                   stroke="url(#lineGrad)"
@@ -381,6 +420,7 @@ const DashboardPage = () => {
             </ResponsiveContainer>
           )}
         </div>
+
 
         {/* PieChart — Trạng thái đơn hàng */}
         <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">

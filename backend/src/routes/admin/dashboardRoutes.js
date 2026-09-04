@@ -12,6 +12,9 @@ router.get('/cards', dashboardController.getDashboardCards);
 // 2. GET /api/v1/admin/dashboard/charts/revenue-monthly -> Biểu đồ doanh thu 12 tháng năm hiện tại
 router.get('/charts/revenue-monthly', dashboardController.getMonthlyRevenueChart);
 
+// 2b. GET /api/v1/admin/dashboard/charts/revenue-yearly -> Biểu đồ doanh thu theo năm
+router.get('/charts/revenue-yearly', dashboardController.getYearlyRevenueChart);
+
 // 3. GET /api/v1/admin/dashboard/charts/order-status -> Biểu đồ số lượng đơn hàng theo trạng thái
 router.get('/charts/order-status', dashboardController.getOrderStatusChart);
 

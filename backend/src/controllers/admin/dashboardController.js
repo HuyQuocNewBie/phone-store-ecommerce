@@ -182,9 +182,51 @@ const getTopProducts = async (req, res, next) => {
   }
 };
 
+/**
+ * 5. GET /api/v1/admin/dashboard/charts/revenue-yearly
+ * Doanh thu theo các năm (ví dụ 4 năm từ currentYear - 3 tới currentYear)
+ */
+const getYearlyRevenueChart = async (req, res, next) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 3;
+    const [rows] = await pool.query(
+      `SELECT 
+         YEAR(NgayMuaHang) AS nam,
+         COALESCE(SUM(TongTien), 0) AS doanhThu
+       FROM donhang
+       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+         AND YEAR(NgayMuaHang) >= ?
+       GROUP BY YEAR(NgayMuaHang)
+       ORDER BY nam ASC`,
+      [startYear]
+    );
+
+    const chartData = [];
+    for (let y = startYear; y <= currentYear; y++) {
+      const found = rows.find((r) => Number(r.nam) === y);
+      chartData.push({
+        nam: y,
+        tenNam: `Năm ${y}`,
+        doanhThu: found ? Number(found.doanhThu) : 0
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy biểu đồ doanh thu theo năm thành công',
+      data: chartData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getDashboardCards,
   getMonthlyRevenueChart,
   getOrderStatusChart,
-  getTopProducts
+  getTopProducts,
+  getYearlyRevenueChart
 };
+
