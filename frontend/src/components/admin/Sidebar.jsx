@@ -20,9 +20,9 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Navigation Items ──────────────────────────────────────────────────────────
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',         path: '/admin/dashboard' },
-  { icon: Package,         label: 'Quản lý sản phẩm', path: '/admin/products' },
-  { icon: Users,           label: 'Người dùng',        path: '/admin/users' },
+  { icon: LayoutDashboard, label: 'Dashboard',   path: '/admin/dashboard' },
+  { icon: Package,         label: 'Sản phẩm',    path: '/admin/products' },
+  { icon: Users,           label: 'Người dùng',  path: '/admin/users' },
   { icon: Tag,             label: 'Danh mục',          path: '/admin/categories' },
   { icon: Building2,       label: 'Nhà sản xuất',      path: '/admin/manufacturers' },
   { icon: Boxes,           label: 'Tồn kho',           path: '/admin/inventory' },
