@@ -137,7 +137,6 @@ const UserListPage = () => {
               <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
                 <tr>
                   <th className="px-6 py-4 w-16 text-center">STT</th>
-                  <th className="px-6 py-4 w-28 text-center">Mã ND</th>
                   <th className="px-6 py-4">Tài khoản</th>
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4 text-center w-40">Vai trò</th>
@@ -149,7 +148,6 @@ const UserListPage = () => {
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-6 mx-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-10 mx-auto" /></td>
                       <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-28" /></td>
                       <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-40" /></td>
                       <td className="px-6 py-4 text-center"><div className="h-6 bg-slate-700/50 rounded-full w-24 mx-auto" /></td>
@@ -158,7 +156,7 @@ const UserListPage = () => {
                   ))
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
                       {searchTerm || roleFilter !== 'ALL'
                         ? 'Không tìm thấy người dùng phù hợp với bộ lọc'
@@ -174,9 +172,6 @@ const UserListPage = () => {
                       <tr key={u.MaNguoiDung} className="hover:bg-slate-700/20 transition-colors">
                         <td className="px-6 py-4 text-center font-medium text-slate-400">
                           {index + 1}
-                        </td>
-                        <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs">
-                          #{u.MaNguoiDung}
                         </td>
                         <td className="px-6 py-4 font-semibold text-slate-100 flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0">

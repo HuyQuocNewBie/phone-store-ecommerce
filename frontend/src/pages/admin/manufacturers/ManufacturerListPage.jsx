@@ -118,7 +118,6 @@ const ManufacturerListPage = () => {
               <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
                 <tr>
                   <th className="px-6 py-4 w-16 text-center">STT</th>
-                  <th className="px-6 py-4 w-28 text-center">Mã NSX</th>
                   <th className="px-6 py-4">Tên nhà sản xuất</th>
                   <th className="px-6 py-4">Địa chỉ</th>
                   <th className="px-6 py-4">Số điện thoại</th>
@@ -131,7 +130,6 @@ const ManufacturerListPage = () => {
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-6 mx-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-10 mx-auto" /></td>
                       <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-32" /></td>
                       <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-40" /></td>
                       <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-24" /></td>
@@ -141,7 +139,7 @@ const ManufacturerListPage = () => {
                   ))
                 ) : filteredManufacturers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                       <Building2 className="w-10 h-10 mx-auto mb-2 opacity-40" />
                       {searchTerm ? 'Không tìm thấy nhà sản xuất phù hợp' : 'Chưa có nhà sản xuất nào'}
                     </td>
@@ -151,9 +149,6 @@ const ManufacturerListPage = () => {
                     <tr key={m.MaNhaSanXuat} className="hover:bg-slate-700/20 transition-colors">
                       <td className="px-6 py-4 text-center font-medium text-slate-400">
                         {index + 1}
-                      </td>
-                      <td className="px-6 py-4 text-center font-mono text-slate-400 text-xs">
-                        #{m.MaNhaSanXuat}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-100 flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-sky-400 shrink-0" />
