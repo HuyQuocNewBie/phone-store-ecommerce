@@ -107,23 +107,10 @@ const ProductListPage = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
 
-      {/* ── Action Bar (Top Right) ── */}
-      <div className="flex justify-end">
-        {/* Nút Thêm Sản Phẩm (Điều hướng đến trang /admin/products/create) */}
-        <button
-          id="btn-add-product"
-          onClick={() => navigate('/admin/products/create')}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Thêm sản phẩm</span>
-        </button>
-      </div>
-
-      {/* ── Search Bar & Stats Header ── */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search Box */}
-        <div className="relative w-full md:w-96">
+      {/* ── Toolbar trên bảng ── */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        {/* Phía BÊN TRÁI: Ô tìm kiếm sản phẩm */}
+        <div className="relative w-full sm:w-80 md:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
@@ -142,14 +129,30 @@ const ProductListPage = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-400 self-end md:self-auto">
-          <span>Tổng số: <strong className="text-sky-400">{filteredProducts.length}</strong> sản phẩm</span>
+        {/* Phía BÊN PHẢI: Cụm xếp hàng ngang */}
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Badge text nhỏ */}
+          <span className="text-xs text-slate-400 whitespace-nowrap">
+            Tổng số: <strong className="text-sky-400 font-semibold">{filteredProducts.length}</strong> sản phẩm
+          </span>
+
+          {/* Nút Icon Làm mới */}
           <button
             onClick={fetchProducts}
-            className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-all"
+            className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-slate-100 hover:border-slate-700 transition-all shadow-sm"
             title="Tải lại danh sách"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* Nút bấm chính Thêm sản phẩm */}
+          <button
+            id="btn-add-product"
+            onClick={() => navigate('/admin/products/create')}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Thêm sản phẩm</span>
           </button>
         </div>
       </div>
@@ -233,10 +236,7 @@ const ProductListPage = () => {
 
                     {/* Tên Sản Phẩm */}
                     <td className="py-4 px-6 font-semibold text-slate-100 group-hover:text-sky-400 transition-colors">
-                      <div>
-                        <span>{item.TenSanPham}</span>
-                        <p className="text-[11px] font-normal text-slate-500">Mã SP: #{item.MaSanPham}</p>
-                      </div>
+                      <span>{item.TenSanPham}</span>
                     </td>
 
                     {/* Giá */}
