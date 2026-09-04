@@ -181,7 +181,7 @@ const OrderListPage = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <table className="w-full text-left text-slate-200">
               <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
                 <tr>
@@ -236,7 +236,7 @@ const OrderListPage = () => {
                               value={order.TrangThaiDonHang || 'Chờ xác nhận'}
                               disabled={isUpdating}
                               onChange={(e) => handleStatusChange(order.MaDonHang, e.target.value)}
-                              className={`w-full appearance-none px-3 py-1.5 rounded-xl border text-xs font-semibold text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/50 ${statusStyle} ${
+                              className={`w-full appearance-none px-3 py-2 min-h-[38px] rounded-xl border text-xs font-semibold text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/50 ${statusStyle} ${
                                 isUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'
                               }`}
                             >

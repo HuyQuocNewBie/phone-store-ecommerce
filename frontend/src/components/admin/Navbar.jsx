@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 // ─── Route → Title Mapping ────────────────────────────────────────────────────
@@ -11,8 +11,8 @@ const ROUTE_TITLES = {
   '/admin/manufacturers': { title: 'Nhà sản xuất',       subtitle: 'Quản lý thông tin thương hiệu & nhà sản xuất' },
   '/admin/inventory':     { title: 'Tồn kho',            subtitle: 'Theo dõi và quản lý tồn kho sản phẩm' },
   '/admin/orders':        { title: 'Đơn hàng',           subtitle: 'Xem và xử lý toàn bộ đơn hàng của khách' },
-  '/admin/coupons':       { title: 'Mã giảm giá',        subtitle: 'Tạo và quản lý các chương trình khuyến mãi' },
-  '/admin/statistics':    { title: 'Thống kê',           subtitle: 'Báo cáo doanh thu và hiệu suất kinh doanh' },
+  '/admin/vouchers':      { title: 'Mã giảm giá',        subtitle: 'Tạo và quản lý các chương trình khuyến mãi' },
+  '/admin/analytics':     { title: 'Thống kê',           subtitle: 'Báo cáo doanh thu và hiệu suất kinh doanh' },
 };
 
 const getRouteInfo = (pathname) => {
@@ -26,7 +26,7 @@ const getRouteInfo = (pathname) => {
 };
 
 // ─── Navbar Component ──────────────────────────────────────────────────────────
-const Navbar = () => {
+const Navbar = ({ onToggleMobile }) => {
   const { user } = useAuth();
   const location = useLocation();
   const { title, subtitle } = getRouteInfo(location.pathname);
@@ -38,14 +38,32 @@ const Navbar = () => {
     <header className="
       sticky top-0 z-20
       flex items-center justify-between
-      px-6 py-4
+      px-4 sm:px-6 py-4
       bg-slate-900/80 backdrop-blur-md
       border-b border-slate-700/50
     ">
-      {/* ── Left: Dynamic Title ── */}
-      <div>
-        <h1 className="text-lg font-bold text-slate-100 leading-tight">{title}</h1>
-        <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
+      {/* ── Left: Hamburger Button + Dynamic Title ── */}
+      <div className="flex items-center gap-3">
+        {/* Nút Hamburger Menu trên Mobile (< lg) */}
+        <button
+          id="btn-hamburger-menu"
+          onClick={onToggleMobile}
+          aria-label="Mở menu điều hướng"
+          className="
+            lg:hidden flex items-center justify-center
+            p-2.5 min-w-[44px] min-h-[44px]
+            bg-slate-800/80 border border-slate-700/60
+            rounded-xl text-slate-300 hover:text-sky-400 hover:border-sky-500/40 hover:bg-sky-500/10
+            transition-all duration-200 cursor-pointer shrink-0
+          "
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div>
+          <h1 className="text-base sm:text-lg font-bold text-slate-100 leading-tight">{title}</h1>
+          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{subtitle}</p>
+        </div>
       </div>
 
       {/* ── Right: Search + Bell + Greeting + Avatar ── */}

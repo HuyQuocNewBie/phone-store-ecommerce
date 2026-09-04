@@ -167,9 +167,9 @@ const AnalyticsPage = () => {
 
       {/* Filter Bar */}
       <form onSubmit={handleFilterSubmit} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 shadow-xl">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           {/* Ô "Từ" (dd/mm/yyyy) */}
-          <div>
+          <div className="flex-1 w-full sm:w-auto">
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
@@ -188,7 +188,7 @@ const AnalyticsPage = () => {
           </div>
 
           {/* Ô "Đến" (dd/mm/yyyy) */}
-          <div>
+          <div className="flex-1 w-full sm:w-auto">
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
@@ -207,7 +207,7 @@ const AnalyticsPage = () => {
           </div>
 
           {/* Nút "Kết quả" */}
-          <div>
+          <div className="w-full sm:w-auto sm:min-w-[120px]">
             <button
               type="submit"
               disabled={loading}
@@ -219,7 +219,7 @@ const AnalyticsPage = () => {
           </div>
 
           {/* Nút "Xuất Excel" */}
-          <div>
+          <div className="w-full sm:w-auto sm:min-w-[120px]">
             <button
               type="button"
               disabled={!isExcelEnabled || exportLoading}
@@ -354,7 +354,7 @@ const AnalyticsPage = () => {
           </h3>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-slate-200">
             <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
               <tr>

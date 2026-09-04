@@ -283,7 +283,7 @@ const DashboardPage = () => {
       {errorCards && <ErrorAlert message={errorCards} onRetry={fetchCards} />}
 
       {/* ── Stat Cards Grid ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loadingCards
           ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
           : statCards.map((card) => (
@@ -324,10 +324,10 @@ const DashboardPage = () => {
       </div>
 
       {/* ── Charts Row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* LineChart — Doanh thu 12 tháng */}
-        <div className="xl:col-span-3 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-sm font-semibold text-slate-100">Doanh thu theo tháng</h2>
@@ -391,7 +391,7 @@ const DashboardPage = () => {
         </div>
 
         {/* PieChart — Trạng thái đơn hàng */}
-        <div className="xl:col-span-2 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
           <div className="mb-5">
             <h2 className="text-sm font-semibold text-slate-100">Trạng thái đơn hàng</h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -495,7 +495,8 @@ const DashboardPage = () => {
             <p className="text-sm">Chưa có dữ liệu sản phẩm bán chạy</p>
           </div>
         ) : (
-          <>
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[600px]">
             {/* Table Header */}
             <div className="hidden md:grid grid-cols-[2rem_2.5rem_1fr_auto_auto] items-center
                             gap-4 px-5 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider
@@ -585,7 +586,8 @@ const DashboardPage = () => {
                 );
               })}
             </div>
-          </>
+          </div>
+        </div>
         )}
       </div>
     </div>

@@ -190,7 +190,7 @@ const ProductListPage = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs font-semibold uppercase tracking-wider">
@@ -270,10 +270,10 @@ const ProductListPage = () => {
                     {/* Hành động (Sửa, Xóa) */}
                     <td className="py-4 px-6 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
-                        {/* Nút Sửa (Điều hướng tới /admin/products/edit/:id) */}
+                        {/* Nút Sửa */}
                         <button
                           onClick={() => navigate(`/admin/products/edit/${item.MaSanPham}`)}
-                          className="p-2 rounded-xl bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-400 border border-slate-700/80 hover:border-sky-500/30 transition-all"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-400 border border-slate-700/80 hover:border-sky-500/30 transition-all cursor-pointer"
                           title="Sửa sản phẩm"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -282,7 +282,7 @@ const ProductListPage = () => {
                         {/* Nút Xóa */}
                         <button
                           onClick={() => confirmDelete(item)}
-                          className="p-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/80 hover:border-rose-500/30 transition-all"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/80 hover:border-rose-500/30 transition-all cursor-pointer"
                           title="Xóa sản phẩm"
                         >
                           <Trash2 className="w-4 h-4" />

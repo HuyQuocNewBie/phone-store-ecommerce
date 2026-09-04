@@ -391,7 +391,7 @@ const CreateImportPage = () => {
             </div>
 
             {/* Desktop Table View */}
-            <div className="overflow-x-auto rounded-xl border border-slate-700/60 bg-slate-900/60">
+            <div className="w-full overflow-x-auto rounded-xl border border-slate-700/60 bg-slate-900/60">
               <table className="w-full text-left text-slate-200 border-collapse">
                 <thead className="bg-slate-900/90 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/60">
                   <tr>
@@ -493,7 +493,7 @@ const CreateImportPage = () => {
                             type="button"
                             onClick={() => handleRemoveRow(index)}
                             disabled={importItems.length === 1}
-                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg disabled:opacity-20 disabled:hover:text-slate-400 transition-colors"
+                            className="p-2 min-w-[38px] min-h-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg disabled:opacity-20 disabled:hover:text-slate-400 transition-colors cursor-pointer"
                             title={importItems.length === 1 ? 'Phải giữ lại ít nhất 1 dòng' : 'Xóa dòng này'}
                           >
                             <Trash2 className="w-4 h-4" />

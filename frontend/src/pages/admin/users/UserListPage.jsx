@@ -144,7 +144,7 @@ const UserListPage = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <table className="w-full text-left text-slate-200">
               <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
                 <tr>
@@ -221,7 +221,7 @@ const UserListPage = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => navigate(`/admin/users/${u.MaNguoiDung}/edit`)}
-                              className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
                               title="Sửa thông tin / phân quyền"
                             >
                               <Edit3 className="w-4 h-4" />
@@ -229,10 +229,10 @@ const UserListPage = () => {
                             <button
                               onClick={() => handleDeleteUser(u)}
                               disabled={isSelf}
-                              className={`p-1.5 rounded-lg transition-colors ${
+                              className={`p-2 min-w-[38px] min-h-[38px] flex items-center justify-center rounded-lg transition-colors ${
                                 isSelf
                                   ? 'text-slate-600 cursor-not-allowed'
-                                  : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                                  : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer'
                               }`}
                               title={isSelf ? 'Không thể xóa tài khoản của chính mình' : 'Xóa tài khoản'}
                             >
