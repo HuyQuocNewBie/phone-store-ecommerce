@@ -33,7 +33,7 @@ const navItems = [
 
 // ─── Sidebar Component ─────────────────────────────────────────────────────────
 const Sidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
@@ -71,8 +71,17 @@ const Sidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
         {/* ── Logo & App Name ── */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-slate-700/50 overflow-hidden">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-sky-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/30 shrink-0">
-              <Smartphone className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/30 shrink-0 overflow-hidden bg-gradient-to-br from-sky-500 to-violet-600">
+              <img
+                src="/assets/logo.png"
+                alt="SmartZone Logo"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextSibling.style.display = 'flex';
+                }}
+              />
+              <Smartphone className="w-5 h-5 text-white hidden items-center justify-center" style={{ display: 'none' }} />
             </div>
             <div
               className={`
@@ -80,8 +89,7 @@ const Sidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
                 ${collapsed ? 'lg:w-0 lg:opacity-0' : 'w-auto opacity-100'}
               `}
             >
-              <span className="text-sm font-bold text-slate-100 whitespace-nowrap">PhoneStore</span>
-              <span className="text-xs text-slate-400 whitespace-nowrap">Admin Panel</span>
+              <span className="text-sm font-bold text-slate-100 whitespace-nowrap">SmartZone</span>
             </div>
           </div>
 
@@ -152,24 +160,8 @@ const Sidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
           })}
         </nav>
 
-        {/* ── Logout + User Info ── */}
+        {/* ── Logout ── */}
         <div className="p-3 border-t border-slate-700/50">
-          {/* User info */}
-          <div
-            className={`
-              flex items-center gap-3 px-2 py-2 mb-2 rounded-xl overflow-hidden
-              transition-all duration-300
-              ${collapsed ? 'lg:opacity-0 lg:h-0 lg:py-0 lg:mb-0' : 'opacity-100 h-auto'}
-            `}
-          >
-            <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {user?.TaiKhoan?.[0]?.toUpperCase() || 'A'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-100 truncate">{user?.TaiKhoan || 'Admin'}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.Email || 'admin@phonestore.vn'}</p>
-            </div>
-          </div>
 
           {/* Logout button */}
           <button
