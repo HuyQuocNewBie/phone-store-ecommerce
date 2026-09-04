@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 // ─── Route → Title Mapping ────────────────────────────────────────────────────
@@ -65,25 +65,8 @@ const Navbar = ({ onToggleMobile }) => {
         </div>
       </div>
 
-      {/* ── Right: Search + Bell + Greeting + Avatar ── */}
+      {/* ── Right: Bell + Greeting + Avatar ── */}
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-          <input
-            id="navbar-search"
-            type="text"
-            placeholder="Tìm kiếm..."
-            className="
-              pl-8 pr-4 py-2 w-44
-              bg-slate-800/80 border border-slate-700/60
-              rounded-lg text-sm text-slate-300 placeholder-slate-500
-              focus:outline-none focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/50
-              transition-all duration-200
-            "
-          />
-        </div>
-
         {/* Notification Bell */}
         <button
           id="btn-notifications"
