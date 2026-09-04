@@ -72,27 +72,15 @@ const UserListPage = () => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
 
-      {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Users className="w-6 h-6 text-sky-400" />
-            Quản lý Người dùng
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Quản lý tài khoản khách hàng, quản trị viên và phân quyền truy cập hệ thống
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchUsers}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
-        </div>
+      {/* ── Action Bar (Top Right) ── */}
+      <div className="flex justify-end">
+        <button
+          onClick={fetchUsers}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Làm mới
+        </button>
       </div>
 
       {/* Search & Filter Bar */}

@@ -257,16 +257,8 @@ const DashboardPage = () => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
 
-      {/* ── Page Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 tracking-tight">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Tổng quan hoạt động kinh doanh · {new Date().toLocaleDateString('vi-VN', {
-              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-            })}
-          </p>
-        </div>
+      {/* ── Action Bar (Top Right) ── */}
+      <div className="flex justify-end">
         <button
           onClick={() => { fetchCards(); fetchRevenueChart(); fetchOrderStatus(); fetchTopProducts(); }}
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60

@@ -107,18 +107,8 @@ const ProductListPage = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
 
-      {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
-            <Package className="w-7 h-7 text-sky-400" />
-            Quản lý Sản phẩm
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Quản lý danh sách sản phẩm, giá bán, tồn kho và các thông số kỹ thuật động (Dynamic Specs)
-          </p>
-        </div>
-
+      {/* ── Action Bar (Top Right) ── */}
+      <div className="flex justify-end">
         {/* Nút Thêm Sản Phẩm (Điều hướng đến trang /admin/products/create) */}
         <button
           id="btn-add-product"

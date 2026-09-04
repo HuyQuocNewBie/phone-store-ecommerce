@@ -4,32 +4,32 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Route → Title Mapping ────────────────────────────────────────────────────
 const ROUTE_TITLES = {
-  '/admin/dashboard':     { title: 'Dashboard',         subtitle: 'Tổng quan hệ thống Phone Store' },
-  '/admin/products':      { title: 'Quản lý sản phẩm',  subtitle: 'Thêm, sửa, xóa và quản lý toàn bộ sản phẩm' },
-  '/admin/users':         { title: 'Người dùng',         subtitle: 'Quản lý tài khoản và phân quyền người dùng' },
-  '/admin/categories':    { title: 'Danh mục',           subtitle: 'Quản lý danh mục sản phẩm' },
-  '/admin/manufacturers': { title: 'Nhà sản xuất',       subtitle: 'Quản lý thông tin thương hiệu & nhà sản xuất' },
-  '/admin/inventory':     { title: 'Tồn kho',            subtitle: 'Theo dõi và quản lý tồn kho sản phẩm' },
-  '/admin/orders':        { title: 'Đơn hàng',           subtitle: 'Xem và xử lý toàn bộ đơn hàng của khách' },
-  '/admin/vouchers':      { title: 'Mã giảm giá',        subtitle: 'Tạo và quản lý các chương trình khuyến mãi' },
-  '/admin/analytics':     { title: 'Thống kê',           subtitle: 'Báo cáo doanh thu và hiệu suất kinh doanh' },
+  '/admin/dashboard':     'Dashboard',
+  '/admin/products':      'Quản lý sản phẩm',
+  '/admin/users':         'Người dùng',
+  '/admin/categories':    'Danh mục',
+  '/admin/manufacturers': 'Nhà sản xuất',
+  '/admin/inventory':     'Tồn kho',
+  '/admin/orders':        'Đơn hàng',
+  '/admin/vouchers':      'Mã giảm giá',
+  '/admin/analytics':     'Thống kê',
 };
 
-const getRouteInfo = (pathname) => {
+const getRouteTitle = (pathname) => {
   // Exact match trước
   if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
   // Prefix match (e.g. /admin/products/123)
   const matched = Object.keys(ROUTE_TITLES)
     .sort((a, b) => b.length - a.length)
     .find((key) => pathname.startsWith(key));
-  return ROUTE_TITLES[matched] || { title: 'Admin Panel', subtitle: 'Phone Store E-Commerce' };
+  return ROUTE_TITLES[matched] || 'Admin Panel';
 };
 
 // ─── Navbar Component ──────────────────────────────────────────────────────────
 const Navbar = ({ onToggleMobile }) => {
   const { user } = useAuth();
   const location = useLocation();
-  const { title, subtitle } = getRouteInfo(location.pathname);
+  const title = getRouteTitle(location.pathname);
 
   const displayName = user?.TaiKhoan || 'Admin';
   const avatarLetter = displayName[0]?.toUpperCase() || 'A';
@@ -62,7 +62,6 @@ const Navbar = ({ onToggleMobile }) => {
 
         <div>
           <h1 className="text-base sm:text-lg font-bold text-slate-100 leading-tight">{title}</h1>
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{subtitle}</p>
         </div>
       </div>
 

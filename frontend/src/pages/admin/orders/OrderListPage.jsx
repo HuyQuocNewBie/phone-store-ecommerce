@@ -106,18 +106,8 @@ const OrderListPage = () => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
 
-      {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <ShoppingCart className="w-6 h-6 text-sky-400" />
-            Quản lý Đơn hàng
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Xem danh sách đơn hàng và cập nhật nhanh trạng thái xử lý
-          </p>
-        </div>
-
+      {/* ── Action Bar (Top Right) ── */}
+      <div className="flex justify-end">
         <button
           onClick={fetchOrders}
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"

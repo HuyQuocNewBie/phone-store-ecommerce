@@ -65,35 +65,23 @@ const InventoryListPage = () => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
 
-      {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Boxes className="w-6 h-6 text-sky-400" />
-            Quản lý Tồn kho
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Theo dõi số lượng tồn kho sản phẩm và khởi tạo phiếu nhập kho
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchStockList}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"
-            title="Tải lại danh sách"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
-          <button
-            onClick={() => navigate('/admin/inventory/import')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo phiếu nhập kho
-          </button>
-        </div>
+      {/* ── Action Bar (Top Right) ── */}
+      <div className="flex justify-end items-center gap-3">
+        <button
+          onClick={fetchStockList}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"
+          title="Tải lại danh sách"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Làm mới
+        </button>
+        <button
+          onClick={() => navigate('/admin/inventory/import')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          Tạo phiếu nhập kho
+        </button>
       </div>
 
       {/* Search Bar */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart3, Calendar, FileSpreadsheet, AlertCircle, CheckCircle2, RefreshCw, ShoppingCart, DollarSign, ArrowUpRight
+  BarChart3, Calendar, FileSpreadsheet, AlertCircle, RefreshCw, ShoppingCart, DollarSign
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -152,19 +152,6 @@ const AnalyticsPage = () => {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-sky-400" />
-            Báo cáo thống kê doanh thu
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Theo dõi tổng doanh thu, biểu đồ phân tích và chi tiết danh sách đơn hàng theo mốc thời gian
-          </p>
-        </div>
-      </div>
-
       {/* Filter Bar */}
       <form onSubmit={handleFilterSubmit} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
