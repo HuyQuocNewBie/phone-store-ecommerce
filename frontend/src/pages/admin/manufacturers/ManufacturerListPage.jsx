@@ -1,31 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Building2, Plus, RefreshCw, Search, AlertCircle, CheckCircle2,
-  Trash2, Edit3, X, Phone, Mail, MapPin
+  Building2, Plus, RefreshCw, Search, AlertCircle,
+  Trash2, Edit3, Phone, Mail, MapPin
 } from 'lucide-react';
 import api from '../../../services/api';
 
-const PHONE_REGEX = /^0\d{9}$/;
-const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
-
 const ManufacturerListPage = () => {
+  const navigate = useNavigate();
   const [manufacturers, setManufacturers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingManufacturer, setEditingManufacturer] = useState(null); // null = Add, object = Edit
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalError, setModalError] = useState(null);
-
-  // Form Fields
-  const [tenNhaSanXuat, setTenNhaSanXuat] = useState('');
-  const [diaChi, setDiaChi] = useState('');
-  const [soDienThoai, setSoDienThoai] = useState('');
-  const [email, setEmail] = useState('');
 
   // Fetch Manufacturers
   const fetchManufacturers = useCallback(async () => {
@@ -33,7 +20,7 @@ const ManufacturerListPage = () => {
     setError(null);
     try {
       const res = await api.get('/admin/manufacturers');
-      setManufacturers(res.data.data || []);
+      setManufacturers(res.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể tải danh sách nhà sản xuất');
     } finally {
@@ -45,93 +32,6 @@ const ManufacturerListPage = () => {
     fetchManufacturers();
   }, [fetchManufacturers]);
 
-  // Open Add Modal
-  const handleOpenAddModal = () => {
-    setEditingManufacturer(null);
-    setTenNhaSanXuat('');
-    setDiaChi('');
-    setSoDienThoai('');
-    setEmail('');
-    setModalError(null);
-    setIsModalOpen(true);
-  };
-
-  // Open Edit Modal
-  const handleOpenEditModal = (m) => {
-    setEditingManufacturer(m);
-    setTenNhaSanXuat(m.TenNhaSanXuat || '');
-    setDiaChi(m.DiaChi || '');
-    setSoDienThoai(m.SoDienThoai || '');
-    setEmail(m.Email || '');
-    setModalError(null);
-    setIsModalOpen(true);
-  };
-
-  // Submit Form (Add / Edit)
-  const handleSubmitManufacturer = async (e) => {
-    e.preventDefault();
-    setModalError(null);
-
-    const trimmedTen = tenNhaSanXuat.trim();
-    if (!trimmedTen) {
-      setModalError('Tên nhà sản xuất không được để trống');
-      return;
-    }
-
-    const trimmedDiaChi = diaChi.trim();
-    if (!trimmedDiaChi) {
-      setModalError('Địa chỉ nhà sản xuất không được để trống');
-      return;
-    }
-
-    const trimmedPhone = soDienThoai.trim();
-    if (!trimmedPhone) {
-      setModalError('Số điện thoại không được để trống');
-      return;
-    }
-    if (!PHONE_REGEX.test(trimmedPhone)) {
-      setModalError('Số điện thoại không hợp lệ (phải đủ 10 chữ số và bắt đầu bằng số 0)');
-      return;
-    }
-
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setModalError('Email không được để trống');
-      return;
-    }
-    if (!EMAIL_REGEX.test(trimmedEmail)) {
-      setModalError('Email không đúng định dạng hợp lệ');
-      return;
-    }
-
-    const payload = {
-      TenNhaSanXuat: trimmedTen,
-      DiaChi: trimmedDiaChi,
-      SoDienThoai: trimmedPhone,
-      Email: trimmedEmail,
-    };
-
-    setModalLoading(true);
-    try {
-      if (editingManufacturer) {
-        const res = await api.put(`/admin/manufacturers/${editingManufacturer.MaNhaSanXuat}`, payload);
-        toast.success(res.data.message || 'Cập nhật nhà sản xuất thành công', { id: `mfg-edit-${editingManufacturer.MaNhaSanXuat}` });
-      } else {
-        const res = await api.post('/admin/manufacturers', payload);
-        toast.success(res.data.message || 'Thêm nhà sản xuất thành công', { id: 'mfg-add' });
-      }
-
-      setIsModalOpen(false);
-      fetchManufacturers();
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Lỗi khi lưu nhà sản xuất';
-      setModalError(msg);
-      toast.error(msg, { id: 'mfg-save-err' });
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
   // Delete Manufacturer
   const handleDeleteManufacturer = async (m) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa nhà sản xuất "${m.TenNhaSanXuat}" (#${m.MaNhaSanXuat})?`)) {
@@ -140,7 +40,7 @@ const ManufacturerListPage = () => {
 
     try {
       const res = await api.delete(`/admin/manufacturers/${m.MaNhaSanXuat}`);
-      toast.success(res.data.message || 'Xóa nhà sản xuất thành công', { id: `mfg-delete-${m.MaNhaSanXuat}` });
+      toast.success(res.data?.message || 'Xóa nhà sản xuất thành công', { id: `mfg-delete-${m.MaNhaSanXuat}` });
       fetchManufacturers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể xóa nhà sản xuất này', { id: `mfg-delete-err-${m.MaNhaSanXuat}` });
@@ -182,7 +82,7 @@ const ManufacturerListPage = () => {
             Làm mới
           </button>
           <button
-            onClick={handleOpenAddModal}
+            onClick={() => navigate('/admin/manufacturers/new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -292,7 +192,7 @@ const ManufacturerListPage = () => {
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleOpenEditModal(m)}
+                            onClick={() => navigate(`/admin/manufacturers/${m.MaNhaSanXuat}/edit`)}
                             className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
                             title="Sửa nhà sản xuất"
                           >
@@ -315,114 +215,6 @@ const ManufacturerListPage = () => {
           </div>
         )}
       </div>
-
-      {/* Modal Thêm mới / Chỉnh sửa Nhà sản xuất */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-800 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
-            {/* Header Modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/60 bg-slate-900/50">
-              <div className="flex items-center gap-2 text-slate-100 font-bold text-base">
-                <Building2 className="w-5 h-5 text-sky-400" />
-                {editingManufacturer ? `Chỉnh sửa NSX #${editingManufacturer.MaNhaSanXuat}` : 'Thêm nhà sản xuất mới'}
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700/50 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body Form */}
-            <form onSubmit={handleSubmitManufacturer} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
-              {modalError && (
-                <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{modalError}</span>
-                </div>
-              )}
-
-              {/* Tên nhà sản xuất */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Tên nhà sản xuất <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Vd: Apple, Samsung, Xiaomi..."
-                  value={tenNhaSanXuat}
-                  onChange={(e) => setTenNhaSanXuat(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              {/* Địa chỉ */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Địa chỉ trụ sở / văn phòng <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Vd: Cupertino, California, Mỹ"
-                  value={diaChi}
-                  onChange={(e) => setDiaChi(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              {/* Số điện thoại & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Số điện thoại <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Vd: 0912345678"
-                    value={soDienThoai}
-                    onChange={(e) => setSoDienThoai(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs font-mono focus:outline-none focus:border-sky-500"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">Đủ 10 chữ số, bắt đầu bằng số 0</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Email liên hệ <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="Vd: contact@apple.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700/60">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold transition-colors"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-lg hover:brightness-110 disabled:opacity-50 transition-all"
-                >
-                  {modalLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  {editingManufacturer ? 'Cập nhật' : 'Thêm mới'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
