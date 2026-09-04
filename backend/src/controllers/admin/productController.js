@@ -115,7 +115,14 @@ const createProduct = async (req, res, next) => {
     }
 
     // Xử lý ảnh: Lấy URL từ Cloudinary upload (req.file.path) hoặc body.Anh
-    const anhUrl = req.file ? req.file.path : (req.body.Anh || null);
+    const anhUrl = req.file ? req.file.path : (req.body.Anh && String(req.body.Anh).trim() ? String(req.body.Anh).trim() : null);
+
+    if (!anhUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn file ảnh hoặc nhập URL ảnh'
+      });
+    }
 
     // Xử lý mảng thongsokythuat (nếu truyền dạng String khi dùng multipart/form-data)
     let specs = req.body.thongsokythuat;
@@ -267,7 +274,23 @@ const updateProduct = async (req, res, next) => {
     }
 
     // Xử lý giữ lại ảnh cũ khi Cập nhật nếu không có file mới upload
-    const updatedAnh = req.file ? req.file.path : (req.body.Anh !== undefined ? req.body.Anh : currentProduct.Anh);
+    let updatedAnh = null;
+    if (req.file) {
+      updatedAnh = req.file.path;
+    } else if (req.body.Anh !== undefined && String(req.body.Anh).trim() !== '') {
+      updatedAnh = String(req.body.Anh).trim();
+    } else if (currentProduct.Anh) {
+      updatedAnh = currentProduct.Anh;
+    }
+
+    if (!updatedAnh) {
+      connection.release();
+      connection = null;
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn file ảnh hoặc nhập URL ảnh'
+      });
+    }
 
     // Parse thongsokythuat nếu gửi dạng JSON string trong form-data
     let specs = req.body.thongsokythuat;

@@ -8,6 +8,7 @@ import {
   Layers,
   Image as ImageIcon,
   Upload,
+  Link,
   DollarSign,
   Package,
   FileText,
@@ -42,6 +43,7 @@ const ProductFormPage = () => {
   const [imagePreview, setImagePreview] = useState('');
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [initialImage, setInitialImage] = useState('');
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   // ─── Dynamic Specs Groups State ─────────────────────────────────────────────
   const [specGroups, setSpecGroups] = useState([]);
@@ -178,21 +180,84 @@ const ProductFormPage = () => {
     fetchProductDetail();
   }, [id, isEditMode]);
 
-  // ─── Image Handling ────────────────────────────────────────────────────────
+  // ─── Image Handling & Tab Switch ───────────────────────────────────────────
+  const handleTabSwitch = (mode) => {
+    setImageMode(mode);
+    setImageLoadError(false);
+    setErrors((prev) => ({ ...prev, anh: null }));
+
+    if (mode === 'file') {
+      setImageUrlInput('');
+      if (imageFile) {
+        setImagePreview(URL.createObjectURL(imageFile));
+      } else {
+        setImagePreview('');
+      }
+    } else {
+      setImageFile(null);
+      if (imageUrlInput.trim()) {
+        setImagePreview(imageUrlInput.trim());
+      } else if (initialImage && (initialImage.startsWith('http') || initialImage.startsWith('data:'))) {
+        setImageUrlInput(initialImage);
+        setImagePreview(initialImage);
+      } else {
+        setImagePreview('');
+      }
+    }
+    markDirty();
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreview(previewUrl);
-      markDirty();
+    if (!file) return;
+
+    // Kiểm tra đuôi file hợp lệ
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        anh: 'Chỉ chấp nhận định dạng ảnh: .png, .jpg, .jpeg, .webp'
+      }));
+      e.target.value = '';
+      return;
     }
+
+    // Kiểm tra dung lượng file tối đa 5MB
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSizeBytes) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setErrors((prev) => ({
+        ...prev,
+        anh: `File ảnh quá lớn (${fileSizeMB}MB). Dung lượng tối đa cho phép là 5MB`
+      }));
+      e.target.value = '';
+      return;
+    }
+
+    setImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setImageLoadError(false);
+    setErrors((prev) => ({ ...prev, anh: null }));
+    markDirty();
   };
 
   const handleUrlInputChange = (e) => {
     const url = e.target.value;
     setImageUrlInput(url);
     setImagePreview(url);
+    setImageLoadError(false);
+    setErrors((prev) => ({ ...prev, anh: null }));
+    markDirty();
+  };
+
+  const handleClearImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageUrlInput('');
+    setInitialImage('');
+    setImageLoadError(false);
+    setErrors((prev) => ({ ...prev, anh: null }));
     markDirty();
   };
 
@@ -286,6 +351,19 @@ const ProductFormPage = () => {
     const numGia = Number(gia);
     if (!gia || isNaN(numGia) || numGia <= 0) {
       newErrors.gia = 'Giá sản phẩm phải là số và lớn hơn 0';
+    }
+
+    // Validate ảnh sản phẩm
+    if (imageMode === 'file') {
+      if (!imageFile && !imagePreview) {
+        newErrors.anh = 'Vui lòng chọn file ảnh hoặc nhập URL ảnh';
+      }
+    } else if (imageMode === 'url') {
+      if (!imageUrlInput.trim() && !imagePreview) {
+        newErrors.anh = 'Vui lòng chọn file ảnh hoặc nhập URL ảnh';
+      } else if (imageLoadError) {
+        newErrors.anh = 'Đường dẫn ảnh không hợp lệ hoặc không tải được';
+      }
     }
 
     setErrors(newErrors);
@@ -549,97 +627,136 @@ const ProductFormPage = () => {
 
           {/* Block 2: Ảnh Đại Diện Sản Phẩm (Cloudinary / File / URL) */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
-              <ImageIcon className="w-4 h-4 text-violet-400" />
-              Ảnh đại diện sản phẩm
-            </h2>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-violet-400" />
+                Ảnh đại diện sản phẩm <span className="text-rose-500">*</span>
+              </h2>
+              {imagePreview && (
+                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  {imageMode === 'file' ? '📁 Tệp từ máy' : '🔗 URL Trực tiếp'}
+                </span>
+              )}
+            </div>
 
-            {/* Mode Switcher */}
-            <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+            {/* Mode Switcher Tabs */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
               <button
                 type="button"
-                onClick={() => setImageMode('file')}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                onClick={() => handleTabSwitch('file')}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   imageMode === 'file'
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                 }`}
               >
-                Tải ảnh từ máy (Cloudinary)
+                <Upload className="w-3.5 h-3.5" />
+                <span>Tải ảnh từ máy</span>
               </button>
               <button
                 type="button"
-                onClick={() => setImageMode('url')}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                onClick={() => handleTabSwitch('url')}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   imageMode === 'url'
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                 }`}
               >
-                Nhập Đường dẫn (URL)
+                <Link className="w-3.5 h-3.5" />
+                <span>Dán URL ảnh</span>
               </button>
             </div>
 
-            {/* Input & Preview */}
+            {/* Input & Preview Section */}
             <div className="space-y-4">
               {imageMode === 'file' ? (
-                <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-slate-700/80 hover:border-sky-500/60 rounded-xl cursor-pointer bg-slate-950/60 hover:bg-slate-950 transition-all group">
+                <label className={`flex flex-col items-center justify-center w-full h-36 border-2 border-dashed ${
+                  errors.anh ? 'border-rose-500/70 bg-rose-950/10' : 'border-slate-700/80 hover:border-sky-500/60 bg-slate-950/60'
+                } hover:bg-slate-950 rounded-xl cursor-pointer transition-all group`}>
                   <div className="flex flex-col items-center justify-center py-4 text-center px-4">
                     <Upload className="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition-colors mb-2" />
                     <p className="text-xs text-slate-400">
-                      <span className="font-semibold text-sky-400">Bấm để tải tệp lên</span> hoặc kéo thả vào đây
+                      <span className="font-semibold text-sky-400">Bấm để chọn file ảnh</span> hoặc kéo thả vào đây
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-1">PNG, JPG, WEBP hoặc GIF (Tối đa 5MB)</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Định dạng hỗ trợ: .png, .jpg, .jpeg, .webp (Tối đa 5MB)</p>
                   </div>
-                  <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/jpg, image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
                 </label>
               ) : (
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    URL hình ảnh công khai
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                    Nhập/Dán URL hình ảnh công khai (CellphoneS, Unsplash...)
                   </label>
                   <input
                     type="url"
                     value={imageUrlInput}
                     onChange={handleUrlInputChange}
                     placeholder="https://images.unsplash.com/photo-..."
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
+                    className={`w-full px-3.5 py-2.5 bg-slate-950 border ${
+                      errors.anh || imageLoadError
+                        ? 'border-rose-500/70 focus:ring-rose-500/20'
+                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
                   />
                 </div>
               )}
 
+              {/* Validation Error Message */}
+              {errors.anh && (
+                <p className="text-xs text-rose-400 font-medium flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                  <span>{errors.anh}</span>
+                </p>
+              )}
+
+              {/* Image Load Error Warning Banner */}
+              {imageMode === 'url' && imageLoadError && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs font-medium">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Đường dẫn ảnh không khả dụng hoặc bị chặn (vui lòng kiểm tra lại link).</span>
+                </div>
+              )}
+
               {/* Preview Thumbnail Container */}
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2">Xem trước hình ảnh</label>
+              <div className="pt-2 border-t border-slate-800/60">
+                <label className="block text-xs font-semibold text-slate-400 mb-2">
+                  Xem trước hình ảnh (Preview)
+                </label>
                 {imagePreview ? (
-                  <div className="relative group w-36 h-36 rounded-2xl border border-slate-700 bg-slate-950 overflow-hidden shadow-xl flex items-center justify-center mx-auto sm:mx-0">
+                  <div className="relative group w-44 h-44 rounded-2xl border border-slate-700 bg-slate-950 overflow-hidden shadow-xl flex items-center justify-center mx-auto sm:mx-0">
                     <img
                       src={imagePreview}
-                      alt="Preview"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = 'https://via.placeholder.com/200?text=L%E1%BB%97i+ảnh';
-                      }}
+                      alt="Xem trước ảnh sản phẩm"
+                      className={`w-full h-full object-cover transition-transform duration-300 ${
+                        imageLoadError ? 'opacity-30 blur-[2px]' : 'group-hover:scale-105'
+                      }`}
+                      onError={() => setImageLoadError(true)}
+                      onLoad={() => setImageLoadError(false)}
                     />
+                    {imageLoadError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-slate-950/80 text-amber-400">
+                        <AlertTriangle className="w-7 h-7 mb-1 text-amber-400 animate-bounce" />
+                        <span className="text-[11px] font-bold">Lỗi tải ảnh</span>
+                      </div>
+                    )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreview('');
-                        setImageUrlInput('');
-                        markDirty();
-                      }}
-                      className="absolute top-2 right-2 w-7 h-7 bg-slate-950/80 hover:bg-rose-600 rounded-full flex items-center justify-center text-slate-300 hover:text-white transition-all shadow-md"
+                      onClick={handleClearImage}
+                      className="absolute top-2.5 right-2.5 w-7 h-7 bg-slate-950/80 hover:bg-rose-600 rounded-full flex items-center justify-center text-slate-300 hover:text-white transition-all shadow-md backdrop-blur-sm z-10"
                       title="Xóa ảnh"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="w-36 h-36 rounded-2xl border border-slate-800 bg-slate-950/60 flex flex-col items-center justify-center text-slate-600 mx-auto sm:mx-0">
-                    <ImageIcon className="w-8 h-8 mb-1" />
-                    <span className="text-xs">Chưa có ảnh</span>
+                  <div className="w-44 h-44 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center text-slate-600 mx-auto sm:mx-0 space-y-1">
+                    <ImageIcon className="w-8 h-8 text-slate-600 stroke-[1.5]" />
+                    <span className="text-xs font-medium text-slate-500">Chưa có ảnh</span>
                   </div>
                 )}
               </div>
