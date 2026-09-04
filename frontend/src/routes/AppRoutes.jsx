@@ -6,6 +6,7 @@ import DashboardPage from '../pages/admin/dashboard/DashboardPage';
 import ProductListPage from '../pages/admin/products/ProductListPage';
 import ProductFormPage from '../pages/admin/products/ProductFormPage';
 import UserListPage from '../pages/admin/users/UserListPage';
+import UserEditPage from '../pages/admin/users/UserEditPage';
 import CategoryListPage from '../pages/admin/categories/CategoryListPage';
 import ManufacturerListPage from '../pages/admin/manufacturers/ManufacturerListPage';
 import InventoryListPage from '../pages/admin/inventory/InventoryListPage';
@@ -24,6 +25,7 @@ import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
  *    /admin/dashboard      → DashboardPage
  *    /admin/products       → ProductManagementPage
  *    /admin/users          → UserManagementPage
+ *    /admin/users/:id/edit → UserEditPage
  *    /admin/categories     → CategoryManagementPage
  *    /admin/manufacturers  → ManufacturerManagementPage
  *    /admin/inventory      → InventoryPage
@@ -54,6 +56,7 @@ const AppRoutes = () => {
         <Route path="products/create" element={<ProductFormPage />} />
         <Route path="products/edit/:id" element={<ProductFormPage />} />
         <Route path="users" element={<UserListPage />} />
+        <Route path="users/:id/edit" element={<UserEditPage />} />
         <Route path="categories" element={<CategoryListPage />} />
         <Route path="manufacturers" element={<ManufacturerListPage />} />
         <Route path="inventory" element={<InventoryListPage />} />
