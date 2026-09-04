@@ -359,7 +359,7 @@ const VoucherFormPage = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Vd: SUMMER50, PHONESTORE2026..."
+                  placeholder="SUMMER50, PHONESTORE2026..."
                   value={code}
                   onChange={(e) => {
                     setCode(e.target.value.toUpperCase().replace(/\s/g, ''));
@@ -395,7 +395,7 @@ const VoucherFormPage = () => {
                 <input
                   type="number"
                   min="1"
-                  placeholder="Vd: 100"
+                  placeholder="100"
                   value={soLuong}
                   onChange={(e) => {
                     setSoLuong(e.target.value);
@@ -511,7 +511,7 @@ const VoucherFormPage = () => {
                   type="number"
                   min="1"
                   step="1000"
-                  placeholder="Vd: 50000"
+                  placeholder="50000"
                   value={giaTriGiam}
                   onChange={(e) => {
                     setGiaTriGiam(e.target.value);
@@ -552,7 +552,7 @@ const VoucherFormPage = () => {
                   type="number"
                   min="1"
                   step="1000"
-                  placeholder="Vd: 200000"
+                  placeholder="200000"
                   value={giaTriToiThieu}
                   onChange={(e) => {
                     setGiaTriToiThieu(e.target.value);

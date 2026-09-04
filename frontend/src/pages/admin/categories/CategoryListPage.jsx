@@ -310,7 +310,7 @@ const CategoryListPage = () => {
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Vd: Điện thoại, Tablet, Phụ kiện, Âm thanh..."
+                  placeholder="Điện thoại, Tablet, Phụ kiện, Âm thanh..."
                   value={tenLoaiSanPham}
                   onChange={(e) => {
                     setTenLoaiSanPham(e.target.value);

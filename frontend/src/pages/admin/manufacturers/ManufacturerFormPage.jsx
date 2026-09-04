@@ -248,7 +248,7 @@ const ManufacturerFormPage = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Vd: Apple, Samsung, Xiaomi, Sony..."
+                  placeholder="Apple, Samsung, Xiaomi, Sony..."
                   value={tenNhaSanXuat}
                   onChange={(e) => {
                     setTenNhaSanXuat(e.target.value);
@@ -282,7 +282,7 @@ const ManufacturerFormPage = () => {
                   </div>
                   <input
                     type="text"
-                    placeholder="Vd: 0912345678"
+                    placeholder="0912345678"
                     value={soDienThoai}
                     onChange={(e) => {
                       setSoDienThoai(e.target.value);
@@ -316,7 +316,7 @@ const ManufacturerFormPage = () => {
                   </div>
                   <input
                     type="email"
-                    placeholder="Vd: contact@apple.com"
+                    placeholder="contact@apple.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -349,7 +349,7 @@ const ManufacturerFormPage = () => {
                 </div>
                 <textarea
                   rows={3}
-                  placeholder="Vd: One Apple Park Way, Cupertino, CA 95014, USA"
+                  placeholder="One Apple Park Way, Cupertino, CA 95014, USA"
                   value={diaChi}
                   onChange={(e) => {
                     setDiaChi(e.target.value);

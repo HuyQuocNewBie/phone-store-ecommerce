@@ -503,7 +503,7 @@ const ProductFormPage = () => {
                   setTenSanPham(e.target.value);
                   markDirty();
                 }}
-                placeholder="VD: iPhone 15 Pro Max 256GB"
+                placeholder="iPhone 15 Pro Max 256GB"
                 className={`w-full px-3.5 py-2.5 bg-slate-950 border ${
                   errors.tenSanPham
                     ? 'border-rose-500/70 focus:ring-rose-500/20'
@@ -701,7 +701,7 @@ const ProductFormPage = () => {
                           type="text"
                           value={group.name}
                           onChange={(e) => handleGroupChange(group.id, e.target.value)}
-                          placeholder="Tên nhóm thông số (VD: Màn hình, Pin & Sạc...)"
+                          placeholder="Màn hình, Pin & Sạc, Camera..."
                           className="w-full max-w-xs sm:max-w-md px-3 py-1.5 bg-slate-900 border border-slate-750 rounded-lg text-slate-100 font-semibold text-sm focus:outline-none focus:border-sky-500 transition-all placeholder-slate-500"
                         />
                       </div>
@@ -724,7 +724,7 @@ const ProductFormPage = () => {
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(group.id, item.id, 'name', e.target.value)}
-                            placeholder="Tên thông số (VD: Kích thước)"
+                            placeholder="Kích thước, RAM, Chipset..."
                             className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
                           />
 
@@ -734,7 +734,7 @@ const ProductFormPage = () => {
                             type="text"
                             value={item.value}
                             onChange={(e) => handleItemChange(group.id, item.id, 'value', e.target.value)}
-                            placeholder="Giá trị (VD: 6.7 inch Super Retina XDR)"
+                            placeholder="6.7 inch Super Retina XDR"
                             className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
                           />
 

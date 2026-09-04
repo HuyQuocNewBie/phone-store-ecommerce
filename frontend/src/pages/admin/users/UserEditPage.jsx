@@ -376,7 +376,7 @@ const UserEditPage = () => {
                       setEmail(e.target.value);
                       if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
                     }}
-                    placeholder="Vd: user@example.com"
+                    placeholder="user@example.com"
                     className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
                       errors.email
                         ? 'border-rose-500/80 focus:ring-rose-500/20'
@@ -410,7 +410,7 @@ const UserEditPage = () => {
                       setSoDienThoai(e.target.value);
                       if (errors.soDienThoai) setErrors((prev) => ({ ...prev, soDienThoai: null }));
                     }}
-                    placeholder="Vd: 0987654321 hoặc +84987654321"
+                    placeholder="0987654321 hoặc +84987654321"
                     className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
                       errors.soDienThoai
                         ? 'border-rose-500/80 focus:ring-rose-500/20'
@@ -441,7 +441,7 @@ const UserEditPage = () => {
                     type="text"
                     value={diaChi}
                     onChange={(e) => setDiaChi(e.target.value)}
-                    placeholder="Vd: 123 Nguyễn Trãi, Thanh Xuân, Hà Nội"
+                    placeholder="123 Nguyễn Trãi, Thanh Xuân, Hà Nội"
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
                   />
                 </div>
