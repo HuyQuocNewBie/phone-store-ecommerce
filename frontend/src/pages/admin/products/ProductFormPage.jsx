@@ -649,52 +649,56 @@ const ProductFormPage = () => {
 
         {/* ── COLUMN 2: Thông số kỹ thuật động (7 Cols on LG) ── */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+
+            {/* ── Section Header ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
               <div>
                 <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
                   <Layers className="w-4 h-4 text-violet-400" />
                   Thông số kỹ thuật động (Dynamic Specs)
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Phân loại thông số theo từng Nhóm (Màn hình, Hiệu năng, Pin & Sạc, Camera...)
+                  Phân loại thông số theo từng Nhóm (Màn hình, Hiệu năng, Pin &amp; Sạc, Camera...)
                 </p>
               </div>
 
+              {/* Nút Thêm nhóm */}
               <button
                 type="button"
                 onClick={handleAddGroup}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 rounded-xl text-xs font-semibold text-violet-300 hover:text-violet-200 transition-all shadow-sm shadow-violet-500/10 shrink-0"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-violet-600/20 hover:bg-violet-500/30 border border-violet-500/40 hover:border-violet-400/60 rounded-xl text-sm font-semibold text-violet-300 hover:text-violet-100 transition-all duration-200 shadow-sm shadow-violet-500/10 hover:shadow-violet-500/20 shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 Thêm nhóm thông số
               </button>
             </div>
 
-            {/* List các Nhóm thông số */}
+            {/* ── List các Nhóm thông số ── */}
             {specGroups.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-2xl space-y-3">
-                <Layers className="w-10 h-10 text-slate-700 mx-auto" />
-                <p className="text-xs text-slate-400">Chưa có nhóm thông số nào được tạo.</p>
+              <div className="text-center py-14 border-2 border-dashed border-slate-700/60 rounded-2xl space-y-4">
+                <Layers className="w-10 h-10 text-slate-600 mx-auto" />
+                <p className="text-sm text-slate-400">Chưa có nhóm thông số nào được tạo.</p>
                 <button
                   type="button"
                   onClick={handleAddGroup}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-sky-400 text-xs font-semibold rounded-xl border border-slate-700 transition-all inline-flex items-center gap-1.5"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 text-sm font-semibold rounded-xl border border-slate-700 hover:border-slate-600 transition-all duration-200"
                 >
                   <Plus className="w-4 h-4" /> Tạo nhóm thông số đầu tiên
                 </button>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {specGroups.map((group, gIdx) => (
+                  /* ── Card cho từng Nhóm thông số ── */
                   <div
                     key={group.id}
-                    className="bg-slate-950/80 border border-slate-800 rounded-xl p-4.5 space-y-3 transition-all hover:border-slate-700 shadow-md"
+                    className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 sm:p-5 transition-all duration-200 hover:border-slate-600/80 shadow-sm"
                   >
-                    {/* Header Nhóm */}
-                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                      <div className="flex-1 flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold flex items-center justify-center shrink-0">
+                    {/* ── Header Nhóm ── */}
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex-1 flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded-lg bg-violet-500/15 border border-violet-500/25 text-violet-300 text-xs font-bold flex items-center justify-center shrink-0">
                           {gIdx + 1}
                         </span>
                         <input
@@ -702,62 +706,69 @@ const ProductFormPage = () => {
                           value={group.name}
                           onChange={(e) => handleGroupChange(group.id, e.target.value)}
                           placeholder="Màn hình, Pin & Sạc, Camera..."
-                          className="w-full max-w-xs sm:max-w-md px-3 py-1.5 bg-slate-900 border border-slate-750 rounded-lg text-slate-100 font-semibold text-sm focus:outline-none focus:border-sky-500 transition-all placeholder-slate-500"
+                          className="flex-1 min-w-0 px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-100 font-semibold text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all placeholder-slate-500"
                         />
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleRemoveGroup(group.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all duration-200 shrink-0"
                         title="Xóa nhóm thông số này"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Danh sách các dòng cặp Tên thông số - Giá trị */}
-                    <div className="space-y-2 pt-1">
+                    {/* ── Danh sách dòng thông số ── */}
+                    <div className="space-y-3">
                       {group.items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2">
+                        <div
+                          key={item.id}
+                          className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
+                        >
+                          {/* Tên thông số: 4 cols */}
                           <input
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(group.id, item.id, 'name', e.target.value)}
-                            placeholder="Kích thước, RAM, Chipset..."
-                            className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
+                            placeholder="Kích thước, RAM..."
+                            className="sm:col-span-4 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all"
                           />
 
-                          <span className="text-slate-600 text-xs font-bold">:</span>
-
+                          {/* Giá trị: 7 cols */}
                           <input
                             type="text"
                             value={item.value}
                             onChange={(e) => handleItemChange(group.id, item.id, 'value', e.target.value)}
                             placeholder="6.7 inch Super Retina XDR"
-                            className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
+                            className="sm:col-span-7 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all"
                           />
 
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(group.id, item.id)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
-                            title="Xóa dòng thông số này"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Nút Xóa dòng: 1 col */}
+                          <div className="sm:col-span-1 flex justify-center sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(group.id, item.id)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all duration-200 shrink-0"
+                              title="Xóa dòng thông số này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Nút Thêm dòng trong Nhóm */}
-                    <div className="pt-1">
+                    {/* ── Nút Thêm dòng ── */}
+                    <div className="mt-3 pt-3 border-t border-slate-700/50">
                       <button
                         type="button"
                         onClick={() => handleAddItem(group.id)}
-                        className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-medium py-1 px-2.5 rounded-lg hover:bg-sky-500/10 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 py-1.5 px-3 rounded-lg hover:bg-sky-500/10 border border-transparent hover:border-sky-500/20 transition-all duration-200"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Thêm dòng thông số
+                        <Plus className="w-3.5 h-3.5" />
+                        Thêm dòng thông số
                       </button>
                     </div>
                   </div>
