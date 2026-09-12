@@ -13,4 +13,11 @@ router.post('/calculate-shipping', orderController.calculateShipping);
 // 2. POST /api/v1/orders -> Tạo đơn hàng mới
 router.post('/', orderController.createOrder);
 
+// 3. GET /api/v1/orders?tab=... -> Lấy danh sách đơn hàng theo tab
+router.get('/', orderController.getUserOrders);
+
+// 4. POST /api/v1/orders/:order_id/reorder -> Thêm toàn bộ sản phẩm thuộc đơn hàng cũ vào giỏ hàng
+router.post('/:order_id/reorder', orderController.reorder);
+router.post('/:id/reorder', orderController.reorder);
+
 module.exports = router;

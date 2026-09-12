@@ -491,7 +491,287 @@ const createOrder = async (req, res, next) => {
   }
 };
 
+/**
+ * 3. GET /api/v1/orders?tab=...
+ * Phân loại theo tab: ALL (Trả về toàn bộ 4 trạng thái), PENDING ("Chờ xác nhận"), SHIPPING ("Đang giao"), DELIVERED ("Đã giao"), CANCELLED ("Đã hủy").
+ * Trả về danh sách đơn hàng cùng chi tiết sản phẩm (chitietdonhang).
+ */
+const getUserOrders = async (req, res, next) => {
+  try {
+    const { MaNguoiDung } = req.user;
+    const rawTab = req.query.tab || 'ALL';
+    const tabParam = String(rawTab).toUpperCase().trim();
+
+    let statusFilter = null;
+    let statusArray = null;
+
+    if (tabParam === 'PENDING') {
+      statusFilter = 'Chờ xác nhận';
+    } else if (tabParam === 'SHIPPING') {
+      statusFilter = 'Đang giao';
+    } else if (tabParam === 'DELIVERED') {
+      statusArray = ['Đã giao', 'Đã hoàn thành'];
+    } else if (tabParam === 'CANCELLED' || tabParam === 'CANCELED') {
+      statusFilter = 'Đã hủy';
+    } else if (tabParam !== 'ALL') {
+      // Tìm theo chuỗi trạng thái tiếng Việt nếu được truyền trực tiếp
+      const validStatuses = ['Chờ xác nhận', 'Đang giao', 'Đã giao', 'Đã hoàn thành', 'Đã hủy'];
+      const matched = validStatuses.find((s) => s.toLowerCase() === String(rawTab).toLowerCase().trim());
+      if (matched) {
+        statusFilter = matched;
+      }
+    }
+
+    let sql = `
+      SELECT 
+        MaDonHang,
+        MaNguoiDung,
+        NgayMuaHang,
+        TrangThaiDonHang,
+        MaVoucher,
+        DiaChiGiaoHang,
+        GhiChu,
+        SoDienThoai,
+        TenNguoiNhan,
+        TongTien,
+        PhiShip,
+        SoTienGiam
+      FROM donhang
+      WHERE MaNguoiDung = ?
+    `;
+
+    const queryParams = [MaNguoiDung];
+
+    if (statusFilter) {
+      sql += ` AND TrangThaiDonHang = ?`;
+      queryParams.push(statusFilter);
+    } else if (statusArray && statusArray.length > 0) {
+      sql += ` AND TrangThaiDonHang IN (?)`;
+      queryParams.push(statusArray);
+    }
+
+    sql += ` ORDER BY NgayMuaHang DESC, MaDonHang DESC`;
+
+    const [orders] = await pool.query(sql, queryParams);
+
+    if (orders.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Lấy danh sách đơn hàng thành công',
+        data: []
+      });
+    }
+
+    // Lấy chi tiết sản phẩm cho danh sách đơn hàng
+    const orderIds = orders.map((o) => o.MaDonHang);
+    const [itemRows] = await pool.query(
+      `SELECT 
+         ct.MaChiTietDonHang,
+         ct.MaDonHang,
+         ct.MaSanPham,
+         ct.SoLuong,
+         ct.DonGia,
+         (ct.SoLuong * ct.DonGia) AS TongGia,
+         sp.TenSanPham,
+         sp.Anh,
+         sp.DungLuong,
+         sp.MauSac,
+         sp.TrangThai AS TrangThaiSanPham,
+         sp.TonKho
+       FROM chitietdonhang ct
+       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       WHERE ct.MaDonHang IN (?)
+       ORDER BY ct.MaChiTietDonHang ASC`,
+      [orderIds]
+    );
+
+    const itemsMap = new Map();
+    itemRows.forEach((item) => {
+      if (!itemsMap.has(item.MaDonHang)) {
+        itemsMap.set(item.MaDonHang, []);
+      }
+      itemsMap.get(item.MaDonHang).push({
+        MaChiTietDonHang: item.MaChiTietDonHang,
+        MaDonHang: item.MaDonHang,
+        MaSanPham: item.MaSanPham,
+        TenSanPham: item.TenSanPham || null,
+        Anh: item.Anh || null,
+        DungLuong: item.DungLuong || null,
+        MauSac: item.MauSac || null,
+        SoLuong: Number(item.SoLuong),
+        DonGia: Number(item.DonGia),
+        TongGia: Number(item.TongGia || item.SoLuong * item.DonGia),
+        TrangThaiSanPham: item.TrangThaiSanPham || null,
+        TonKho: item.TonKho !== null && item.TonKho !== undefined ? Number(item.TonKho) : 0
+      });
+    });
+
+    const formattedOrders = orders.map((order) => ({
+      MaDonHang: order.MaDonHang,
+      MaNguoiDung: order.MaNguoiDung,
+      NgayMuaHang: order.NgayMuaHang,
+      TrangThaiDonHang: order.TrangThaiDonHang,
+      MaVoucher: order.MaVoucher,
+      DiaChiGiaoHang: order.DiaChiGiaoHang,
+      GhiChu: order.GhiChu,
+      SoDienThoai: order.SoDienThoai,
+      TenNguoiNhan: order.TenNguoiNhan,
+      TongTien: Number(order.TongTien),
+      PhiShip: Number(order.PhiShip || 0),
+      SoTienGiam: Number(order.SoTienGiam || 0),
+      chitietdonhang: itemsMap.get(order.MaDonHang) || []
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách đơn hàng thành công',
+      data: formattedOrders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 4. POST /api/v1/orders/:order_id/reorder
+ * Thêm toàn bộ sản phẩm thuộc đơn hàng cũ vào bảng giohang
+ */
+const reorder = async (req, res, next) => {
+  try {
+    const { MaNguoiDung } = req.user;
+    const rawOrderId = req.params.order_id || req.params.id;
+    const orderId = parseInt(rawOrderId, 10);
+
+    if (isNaN(orderId) || orderId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã đơn hàng không hợp lệ'
+      });
+    }
+
+    // 1. Kiểm tra đơn hàng có tồn tại và thuộc về người dùng không
+    const [orderRows] = await pool.query(
+      `SELECT MaDonHang FROM donhang WHERE MaDonHang = ? AND MaNguoiDung = ?`,
+      [orderId, MaNguoiDung]
+    );
+
+    if (orderRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Đơn hàng không tồn tại hoặc bạn không có quyền truy cập'
+      });
+    }
+
+    // 2. Lấy danh sách sản phẩm từ chitietdonhang kèm thông tin sản phẩm từ bảng sanpham
+    const [items] = await pool.query(
+      `SELECT 
+         ct.MaSanPham,
+         ct.SoLuong,
+         sp.TenSanPham,
+         sp.TonKho,
+         sp.TrangThai
+       FROM chitietdonhang ct
+       JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       WHERE ct.MaDonHang = ?`,
+      [orderId]
+    );
+
+    if (items.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Đơn hàng cũ không chứa sản phẩm nào'
+      });
+    }
+
+    const addedItems = [];
+    const skippedItems = [];
+
+    // 3. Thêm từng sản phẩm vào bảng giohang
+    for (const item of items) {
+      const maSanPham = item.MaSanPham;
+      const orderQty = Number(item.SoLuong);
+      const tonKho = Number(item.TonKho);
+
+      // Nếu sản phẩm bị ngừng kinh doanh hoặc hết hàng
+      if (item.TrangThai === 'NgungBan' || tonKho <= 0) {
+        skippedItems.push({
+          MaSanPham: maSanPham,
+          TenSanPham: item.TenSanPham,
+          reason: item.TrangThai === 'NgungBan' ? 'Ngừng kinh doanh' : 'Hết hàng'
+        });
+        continue;
+      }
+
+      // Kiểm tra sản phẩm đã có trong giỏ hàng của user chưa
+      const [cartRows] = await pool.query(
+        `SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?`,
+        [MaNguoiDung, maSanPham]
+      );
+
+      if (cartRows.length > 0) {
+        const currentQty = Number(cartRows[0].SoLuong);
+        let newQty = currentQty + orderQty;
+        if (newQty > tonKho) {
+          newQty = tonKho;
+        }
+
+        await pool.query(
+          `UPDATE giohang SET SoLuong = ? WHERE MaGioHang = ?`,
+          [newQty, cartRows[0].MaGioHang]
+        );
+
+        addedItems.push({
+          MaGioHang: cartRows[0].MaGioHang,
+          MaSanPham: maSanPham,
+          TenSanPham: item.TenSanPham,
+          SoLuong: newQty,
+          TonKho: tonKho
+        });
+      } else {
+        const qtyToAdd = Math.min(orderQty, tonKho);
+        if (qtyToAdd > 0) {
+          const [insertResult] = await pool.query(
+            `INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong) VALUES (?, ?, ?)`,
+            [MaNguoiDung, maSanPham, qtyToAdd]
+          );
+
+          addedItems.push({
+            MaGioHang: insertResult.insertId,
+            MaSanPham: maSanPham,
+            TenSanPham: item.TenSanPham,
+            SoLuong: qtyToAdd,
+            TonKho: tonKho
+          });
+        }
+      }
+    }
+
+    if (addedItems.length === 0 && skippedItems.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tất cả sản phẩm thuộc đơn hàng cũ đã hết hàng hoặc ngừng kinh doanh',
+        data: { skippedItems }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Thêm toàn bộ sản phẩm thuộc đơn hàng cũ vào giỏ hàng thành công',
+      data: {
+        order_id: orderId,
+        addedItems,
+        skippedItems
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   calculateShipping,
-  createOrder
+  createOrder,
+  getUserOrders,
+  reorder
 };
+
