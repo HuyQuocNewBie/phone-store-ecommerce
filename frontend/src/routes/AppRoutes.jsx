@@ -20,6 +20,7 @@ import VoucherFormPage from '../pages/admin/vouchers/VoucherFormPage';
 import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 import HomePage from '../pages/user/HomePage';
+import CatalogPage from '../pages/user/CatalogPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -29,6 +30,7 @@ const AppRoutes = () => {
     <Routes>
       {/* ── Public Routes ── */}
       <Route path="/" element={<HomePage />} />
+      <Route path="/products" element={<CatalogPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/404" element={<NotFoundPage />} />
 

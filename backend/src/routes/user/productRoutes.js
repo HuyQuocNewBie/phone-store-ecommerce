@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../../controllers/user/productController');
 
+// 0. GET /api/v1/products/categories -> Trả về danh sách loại sản phẩm
+router.get('/categories', productController.getCategories);
+
 // 1. GET /api/v1/products -> Trả về danh sách sản phẩm phân trang (kèm bộ lọc & sắp xếp)
 router.get('/', productController.getProducts);
 

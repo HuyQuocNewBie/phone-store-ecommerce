@@ -1,6 +1,25 @@
 const { pool } = require('../../../config/db');
 
 /**
+ * 0. GET /api/v1/products/categories
+ * Trả về danh sách loại sản phẩm dành cho khách hàng
+ */
+const getCategories = async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT MaLoaiSanPham, TenLoaiSanPham FROM loaisanpham ORDER BY MaLoaiSanPham ASC`
+    );
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách loại sản phẩm thành công',
+      data: rows
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * 1. GET /api/v1/products
  * Trả về danh sách sản phẩm phân trang dành cho khách hàng
  * Query Params:
@@ -9,19 +28,27 @@ const { pool } = require('../../../config/db');
  * - category_id: Lọc theo mã loại sản phẩm (MaLoaiSanPham)
  * - price_min: Lọc khoảng giá từ price_min
  * - price_max: Lọc khoảng giá đến price_max
- * - rom: Lọc bộ nhớ trong qua bảng thongsokythuat (dùng EXISTS tránh lặp trùng)
+ * - rom: Lọc bộ nhớ trong (chuỗi/mảng phân tách bằng dấu phẩy: 128GB,256GB)
  * - sort_by: price_asc (giá tăng dần) hoặc price_desc (giá giảm dần)
+ * - search: Từ khóa tìm kiếm tên/mô tả sản phẩm
  */
 const getProducts = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 12);
     const offset = (page - 1) * limit;
 
-    const { category_id, price_min, price_max, rom, sort_by } = req.query;
+    const { category_id, price_min, price_max, rom, sort_by, search, q } = req.query;
 
     const whereClauses = ["TrangThai = 'DangBan'"];
     const queryParams = [];
+
+    // Lọc theo từ khóa tìm kiếm (search / q)
+    const searchQuery = (search || q || '').trim();
+    if (searchQuery) {
+      whereClauses.push('(TenSanPham LIKE ? OR MoTa LIKE ?)');
+      queryParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
+    }
 
     // Lọc theo loại sản phẩm (MaLoaiSanPham)
     if (category_id !== undefined && category_id !== '') {
@@ -49,18 +76,27 @@ const getProducts = async (req, res, next) => {
       }
     }
 
-    // Lọc theo ROM bộ nhớ trong qua thongsokythuat (dùng subquery EXISTS để tránh trùng lặp bản ghi)
+    // Lọc theo ROM bộ nhớ trong (hỗ trợ dạng mảng hoặc chuỗi phân tách bằng dấu phẩy e.g. 128GB,256GB)
     if (rom !== undefined && String(rom).trim() !== '') {
-      const romValue = `%${String(rom).trim()}%`;
-      whereClauses.push(`
-        EXISTS (
-          SELECT 1 FROM thongsokythuat tskt
-          WHERE tskt.MaSanPham = sanpham.MaSanPham
-            AND (tskt.TenThongSo = 'ROM' OR tskt.NhomThongSo LIKE '%ROM%' OR tskt.TenThongSo LIKE '%Bộ nhớ trong%')
-            AND tskt.GiaTri LIKE ?
-        )
-      `);
-      queryParams.push(romValue);
+      const romList = Array.isArray(rom)
+        ? rom
+        : String(rom).split(',').map((r) => r.trim()).filter(Boolean);
+
+      if (romList.length > 0) {
+        const romConditions = romList.map(() => `
+          (sanpham.DungLuong LIKE ? OR EXISTS (
+            SELECT 1 FROM thongsokythuat tskt
+            WHERE tskt.MaSanPham = sanpham.MaSanPham
+              AND (tskt.TenThongSo = 'ROM' OR tskt.NhomThongSo LIKE '%ROM%' OR tskt.TenThongSo LIKE '%Bộ nhớ trong%')
+              AND tskt.GiaTri LIKE ?
+          ))
+        `).join(' OR ');
+
+        whereClauses.push(`(${romConditions})`);
+        romList.forEach((r) => {
+          queryParams.push(`%${r}%`, `%${r}%`);
+        });
+      }
     }
 
     const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -196,6 +232,7 @@ const getProductById = async (req, res, next) => {
 };
 
 module.exports = {
+  getCategories,
   getProducts,
   getProductById
 };
