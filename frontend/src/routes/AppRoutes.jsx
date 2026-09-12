@@ -19,6 +19,8 @@ import VoucherListPage from '../pages/admin/vouchers/VoucherListPage';
 import VoucherFormPage from '../pages/admin/vouchers/VoucherFormPage';
 import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
+import HomePage from '../pages/user/HomePage';
+
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
  */
@@ -26,6 +28,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* ── Public Routes ── */}
+      <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/404" element={<NotFoundPage />} />
 
@@ -69,7 +72,6 @@ const AppRoutes = () => {
       </Route>
 
       {/* ── Fallback Routes ── */}
-      <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
   );
