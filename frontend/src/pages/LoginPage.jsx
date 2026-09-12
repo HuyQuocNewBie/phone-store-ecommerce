@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import {
   Loader2, Eye, EyeOff, AlertCircle,
   Smartphone, ShieldCheck, BarChart3,
-  Package, ShoppingCart, Users,
+  Package, ShoppingCart, Users, Lock,
 } from 'lucide-react';
 
 // ─── Feature list for branding panel ─────────────────────────────────────────
@@ -27,6 +27,37 @@ const LoginPage = () => {
   const [touched, setTouched]   = useState({ TaiKhoan: false, MatKhau: false });
   const [shake, setShake]       = useState(false);
 
+  // Rate Limiting States
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+
+  // Kiểm tra trạng thái khóa từ localStorage khi mount & định kỳ
+  useEffect(() => {
+    const checkLockout = () => {
+      const storedUntil = localStorage.getItem('login_lockout_until');
+      if (storedUntil) {
+        const until = parseInt(storedUntil, 10);
+        const now = Date.now();
+        if (now < until) {
+          setIsLocked(true);
+          setLockoutRemaining(Math.ceil((until - now) / 1000));
+        } else {
+          setIsLocked(false);
+          setLockoutRemaining(0);
+          localStorage.removeItem('login_lockout_until');
+          localStorage.removeItem('login_failed_attempts');
+        }
+      } else {
+        setIsLocked(false);
+        setLockoutRemaining(0);
+      }
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Redirect nếu đã đăng nhập
   if (isAuthenticated) {
     const dest = user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
@@ -43,6 +74,16 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isLocked) {
+      const minutes = Math.floor(lockoutRemaining / 60);
+      const seconds = lockoutRemaining % 60;
+      const msg = `Tài khoản tạm thời bị khóa. Vui lòng thử lại sau ${minutes} phút ${seconds} giây.`;
+      setLocalErr(msg);
+      toast.error(msg, { id: 'login-toast' });
+      return;
+    }
+
     setTouched({ TaiKhoan: true, MatKhau: true });
     setLocalErr(null);
 
@@ -56,16 +97,44 @@ const LoginPage = () => {
     const result = await login(form.TaiKhoan.trim(), form.MatKhau);
 
     if (result.success) {
+      // Xóa bộ đếm sai khi đăng nhập thành công
+      localStorage.removeItem('login_failed_attempts');
+      localStorage.removeItem('login_lockout_until');
       toast.success('Đăng nhập thành công! Đang chuyển hướng...', { id: 'login-toast' });
       const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
       navigate(dest, { replace: true });
     } else {
-      const errMsg = result.message || 'Tài khoản hoặc mật khẩu không chính xác';
-      setLocalErr(errMsg);
-      toast.error(errMsg, { id: 'login-toast' });
+      // Tăng số lần nhập sai
+      const storedAttempts = parseInt(localStorage.getItem('login_failed_attempts') || '0', 10);
+      const newAttempts = storedAttempts + 1;
+
+      if (newAttempts >= 3) {
+        // Khóa 5 phút (300,000 ms)
+        const lockoutTime = Date.now() + 5 * 60 * 1000;
+        localStorage.setItem('login_lockout_until', lockoutTime.toString());
+        localStorage.removeItem('login_failed_attempts');
+        setIsLocked(true);
+        setLockoutRemaining(300);
+
+        const lockMsg = 'Đã nhập sai 3 lần liên tiếp. Nút đăng nhập đã bị khóa 5 phút.';
+        setLocalErr(lockMsg);
+        toast.error(lockMsg, { id: 'login-toast', duration: 5000 });
+      } else {
+        localStorage.setItem('login_failed_attempts', newAttempts.toString());
+        const errMsg = `${result.message || 'Tài khoản hoặc mật khẩu không chính xác'} (Nhập sai ${newAttempts}/3 lần)`;
+        setLocalErr(errMsg);
+        toast.error(errMsg, { id: 'login-toast' });
+      }
+
       setShake(true);
       setTimeout(() => setShake(false), 600);
     }
+  };
+
+  const formatLockTime = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   const displayError   = localErr || error;
@@ -176,7 +245,7 @@ const LoginPage = () => {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   placeholder="Tên tài khoản hoặc email..."
-                  disabled={loading}
+                  disabled={loading || isLocked}
                   required
                   className={`w-full px-4 py-3 rounded-xl bg-slate-800/60 border text-slate-100 placeholder-slate-500
                     focus:outline-none focus:ring-2 transition-all duration-200
@@ -209,7 +278,7 @@ const LoginPage = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="Nhập mật khẩu..."
-                    disabled={loading}
+                    disabled={loading || isLocked}
                     required
                     className={`w-full px-4 py-3 pr-12 rounded-xl bg-slate-800/60 border text-slate-100 placeholder-slate-500
                       focus:outline-none focus:ring-2 transition-all duration-200
@@ -224,8 +293,9 @@ const LoginPage = () => {
                     id="btn-toggle-password"
                     onClick={() => setShowPw((v) => !v)}
                     tabIndex={-1}
+                    disabled={loading || isLocked}
                     aria-label={showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
                   >
                     {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
@@ -239,17 +309,22 @@ const LoginPage = () => {
               <button
                 id="btn-login"
                 type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold text-white text-sm
-                  bg-gradient-to-r from-sky-500 to-violet-600
-                  hover:from-sky-400 hover:to-violet-500
-                  active:scale-[0.98]
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  transition-all duration-200
-                  shadow-lg shadow-sky-500/20
-                  focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                disabled={loading || isLocked}
+                className={`w-full py-3 rounded-xl font-semibold text-white text-sm
+                  transition-all duration-200 shadow-lg focus:outline-none focus:ring-2
+                  ${
+                    isLocked
+                      ? 'bg-slate-800 border border-red-500/40 text-red-400 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 active:scale-[0.98] shadow-sky-500/20 focus:ring-sky-500/50'
+                  }
+                  disabled:opacity-60 disabled:cursor-not-allowed`}
               >
-                {loading ? (
+                {isLocked ? (
+                  <span className="flex items-center justify-center gap-2 text-red-400 font-medium">
+                    <Lock size={17} />
+                    Nút đã bị khóa ({formatLockTime(lockoutRemaining)})
+                  </span>
+                ) : loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 size={17} className="animate-spin" />
                     Đang đăng nhập...

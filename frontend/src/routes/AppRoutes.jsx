@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
+import UserProtectedRoute from '../components/user/UserProtectedRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import LoginPage from '../pages/LoginPage';
+import NotFoundPage from '../pages/NotFoundPage';
 import DashboardPage from '../pages/admin/dashboard/DashboardPage';
 import ProductListPage from '../pages/admin/products/ProductListPage';
 import ProductFormPage from '../pages/admin/products/ProductFormPage';
@@ -19,29 +21,20 @@ import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
- *
- * Cấu trúc route:
- *  /login                  → LoginPage (public)
- *  /admin                  → AdminRoute (yêu cầu MaVaiTro === 1)
- *    /admin/dashboard      → DashboardPage
- *    /admin/products       → ProductManagementPage
- *    /admin/users          → UserManagementPage
- *    /admin/users/:id/edit → UserEditPage
- *    /admin/categories     → CategoryManagementPage
- *    /admin/manufacturers  → ManufacturerManagementPage
- *    /admin/inventory      → InventoryPage
- *    /admin/orders         → OrderPage
- *    /admin/vouchers       → VoucherPage
- *    /admin/analytics      → AnalyticsPage
- *    /admin/*              → redirect về dashboard
- *  /                       → redirect về /admin/dashboard
- *  /*                      → redirect về /admin/dashboard
  */
 const AppRoutes = () => {
   return (
     <Routes>
       {/* ── Public Routes ── */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/404" element={<NotFoundPage />} />
+
+      {/* ── User Protected Routes ── */}
+      <Route element={<UserProtectedRoute />}>
+        <Route path="/cart" element={<div className="p-8 text-white">Trang giỏ hàng (Cart)</div>} />
+        <Route path="/checkout" element={<div className="p-8 text-white">Trang thanh toán (Checkout)</div>} />
+        <Route path="/orders" element={<div className="p-8 text-white">Lịch sử đơn hàng (Orders)</div>} />
+      </Route>
 
       {/* ── Admin Routes (Protected) ── */}
       <Route
@@ -72,12 +65,12 @@ const AppRoutes = () => {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="statistics" element={<Navigate to="../analytics" replace />} />
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/404" replace />} />
       </Route>
 
       {/* ── Fallback Routes ── */}
       <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
   );
 };

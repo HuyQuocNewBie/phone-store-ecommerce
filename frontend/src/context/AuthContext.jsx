@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import useIdleTimer from '../hooks/useIdleTimer';
 
 const AuthContext = createContext(null);
 
@@ -19,6 +20,24 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const isAuthenticated = !!token && !!user;
+
+  // Tự động đăng xuất sau 10 phút không tương tác nếu đã đăng nhập
+  useIdleTimer({
+    timeout: 10 * 60 * 1000,
+    enabled: isAuthenticated,
+    onIdle: () => {
+      setUser(null);
+      setToken(null);
+      setError(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    },
+  });
 
   // Đồng bộ token vào axios default header khi state thay đổi
   useEffect(() => {
