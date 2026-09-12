@@ -21,6 +21,7 @@ import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 import HomePage from '../pages/user/HomePage';
 import CatalogPage from '../pages/user/CatalogPage';
+import ProductDetailPage from '../pages/user/ProductDetailPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -31,6 +32,7 @@ const AppRoutes = () => {
       {/* ── Public Routes ── */}
       <Route path="/" element={<HomePage />} />
       <Route path="/products" element={<CatalogPage />} />
+      <Route path="/products/:id" element={<ProductDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/404" element={<NotFoundPage />} />
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 import {
   Loader2, Eye, EyeOff, AlertCircle,
   Smartphone, ShieldCheck, BarChart3,
@@ -100,9 +101,40 @@ const LoginPage = () => {
       // Xóa bộ đếm sai khi đăng nhập thành công
       localStorage.removeItem('login_failed_attempts');
       localStorage.removeItem('login_lockout_until');
-      toast.success('Đăng nhập thành công! Đang chuyển hướng...', { id: 'login-toast' });
-      const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
-      navigate(dest, { replace: true });
+
+      // ── Xử lý Cart/Buy Intent từ sessionStorage (nếu có) ──
+      const intentRaw = sessionStorage.getItem('cart_action_intent');
+      if (intentRaw) {
+        try {
+          const intent = JSON.parse(intentRaw);
+          sessionStorage.removeItem('cart_action_intent');
+
+          // Thêm vào giỏ hàng
+          await api.post('/cart/items', {
+            MaSanPham: intent.product_id,
+            SoLuong: intent.quantity || 1,
+          });
+
+          if (intent.action_type === 'buy_now') {
+            toast.success('Đăng nhập thành công! Đang chuyển đến thanh toán...', { id: 'login-toast' });
+            navigate('/checkout', { replace: true });
+          } else {
+            toast.success(
+              `Đăng nhập thành công! Đã thêm "${intent.product_name || 'sản phẩm'}" vào giỏ hàng.`,
+              { id: 'login-toast', duration: 4000 }
+            );
+            navigate(intent.redirect_back || '/', { replace: true });
+          }
+        } catch {
+          toast.success('Đăng nhập thành công!', { id: 'login-toast' });
+          const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
+          navigate(dest, { replace: true });
+        }
+      } else {
+        toast.success('Đăng nhập thành công! Đang chuyển hướng...', { id: 'login-toast' });
+        const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
+        navigate(dest, { replace: true });
+      }
     } else {
       // Tăng số lần nhập sai
       const storedAttempts = parseInt(localStorage.getItem('login_failed_attempts') || '0', 10);
