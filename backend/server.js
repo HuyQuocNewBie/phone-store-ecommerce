@@ -17,11 +17,12 @@ app.use(express.urlencoded({ extended: true }));
 
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/admin/index');
+const userProductRoutes = require('./src/routes/user/productRoutes');
 
 // Basic status route
 app.get('/', (req, res) => {
   res.json({
-    message: 'Phone Store E-commerce API is running',
+    message: 'SmartZone E-commerce API is running',
     status: 'OK'
   });
 });
@@ -29,6 +30,7 @@ app.get('/', (req, res) => {
 // API v1 routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/products', userProductRoutes);
 
 // Centralized error handling middleware
 app.use(errorHandler);
