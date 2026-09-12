@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, verifyAdmin } = require('../../middlewares/authMiddleware');
+const { verifyRole } = require('../../middlewares/authMiddleware');
 
 const dashboardRoutes = require('./dashboardRoutes');
 const productRoutes = require('./productRoutes');
@@ -12,8 +12,8 @@ const manufacturerRoutes = require('./manufacturerRoutes');
 const voucherRoutes = require('./voucherRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
 
-// Áp dụng middleware xác thực token & kiểm tra quyền Admin cho tất cả route Admin
-router.use(verifyToken, verifyAdmin);
+// Áp dụng middleware verifyRole bọc toàn bộ các tuyến đường Admin (quyền Admin: MaVaiTro = 1)
+router.use(verifyRole(1, 'Admin'));
 
 // Đăng ký các route con Admin
 router.use('/dashboard', dashboardRoutes);

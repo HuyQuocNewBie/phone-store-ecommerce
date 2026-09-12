@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const authRoutes = require('./src/routes/authRoutes');
-const adminRoutes = require('./routes/admin/index');
+const adminRoutes = require('./src/routes/admin/index');
 
 // Basic status route
 app.get('/', (req, res) => {
