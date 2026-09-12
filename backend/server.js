@@ -19,6 +19,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/admin/index');
 const userProductRoutes = require('./src/routes/user/productRoutes');
 const userSearchRoutes = require('./src/routes/user/searchRoutes');
+const userCartRoutes = require('./src/routes/user/cartRoutes');
 
 // Basic status route
 app.get('/', (req, res) => {
@@ -33,6 +34,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/products', userProductRoutes);
 app.use('/api/v1/search', userSearchRoutes);
+app.use('/api/v1/cart', userCartRoutes);
 
 // Centralized error handling middleware
 app.use(errorHandler);
