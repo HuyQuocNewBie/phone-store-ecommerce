@@ -38,12 +38,21 @@ const ProductFormPage = () => {
   // ─── Form Fields State ──────────────────────────────────────────────────────
   const [tenSanPham, setTenSanPham] = useState('');
   const [gia, setGia] = useState('');
+  const [moTa, setMoTa] = useState('');
+  const [maLoaiSanPham, setMaLoaiSanPham] = useState('');
+  const [maNhaSanXuat, setMaNhaSanXuat] = useState('');
+  const [dungLuong, setDungLuong] = useState('');
+  const [mauSac, setMauSac] = useState('');
   const [imageMode, setImageMode] = useState('file'); // 'file' | 'url'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [initialImage, setInitialImage] = useState('');
   const [imageLoadError, setImageLoadError] = useState(false);
+
+  // ─── Categories & Manufacturers for Select Dropdowns ────────────────────────
+  const [categories, setCategories] = useState([]);
+  const [manufacturers, setManufacturers] = useState([]);
 
   // ─── Dynamic Specs Groups State ─────────────────────────────────────────────
   const [specGroups, setSpecGroups] = useState([]);
@@ -61,6 +70,23 @@ const ProductFormPage = () => {
       setIsDirty(true);
     }
   };
+
+  // ─── Fetch danh sách Categories & Manufacturers ──────────────────────────────
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const [catRes, mfRes] = await Promise.all([
+          api.get('/admin/categories'),
+          api.get('/admin/manufacturers')
+        ]);
+        if (catRes.data?.success) setCategories(catRes.data.data || []);
+        if (mfRes.data?.success) setManufacturers(mfRes.data.data || []);
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách loại SP / nhà sản xuất:', err);
+      }
+    };
+    fetchDropdownData();
+  }, []);
 
   // ─── Unsaved Changes Guard: window beforeunload listener ────────────────────
   useEffect(() => {
@@ -148,6 +174,11 @@ const ProductFormPage = () => {
           const product = res.data.data;
           setTenSanPham(product.TenSanPham || '');
           setGia(product.Gia !== undefined ? String(product.Gia) : '');
+          setMoTa(product.MoTa || '');
+          setMaLoaiSanPham(product.MaLoaiSanPham ? String(product.MaLoaiSanPham) : '');
+          setMaNhaSanXuat(product.MaNhaSanXuat ? String(product.MaNhaSanXuat) : '');
+          setDungLuong(product.DungLuong || '');
+          setMauSac(product.MauSac || '');
 
           const existingImg = product.Anh || '';
           setInitialImage(existingImg);
@@ -397,6 +428,11 @@ const ProductFormPage = () => {
       if (!isEditMode) {
         formData.append('TonKho', '0');
       }
+      formData.append('MoTa', moTa);
+      if (maLoaiSanPham) formData.append('MaLoaiSanPham', maLoaiSanPham);
+      if (maNhaSanXuat) formData.append('MaNhaSanXuat', maNhaSanXuat);
+      formData.append('DungLuong', dungLuong);
+      formData.append('MauSac', mauSac);
 
       if (imageFile) {
         formData.append('file', imageFile);
@@ -409,55 +445,34 @@ const ProductFormPage = () => {
 
       formData.append('thongsokythuat', JSON.stringify(flatSpecs));
 
-      const savePromise = (async () => {
-        let res;
-        if (isEditMode) {
-          res = await api.put(`/admin/products/${id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        } else {
-          res = await api.post('/admin/products', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        }
+      let res;
+      if (isEditMode) {
+        res = await api.put(`/admin/products/${id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        res = await api.post('/admin/products', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
 
-        if (!res.data?.success) {
-          throw new Error(res.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.');
-        }
-        return res.data;
-      })();
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.');
+      }
 
-      toast.promise(
-        savePromise,
-        {
-          loading: isEditMode ? 'Đang cập nhật sản phẩm & tải ảnh...' : 'Đang lưu sản phẩm mới & tải ảnh...',
-          success: () => {
-            setIsDirty(false);
-            const successMsg = isEditMode
-              ? `Cập nhật sản phẩm "${tenSanPham.trim()}" thành công!`
-              : `Thêm sản phẩm mới "${tenSanPham.trim()}" thành công!`;
-            navigate('/admin/products', {
-              state: {
-                toast: {
-                  type: 'success',
-                  message: successMsg
-                }
-              }
-            });
-            return successMsg;
-          },
-          error: (err) => {
-            const msg = err.message || err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.';
-            setSubmitError(msg);
-            return msg;
-          }
-        },
-        { id: 'product-save-toast' }
-      );
+      // Chỉ 1 toast duy nhất tại đây
+      const successMsg = isEditMode
+        ? `Cập nhật sản phẩm "${tenSanPham.trim()}" thành công!`
+        : `Thêm sản phẩm mới "${tenSanPham.trim()}" thành công!`;
+      toast.success(successMsg, { id: 'product-save-toast', duration: 3000 });
 
-      await savePromise;
+      setIsDirty(false);
+      navigate('/admin/products');
     } catch (err) {
       console.error('Lỗi khi lưu sản phẩm:', err);
+      const msg = err.response?.data?.message || err.message || 'Có lỗi xảy ra khi lưu sản phẩm.';
+      setSubmitError(msg);
+      toast.error(msg, { id: 'product-save-toast' });
     } finally {
       setIsSubmitting(false);
     }
@@ -622,6 +637,92 @@ const ProductFormPage = () => {
               {errors.gia && (
                 <p className="mt-1 text-xs text-rose-400 font-medium">{errors.gia}</p>
               )}
+            </div>
+
+            {/* Loại sản phẩm & Nhà sản xuất (2 cols) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Loại sản phẩm */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Loại sản phẩm
+                </label>
+                <select
+                  value={maLoaiSanPham}
+                  onChange={(e) => { setMaLoaiSanPham(e.target.value); markDirty(); }}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">-- Chọn loại sản phẩm --</option>
+                  {categories.map((cat) => (
+                    <option key={cat.MaLoaiSanPham} value={String(cat.MaLoaiSanPham)}>
+                      {cat.TenLoaiSanPham}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Nhà sản xuất */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Nhà sản xuất
+                </label>
+                <select
+                  value={maNhaSanXuat}
+                  onChange={(e) => { setMaNhaSanXuat(e.target.value); markDirty(); }}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">-- Chọn nhà sản xuất --</option>
+                  {manufacturers.map((mf) => (
+                    <option key={mf.MaNhaSanXuat} value={String(mf.MaNhaSanXuat)}>
+                      {mf.TenNhaSanXuat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Dung lượng & Màu sắc (2 cols) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Dung lượng */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Dung lượng
+                </label>
+                <input
+                  type="text"
+                  value={dungLuong}
+                  onChange={(e) => { setDungLuong(e.target.value); markDirty(); }}
+                  placeholder="128GB, 256GB, 512GB..."
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                />
+              </div>
+
+              {/* Màu sắc */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Màu sắc
+                </label>
+                <input
+                  type="text"
+                  value={mauSac}
+                  onChange={(e) => { setMauSac(e.target.value); markDirty(); }}
+                  placeholder="Đen Titan, Trắng Titan..."
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Mô tả sản phẩm */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Mô tả sản phẩm
+              </label>
+              <textarea
+                value={moTa}
+                onChange={(e) => { setMoTa(e.target.value); markDirty(); }}
+                placeholder="Mô tả chi tiết về sản phẩm, tính năng nổi bật..."
+                rows={4}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all resize-y"
+              />
             </div>
           </div>
 
@@ -854,12 +955,12 @@ const ProductFormPage = () => {
                           />
 
                           {/* Giá trị: 7 cols */}
-                          <input
-                            type="text"
+                          <textarea
                             value={item.value}
                             onChange={(e) => handleItemChange(group.id, item.id, 'value', e.target.value)}
                             placeholder="6.7 inch Super Retina XDR"
-                            className="sm:col-span-7 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all"
+                            rows={2}
+                            className="sm:col-span-7 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all resize-none"
                           />
 
                           {/* Nút Xóa dòng: 1 col */}
