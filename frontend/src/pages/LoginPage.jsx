@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -21,12 +21,24 @@ const FEATURES = [
 const LoginPage = () => {
   const { login, loading, error, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm]         = useState({ TaiKhoan: '', MatKhau: '' });
   const [showPw, setShowPw]     = useState(false);
   const [localErr, setLocalErr] = useState(null);
+  const [successBanner, setSuccessBanner] = useState('');
   const [touched, setTouched]   = useState({ TaiKhoan: false, MatKhau: false });
   const [shake, setShake]       = useState(false);
+
+  // Điền sẵn tài khoản khi chuyển hướng từ màn Đăng ký / Xác thực OTP
+  useEffect(() => {
+    if (location.state?.registeredAccount) {
+      setForm((prev) => ({ ...prev, TaiKhoan: location.state.registeredAccount }));
+      if (location.state?.message) {
+        setSuccessBanner(location.state.message);
+      }
+    }
+  }, [location.state]);
 
   // Rate Limiting States
   const [isLocked, setIsLocked] = useState(false);
@@ -239,6 +251,17 @@ const LoginPage = () => {
             Nhập thông tin tài khoản để truy cập hệ thống
           </p>
 
+          {/* ── Success Banner (sau khi verify OTP từ /register chuyển sang) ── */}
+          {successBanner && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 px-4 py-3 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm"
+            >
+              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{successBanner}</span>
+            </div>
+          )}
+
           {/* ── Error Banner ── */}
           {displayError && (
             <div
@@ -365,6 +388,17 @@ const LoginPage = () => {
                   'Đăng nhập'
                 )}
               </button>
+
+              {/* ── Link điều hướng sang trang Đăng ký ── */}
+              <div className="pt-2 text-center text-xs text-slate-400">
+                <span>Chưa có tài khoản? </span>
+                <Link
+                  to="/register"
+                  className="font-bold text-sky-400 hover:text-sky-300 transition-colors underline underline-offset-4"
+                >
+                  Đăng ký ngay
+                </Link>
+              </div>
             </div>
           </form>
 

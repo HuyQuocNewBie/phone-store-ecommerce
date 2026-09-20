@@ -27,6 +27,8 @@ import CheckoutPage from '../pages/user/CheckoutPage';
 import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
 import OrderHistoryPage from '../pages/user/OrderHistoryPage';
 
+import RegisterPage from '../pages/user/RegisterPage';
+
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
  */
@@ -38,6 +40,7 @@ const AppRoutes = () => {
       <Route path="/products" element={<CatalogPage />} />
       <Route path="/products/:id" element={<ProductDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/404" element={<NotFoundPage />} />
 
       {/* ── User Protected Routes ── */}
