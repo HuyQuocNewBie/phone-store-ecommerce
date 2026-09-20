@@ -7,6 +7,7 @@ const { verifyToken } = require('../../middlewares/authMiddleware');
 router.use(verifyToken);
 
 // 1. POST /api/v1/shipping/calculate (hoặc /api/v1/orders/shipping/calculate)
+router.post('/calculate', orderController.calculateShipping);
 router.post('/shipping/calculate', orderController.calculateShipping);
 router.post('/calculate-shipping', orderController.calculateShipping);
 

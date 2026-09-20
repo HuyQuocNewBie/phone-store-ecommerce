@@ -180,7 +180,12 @@ const CartPage = () => {
   /* ── Đặt hàng ───────────────────────────── */
   const handleCheckout = () => {
     if (selectedItems.length === 0) return;
-    navigate('/checkout');
+    navigate('/checkout', {
+      state: {
+        items: selectedItems,
+        voucher: appliedVoucher,
+      },
+    });
   };
 
   /* ── Trạng thái Nút Xóa ─────────────────── */

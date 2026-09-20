@@ -23,6 +23,8 @@ import HomePage from '../pages/user/HomePage';
 import CatalogPage from '../pages/user/CatalogPage';
 import ProductDetailPage from '../pages/user/ProductDetailPage';
 import CartPage from '../pages/user/CartPage';
+import CheckoutPage from '../pages/user/CheckoutPage';
+import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -40,7 +42,8 @@ const AppRoutes = () => {
       {/* ── User Protected Routes ── */}
       <Route element={<UserProtectedRoute />}>
         <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<div className="p-8 text-white">Trang thanh toán (Checkout)</div>} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
         <Route path="/orders" element={<div className="p-8 text-white">Lịch sử đơn hàng (Orders)</div>} />
       </Route>
 
