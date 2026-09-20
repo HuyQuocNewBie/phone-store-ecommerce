@@ -23,46 +23,6 @@ import DeleteConfirmModal from '../../components/user/DeleteConfirmModal';
 import api from '../../services/api';
 
 /* ─────────────────────────────────────────────
-   Dữ liệu giỏ hàng giả lập (Mock) — Thay bằng
-   API thực khi backend hoàn thiện
-───────────────────────────────────────────── */
-const MOCK_CART = [
-  {
-    id: 'cart-1',
-    MaSanPham: 1,
-    TenSanPham: 'iPhone 15 Pro Max 256GB – Titan Tự Nhiên',
-    MauSac: 'Titan Tự Nhiên',
-    DungLuong: '256GB',
-    Gia: 29990000,
-    SoLuong: 1,
-    TonKho: 10,
-    Anh: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'cart-2',
-    MaSanPham: 2,
-    TenSanPham: 'Samsung Galaxy S24 Ultra 512GB',
-    MauSac: 'Titanium Black',
-    DungLuong: '512GB',
-    Gia: 26990000,
-    SoLuong: 2,
-    TonKho: 5,
-    Anh: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'cart-3',
-    MaSanPham: 3,
-    TenSanPham: 'Xiaomi 14 Ultra Leica 512GB',
-    MauSac: 'Trắng',
-    DungLuong: '512GB',
-    Gia: 24490000,
-    SoLuong: 1,
-    TonKho: 3,
-    Anh: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=400&auto=format&fit=crop&q=80',
-  },
-];
-
-/* ─────────────────────────────────────────────
    Helper: Định dạng giá VNĐ
 ───────────────────────────────────────────── */
 const formatVND = (price) =>
@@ -75,7 +35,9 @@ const CartPage = () => {
   const navigate = useNavigate();
 
   // ── State ──────────────────────────────────
-  const [cartItems, setCartItems]           = useState(MOCK_CART);
+  const [cartItems, setCartItems]           = useState([]);
+  const [availableVouchers, setAvailableVouchers] = useState([]);
+  const [isLoading, setIsLoading]           = useState(true);
   const [selectedIds, setSelectedIds]       = useState([]);   // Danh sách id đã tích checkbox
   const [voucherCode, setVoucherCode]       = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
@@ -84,6 +46,38 @@ const CartPage = () => {
   // Modal state
   const [modalOpen, setModalOpen]           = useState(false);
   const [modalTarget, setModalTarget]       = useState(null); // null = xóa các mục đã chọn; id string = xóa 1 item
+
+  useEffect(() => {
+    fetchCart();
+    fetchVouchers();
+  }, []);
+
+  const fetchCart = async () => {
+    try {
+      const res = await api.get('/cart');
+      if (res.data.success) {
+        setCartItems(res.data.data.map(item => ({
+          ...item,
+          id: item.MaGioHang // map MaGioHang to id for existing logic
+        })));
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchVouchers = async () => {
+    try {
+      const res = await api.get('/admin/vouchers');
+      if (res.data.success) {
+        setAvailableVouchers(res.data.data.filter(v => v.TrangThai === 'HoatDong' || !v.TrangThai));
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy voucher', error);
+    }
+  };
 
   const isEmpty = cartItems.length === 0;
 
@@ -106,69 +100,81 @@ const CartPage = () => {
   };
 
   /* ── Cập nhật số lượng ──────────────────── */
-  const handleQtyChange = (id, delta) => {
-    setCartItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const newQty = Math.max(1, Math.min(item.TonKho, item.SoLuong + delta));
-        return { ...item, SoLuong: newQty };
-      })
-    );
+  const handleQtyChange = async (id, delta) => {
+    const item = cartItems.find((x) => x.id === id);
+    if (!item) return;
+
+    const newQty = Math.max(1, Math.min(item.TonKho, item.SoLuong + delta));
+    if (newQty === item.SoLuong) return;
+
+    try {
+      const res = await api.put('/cart/items', { MaGioHang: item.MaGioHang, SoLuong: newQty });
+      if (res.data.success) {
+        setCartItems((prev) =>
+          prev.map((x) => (x.id === id ? { ...x, SoLuong: newQty } : x))
+        );
+      }
+    } catch (error) {
+      toast.error('Không thể cập nhật số lượng');
+    }
   };
 
   /* ── Xóa sản phẩm ───────────────────────── */
-  /**
-   * Mở modal xóa.
-   * @param {string|null} itemId - null = xóa các mục đã chọn; string = xóa 1 item cụ thể
-   */
   const openDeleteModal = (itemId = null) => {
     setModalTarget(itemId);
     setModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (modalTarget) {
-      // Xóa 1 item theo id
-      setCartItems((prev) => prev.filter((item) => item.id !== modalTarget));
-      setSelectedIds((prev) => prev.filter((x) => x !== modalTarget));
-      toast.success('Đã xóa sản phẩm khỏi giỏ hàng.');
-    } else {
-      // Xóa các mục đã chọn
-      setCartItems((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
-      const count = selectedIds.length;
-      setSelectedIds([]);
-      toast.success(`Đã xóa ${count} sản phẩm khỏi giỏ hàng.`);
+  const handleConfirmDelete = async () => {
+    try {
+      if (modalTarget) {
+        await api.post('/cart/items/batch-delete', { cart_item_ids: [modalTarget] });
+        setCartItems((prev) => prev.filter((item) => item.id !== modalTarget));
+        setSelectedIds((prev) => prev.filter((x) => x !== modalTarget));
+        toast.success('Đã xóa sản phẩm khỏi giỏ hàng.');
+      } else {
+        await api.post('/cart/items/batch-delete', { cart_item_ids: selectedIds });
+        setCartItems((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+        const count = selectedIds.length;
+        setSelectedIds([]);
+        toast.success(`Đã xóa ${count} sản phẩm khỏi giỏ hàng.`);
+      }
+    } catch (error) {
+      toast.error('Xóa sản phẩm thất bại.');
+    } finally {
+      setModalTarget(null);
+      setModalOpen(false);
     }
-    setModalTarget(null);
   };
 
   /* ── Tính toán Đơn hàng ─────────────────── */
   const selectedItems = cartItems.filter((item) => selectedIds.includes(item.id));
   const subtotal = selectedItems.reduce((sum, item) => sum + item.Gia * item.SoLuong, 0);
-  const SHIPPING_FEE = subtotal > 0 && subtotal < 5000000 ? 30000 : 0;
-  const discount = appliedVoucher ? Math.min(appliedVoucher.value, subtotal) : 0;
-  const total = Math.max(0, subtotal + SHIPPING_FEE - discount);
+  const SHIPPING_FEE = selectedItems.length === 0 ? null : (subtotal > 0 && subtotal < 5000000 ? 30000 : 0);
+  const discount = appliedVoucher ? (appliedVoucher.LoaiGiamGia === 'PhanTram' ? subtotal * (appliedVoucher.GiaTriGiam / 100) : appliedVoucher.GiaTriGiam) : 0;
+  const actualDiscount = Math.min(discount, subtotal);
+  const total = Math.max(0, subtotal + (SHIPPING_FEE || 0) - actualDiscount);
 
   /* ── Voucher ────────────────────────────── */
-  const handleApplyVoucher = async () => {
+  const handleApplyVoucher = () => {
     const code = voucherCode.trim().toUpperCase();
     if (!code) return;
 
     setApplyingVoucher(true);
-    try {
-      // Giả lập API call — thay bằng api.post('/vouchers/apply', { code }) khi có backend
-      await new Promise((res) => setTimeout(res, 600));
-      if (code === 'SMART50K') {
-        setAppliedVoucher({ code, value: 50000, label: 'Giảm 50.000đ' });
-        toast.success('Áp dụng mã giảm giá thành công!');
+    setTimeout(() => {
+      const voucher = availableVouchers.find(v => v.MaCode === code);
+      if (voucher) {
+        if (voucher.DonToiThieu && subtotal < voucher.DonToiThieu) {
+          toast.error(`Đơn hàng chưa đạt mức tối thiểu ${formatVND(voucher.DonToiThieu)}`);
+        } else {
+          setAppliedVoucher(voucher);
+          toast.success('Áp dụng mã giảm giá thành công!');
+        }
       } else {
         toast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
       }
-    } catch {
-      toast.error('Không thể áp dụng mã giảm giá. Vui lòng thử lại.');
-    } finally {
       setApplyingVoucher(false);
-    }
+    }, 400);
   };
 
   const handleRemoveVoucher = () => {
@@ -189,21 +195,22 @@ const CartPage = () => {
   };
 
   /* ── Trạng thái Nút Xóa ─────────────────── */
-  // Nút "Xóa các mục đã chọn" enabled khi >= 2 items được chọn
   const bulkDeleteEnabled = selectedIds.length >= 2;
-  // Icon trash tại từng dòng enabled khi item đó được chọn
   const isItemTrashEnabled = (id) => selectedIds.includes(id);
 
-  /* ──────────────────────────────────────────
-     Render: Giỏ hàng trống
-  ─────────────────────────────────────────── */
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (isEmpty) {
     return (
       <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
         <Navbar />
-
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-20">
-          {/* Illustration */}
           <div className="relative mb-8">
             <div className="absolute inset-0 rounded-full bg-sky-500/10 blur-3xl scale-150 pointer-events-none" />
             <img
@@ -213,16 +220,12 @@ const CartPage = () => {
               draggable={false}
             />
           </div>
-
-          {/* Title & Content */}
           <h1 className="text-2xl sm:text-3xl font-black text-slate-100 mb-3 tracking-tight">
             Giỏ hàng trống
           </h1>
           <p className="text-slate-400 text-sm sm:text-base mb-8 text-center max-w-xs leading-relaxed">
             Hãy chọn ngay sản phẩm bạn thích!
           </p>
-
-          {/* CTA */}
           <button
             id="empty-cart-cta-btn"
             type="button"
@@ -233,20 +236,15 @@ const CartPage = () => {
             <span>Tiếp tục mua sắm</span>
           </button>
         </main>
-
         <Footer />
       </div>
     );
   }
 
-  /* ──────────────────────────────────────────
-     Render: Giỏ hàng có sản phẩm
-  ─────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       <Navbar />
 
-      {/* Delete Confirm Modal */}
       <DeleteConfirmModal
         isOpen={modalOpen}
         onClose={() => { setModalOpen(false); setModalTarget(null); }}
@@ -263,7 +261,6 @@ const CartPage = () => {
       <main className="flex-1 py-8 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-          {/* ── Page Header ── */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
@@ -285,15 +282,9 @@ const CartPage = () => {
             </Link>
           </div>
 
-          {/* ── Main Grid: Cart Items (Left) + Summary (Right) ── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-            {/* ── LEFT: Danh sách sản phẩm ── */}
             <div className="xl:col-span-2 space-y-4">
-
-              {/* Select All + Bulk Delete Bar */}
               <div className="flex items-center justify-between px-5 py-3.5 bg-slate-900/80 border border-slate-800 rounded-2xl">
-                {/* Checkbox Chọn tất cả */}
                 <label
                   id="select-all-label"
                   htmlFor="select-all-checkbox"
@@ -310,7 +301,6 @@ const CartPage = () => {
                       onChange={handleToggleAll}
                       className="sr-only"
                     />
-                    {/* Custom checkbox */}
                     <div
                       onClick={handleToggleAll}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${
@@ -341,7 +331,6 @@ const CartPage = () => {
                   </span>
                 </label>
 
-                {/* Nút "Xóa các mục đã chọn" */}
                 <button
                   id="bulk-delete-btn"
                   type="button"
@@ -370,7 +359,6 @@ const CartPage = () => {
                 </button>
               </div>
 
-              {/* Cart Item List */}
               <div className="space-y-3">
                 {cartItems.map((item) => {
                   const isSelected = selectedIds.includes(item.id);
@@ -385,7 +373,6 @@ const CartPage = () => {
                           : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
                       }`}
                     >
-                      {/* Checkbox */}
                       <div className="pt-1 shrink-0">
                         <div
                           onClick={() => handleToggleItem(item.id)}
@@ -403,7 +390,6 @@ const CartPage = () => {
                         </div>
                       </div>
 
-                      {/* Product Image */}
                       <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center">
                         {item.Anh ? (
                           <img
@@ -420,7 +406,6 @@ const CartPage = () => {
                         )}
                       </div>
 
-                      {/* Product Info */}
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <h3
                           className="text-sm font-bold text-slate-100 hover:text-sky-400 cursor-pointer transition-colors line-clamp-2 leading-snug"
@@ -429,7 +414,6 @@ const CartPage = () => {
                           {item.TenSanPham}
                         </h3>
 
-                        {/* Biến thể */}
                         <div className="flex flex-wrap gap-2">
                           {item.MauSac && (
                             <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
@@ -443,14 +427,11 @@ const CartPage = () => {
                           )}
                         </div>
 
-                        {/* Price */}
                         <p className="text-base font-black text-sky-400">
                           {formatVND(item.Gia)}
                         </p>
 
-                        {/* Quantity + Trash Row */}
                         <div className="flex items-center justify-between pt-1 gap-2">
-                          {/* Bộ điều chỉnh số lượng */}
                           <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl p-0.5">
                             <button
                               type="button"
@@ -473,12 +454,6 @@ const CartPage = () => {
                             </button>
                           </div>
 
-                          {/* Subtotal item */}
-                          <span className="text-xs font-bold text-slate-300 hidden sm:inline">
-                            = {formatVND(item.Gia * item.SoLuong)}
-                          </span>
-
-                          {/* Icon Trash — Enabled khi item được chọn */}
                           <button
                             id={`trash-btn-${item.id}`}
                             type="button"
@@ -499,7 +474,6 @@ const CartPage = () => {
                           </button>
                         </div>
 
-                        {/* Cảnh báo tồn kho thấp */}
                         {item.TonKho <= 3 && (
                           <p className="text-[10px] font-semibold text-amber-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
@@ -513,24 +487,26 @@ const CartPage = () => {
               </div>
             </div>
 
-            {/* ── RIGHT: Tóm tắt đơn hàng ── */}
             <div className="xl:col-span-1">
               <div className="sticky top-24 space-y-4">
-
-                {/* Voucher Box */}
                 <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-bold text-slate-200">
-                    <Tag className="w-4 h-4 text-violet-400" />
-                    <span>Mã giảm giá</span>
+                  <div className="flex items-center justify-between text-sm font-bold text-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-violet-400" />
+                      <span>Mã giảm giá</span>
+                    </div>
+                    <span className="text-xs font-normal text-slate-400">Chọn hoặc nhập mã giảm giá</span>
                   </div>
 
                   {appliedVoucher ? (
                     <div className="flex items-center justify-between px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-md tracking-wider">
-                          {appliedVoucher.code}
+                          {appliedVoucher.MaCode}
                         </span>
-                        <span className="text-xs text-emerald-300 font-semibold">{appliedVoucher.label}</span>
+                        <span className="text-xs text-emerald-300 font-semibold">
+                          Giảm {appliedVoucher.LoaiGiamGia === 'PhanTram' ? `${appliedVoucher.GiaTriGiam}%` : formatVND(appliedVoucher.GiaTriGiam)}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -566,14 +542,37 @@ const CartPage = () => {
                       </button>
                     </div>
                   )}
-                  <p className="text-[10px] text-slate-500">Thử mã: <strong className="text-slate-400">SMART50K</strong></p>
+
+                  {!appliedVoucher && availableVouchers.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                        {availableVouchers.map(v => (
+                          <div 
+                            key={v.MaVoucher} 
+                            onClick={() => {
+                              setVoucherCode(v.MaCode);
+                            }}
+                            className="p-2 bg-slate-800 border border-slate-700 hover:border-sky-500 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-sky-400">{v.MaCode}</span>
+                              <span className="text-[10px] text-slate-400">
+                                Giảm {v.LoaiGiamGia === 'PhanTram' ? `${v.GiaTriGiam}%` : formatVND(v.GiaTriGiam)}
+                              </span>
+                            </div>
+                            {v.DonToiThieu > 0 && (
+                              <p className="text-[10px] text-slate-500 mt-1">Đơn tối thiểu {formatVND(v.DonToiThieu)}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Order Summary Box */}
                 <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
                   <h2 className="text-sm font-bold text-slate-200">Tóm tắt đơn hàng</h2>
 
-                  {/* Lines */}
                   <div className="space-y-2.5 text-sm">
                     <div className="flex items-center justify-between text-slate-400">
                       <span>Tạm tính ({selectedItems.length} sản phẩm)</span>
@@ -586,7 +585,7 @@ const CartPage = () => {
                         Phí vận chuyển
                       </span>
                       <span className={`font-semibold ${SHIPPING_FEE === 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                        {SHIPPING_FEE === 0 ? 'Miễn phí' : formatVND(SHIPPING_FEE)}
+                        {SHIPPING_FEE === null ? '-- đ' : (SHIPPING_FEE === 0 ? 'Miễn phí' : formatVND(SHIPPING_FEE))}
                       </span>
                     </div>
 
@@ -594,25 +593,18 @@ const CartPage = () => {
                       <div className="flex items-center justify-between text-emerald-400">
                         <span className="flex items-center gap-1">
                           <Tag className="w-3.5 h-3.5" />
-                          Giảm giá ({appliedVoucher.code})
+                          Giảm giá ({appliedVoucher.MaCode})
                         </span>
-                        <span className="font-semibold">- {formatVND(discount)}</span>
+                        <span className="font-semibold">- {formatVND(actualDiscount)}</span>
                       </div>
                     )}
 
-                    {subtotal > 0 && SHIPPING_FEE === 0 && (
-                      <p className="text-[10px] text-emerald-400/80 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-1.5">
-                        🎉 Miễn phí vận chuyển cho đơn hàng từ 5.000.000đ
-                      </p>
-                    )}
-
                     <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
-                      <span className="font-bold text-slate-100">Tổng cộng</span>
+                      <span className="font-bold text-slate-100">Tổng thanh toán:</span>
                       <span className="text-xl font-black text-sky-400">{formatVND(total)}</span>
                     </div>
                   </div>
 
-                  {/* CTA — Enabled khi có ít nhất 1 item được chọn */}
                   <button
                     id="checkout-btn"
                     type="button"
@@ -633,21 +625,13 @@ const CartPage = () => {
                       </>
                     )}
                   </button>
-
-                  {selectedItems.length > 0 && (
-                    <p className="text-center text-[10px] text-slate-500">
-                      Đã chọn <strong className="text-sky-400">{selectedItems.length}</strong> sản phẩm
-                    </p>
-                  )}
                 </div>
 
-                {/* Cam kết dịch vụ */}
                 <div className="p-4 bg-slate-900/60 border border-slate-800/80 rounded-2xl space-y-2.5">
                   {[
-                    { icon: ShieldCheck, label: '100% Chính hãng', color: 'text-sky-400' },
+                    { icon: ShieldCheck, label: 'Bảo hành chính hãng 1 đổi 1 trong 30 ngày', color: 'text-sky-400' },
                     { icon: Truck,       label: 'Giao hàng 2H nội thành', color: 'text-indigo-400' },
-                    { icon: RotateCcw,   label: 'Đổi trả 30 ngày', color: 'text-violet-400' },
-                    { icon: CreditCard,  label: 'Trả góp 0% lãi suất', color: 'text-emerald-400' },
+                    { icon: CreditCard,  label: 'Kiểm tra hàng trước khi nhận và thanh toán COD', color: 'text-emerald-400' },
                   ].map(({ icon: Icon, label, color }) => (
                     <div key={label} className="flex items-center gap-2.5 text-xs text-slate-400">
                       <Icon className={`w-3.5 h-3.5 ${color} shrink-0`} />
@@ -659,7 +643,6 @@ const CartPage = () => {
             </div>
           </div>
 
-          {/* Mobile: Tiếp tục mua sắm */}
           <div className="sm:hidden pt-2">
             <Link
               to="/products"
