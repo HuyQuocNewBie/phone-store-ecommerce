@@ -903,11 +903,11 @@ const OrderHistoryPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
+    <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 py-8 sm:py-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb & Header */}
           <div className="mb-6 sm:mb-8 space-y-2">
             <nav className="flex items-center gap-2 text-xs text-slate-400">

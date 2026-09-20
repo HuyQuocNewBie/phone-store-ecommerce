@@ -486,7 +486,7 @@ const CheckoutPage = () => {
   ───────────────────────────────────────────── */
   if (loadingCart) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans">
         <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
@@ -499,7 +499,7 @@ const CheckoutPage = () => {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans">
         <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center">
           <div className="w-20 h-20 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-6 shadow-xl">
@@ -527,7 +527,7 @@ const CheckoutPage = () => {
      Render: Giao diện Checkout
   ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
+    <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 py-8 pb-24">

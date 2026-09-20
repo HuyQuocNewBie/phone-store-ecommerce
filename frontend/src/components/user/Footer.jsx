@@ -1,23 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Smartphone, ShieldCheck, Truck, RotateCcw, CreditCard, Mail, PhoneCall, MapPin, Facebook, Youtube, Instagram } from 'lucide-react';
+import { Smartphone, Truck, RotateCcw, CreditCard, Mail, PhoneCall, MapPin, Facebook, Youtube, Instagram } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-slate-950 text-slate-400 border-t border-slate-900 pt-12 pb-8">
+    <footer className="bg-slate-800 text-slate-400 border-t border-slate-700 pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        {/* Top Benefits Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-10 border-b border-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-slate-100 uppercase">100% Chính Hãng</h5>
-              <p className="text-[11px] text-slate-500">Bảo hành 12 tháng tận tâm</p>
-            </div>
-          </div>
-
+        {/* Top Benefits Grid — Giữ lại 3 mục, xóa "100% Chính Hãng" */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pb-10 border-b border-slate-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
               <Truck className="w-5 h-5" />
@@ -34,7 +24,7 @@ const Footer = () => {
             </div>
             <div>
               <h5 className="text-xs font-bold text-slate-100 uppercase">30 Ngày 1 Đổi 1</h5>
-              <p className="text-[11px] text-slate-[500]">Lỗi do nhà sản xuất</p>
+              <p className="text-[11px] text-slate-500">Lỗi do nhà sản xuất</p>
             </div>
           </div>
 
@@ -54,7 +44,17 @@ const Footer = () => {
           {/* Col 1: Store info */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-violet-600 flex items-center justify-center">
+              <img
+                src="/assets/logo.png"
+                alt="SmartZone Logo"
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextSibling.style.display = 'flex';
+                }}
+              />
+              {/* Fallback */}
+              <div className="hidden w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-violet-600 items-center justify-center">
                 <Smartphone className="w-4 h-4 text-white" />
               </div>
               <span className="text-base font-black bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">
@@ -112,20 +112,20 @@ const Footer = () => {
               <input
                 type="email"
                 placeholder="Email của bạn..."
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500 placeholder-slate-500"
               />
               <button className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-xl text-xs shrink-0 transition-colors">
                 Gửi
               </button>
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <a href="#" className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-sky-400 hover:border-slate-700 transition-all">
+              <a href="#" className="p-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 hover:text-sky-400 hover:border-slate-500 transition-all">
                 <Facebook className="w-4 h-4" />
               </a>
-              <a href="#" className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-rose-400 hover:border-slate-700 transition-all">
+              <a href="#" className="p-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 hover:text-rose-400 hover:border-slate-500 transition-all">
                 <Youtube className="w-4 h-4" />
               </a>
-              <a href="#" className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-violet-400 hover:border-slate-700 transition-all">
+              <a href="#" className="p-2 bg-slate-700 border border-slate-600 rounded-xl text-slate-400 hover:text-violet-400 hover:border-slate-500 transition-all">
                 <Instagram className="w-4 h-4" />
               </a>
             </div>
@@ -133,7 +133,7 @@ const Footer = () => {
         </div>
 
         {/* Bottom copyright */}
-        <div className="pt-6 border-t border-slate-900 text-center text-[11px] text-slate-500">
+        <div className="pt-6 border-t border-slate-700 text-center text-[11px] text-slate-500">
           <p>© 2026 SmartZone Store. Tất cả các quyền được bảo lưu. Thiết kế & phát triển bởi Antigravity AI.</p>
         </div>
       </div>
