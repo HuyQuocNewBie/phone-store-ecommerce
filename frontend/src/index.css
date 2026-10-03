@@ -157,6 +157,7 @@ html, body, #root {
   min-height: 100vh;
   background-color: var(--color-bg);
   color: var(--color-text);
+  overflow-x: hidden; /* ✅ Ngăn cuộn ngang toàn bộ app trên Mobile */
 }
 
 .material-symbols-outlined {

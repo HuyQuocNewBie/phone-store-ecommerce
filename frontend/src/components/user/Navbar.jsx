@@ -212,7 +212,7 @@ const Navbar = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsDropdownOpen(true)}
-              placeholder="Bạn tìm điện thoại gì? (VD: iPhone 16 Pro Max, Galaxy S24 Ultra...)"
+              placeholder="Bạn cần tìm điện thoại gì?"
               className="w-full pl-11 pr-28 py-unit-xs bg-surface-container-lowest rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-[0_1px_3px_rgba(15,23,42,0.06)] border border-surface-container"
             />
             {searchTerm && (
@@ -351,31 +351,69 @@ const Navbar = () => {
       </div>
 
       {/* ══════════════════════════════════════════════════════
-          MOBILE NAVBAR (< 768px)
-          Layout: Logo | Search Bar (flex-1) | Cart Badge + Hamburger
+          MOBILE NAVBAR (< 768px) — 2 HÀNG
+          HÀNG 1: Hamburger | Logo (căn giữa) | Cart
+          HÀNG 2: Thanh tìm kiếm Full Width
       ══════════════════════════════════════════════════════ */}
-      <div className="flex md:hidden h-14 items-center gap-2 px-3 w-full">
-        {/* Logo bên trái */}
-        <Link to="/" className="flex items-center gap-1.5 shrink-0 group" aria-label="SmartZone - Trang chủ">
-          <img
-            alt="SmartZone Logo"
-            className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
-            src="/assets/logo.png"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src =
-                'https://lh3.googleusercontent.com/aida/AEtjO1VFkMUR9lR9HPntOzoRJD2b-3_Otg0zsUpN5dPmnqxMZkNfgXXEuXKX9mDfxFH6gWnTmh3uZtp7BLICIT33cp7pZ-Q1fen8dWJ1z33hnwzcy23h0efriIZ1Ki9aUkgHtlRjF7cZ_5pe42ElHyJNs1cqwyaG7rA4tDnjXpX7Ja4u7T600203lPn-oq6i3zYmy36cdPRjohA8dadvbwuBJz1D5W26dV5-4MSGnPY_ohrsU-qpeyHSCSKjtQM';
-            }}
-          />
-          <span className="font-bold text-base text-primary tracking-tight leading-none">
-            Smart<span className="text-tertiary-container">Zone</span>
-          </span>
-        </Link>
+      <div className="flex md:hidden flex-col w-full">
 
-        {/* Search Bar giữa (flex-1, co giãn theo chiều rộng) */}
-        <div className="flex-1 min-w-0 relative" ref={searchContainerRef}>
+        {/* ── HÀNG 1: Hamburger | Logo (center) | Cart ── */}
+        <div className="flex items-center justify-between h-14 px-3 w-full">
+
+          {/* Hamburger bên TRÁI */}
+          <button
+            type="button"
+            id="mobile-hamburger-btn"
+            aria-label="Mở menu điều hướng"
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="p-2 rounded-xl hover:bg-surface-container-low transition-colors shrink-0"
+          >
+            <span className="material-symbols-outlined text-on-surface leading-none text-[24px]">menu</span>
+          </button>
+
+          {/* Logo + Tên — CHÍNH GIỮA (absolute để không bị đẩy lệch) */}
+          <Link
+            to="/"
+            className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 group"
+            aria-label="SmartZone - Trang chủ"
+          >
+            <img
+              alt="SmartZone Logo"
+              className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+              src="/assets/logo.png"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src =
+                  'https://lh3.googleusercontent.com/aida/AEtjO1VFkMUR9lR9HPntOzoRJD2b-3_Otg0zsUpN5dPmnqxMZkNfgXXEuXKX9mDfxFH6gWnTmh3uZtp7BLICIT33cp7pZ-Q1fen8dWJ1z33hnwzcy23h0efriIZ1Ki9aUkgHtlRjF7cZ_5pe42ElHyJNs1cqwyaG7rA4tDnjXpX7Ja4u7T600203lPn-oq6i3zYmy36cdPRjohA8dadvbwuBJz1D5W26dV5-4MSGnPY_ohrsU-qpeyHSCSKjtQM';
+              }}
+            />
+            <span className="font-bold text-base text-primary tracking-tight leading-none">
+              Smart<span className="text-tertiary-container">Zone</span>
+            </span>
+          </Link>
+
+          {/* Cart Icon bên PHẢI */}
+          <Link
+            to="/cart"
+            className="relative p-2 rounded-xl hover:bg-surface-container-low transition-colors shrink-0"
+            aria-label="Giỏ hàng"
+            id="mobile-cart-btn"
+          >
+            <span className="material-symbols-outlined text-primary leading-none text-[22px]">
+              shopping_cart
+            </span>
+            {totalCartCount > 0 && (
+              <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-tertiary-container text-on-tertiary text-[10px] font-bold flex items-center justify-center shadow-sm">
+                {totalCartCount > 99 ? '99+' : totalCartCount}
+              </span>
+            )}
+          </Link>
+        </div>
+
+        {/* ── HÀNG 2: Thanh Tìm Kiếm Full Width ── */}
+        <div className="px-3 pb-2.5 relative" ref={searchContainerRef}>
           <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-            <span className="material-symbols-outlined absolute left-2.5 text-outline pointer-events-none leading-none text-[18px]">
+            <span className="material-symbols-outlined absolute left-3 text-outline pointer-events-none leading-none text-[18px]">
               search
             </span>
             <input
@@ -384,14 +422,14 @@ const Navbar = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsDropdownOpen(true)}
-              placeholder="Tìm điện thoại..."
-              className="w-full pl-8 pr-8 py-1.5 bg-surface-container-lowest rounded-full text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary border border-surface-container"
+              placeholder="Bạn cần tìm điện thoại gì?"
+              className="w-full pl-9 pr-9 py-2 bg-surface-container-lowest rounded-full text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary border border-surface-container shadow-sm"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2 text-outline hover:text-on-surface transition-colors"
+                className="absolute right-3 text-outline hover:text-on-surface transition-colors"
                 aria-label="Xóa tìm kiếm"
               >
                 <span className="material-symbols-outlined text-[16px] leading-none">close</span>
@@ -411,37 +449,6 @@ const Navbar = () => {
             onRemoveHistoryItem={handleRemoveHistoryItem}
             onClearAllHistory={handleClearAllHistory}
           />
-        </div>
-
-        {/* Cụm Icon phải: Cart Badge + Hamburger */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Giỏ hàng với Badge */}
-          <Link
-            to="/cart"
-            className="relative p-2 rounded-xl hover:bg-surface-container-low transition-colors"
-            aria-label="Giỏ hàng"
-            id="mobile-cart-btn"
-          >
-            <span className="material-symbols-outlined text-primary leading-none text-[22px]">
-              shopping_cart
-            </span>
-            {totalCartCount > 0 && (
-              <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-0.5 rounded-full bg-tertiary-container text-on-tertiary text-[10px] font-bold flex items-center justify-center shadow-sm">
-                {totalCartCount > 99 ? '99+' : totalCartCount}
-              </span>
-            )}
-          </Link>
-
-          {/* Hamburger Menu Icon */}
-          <button
-            type="button"
-            id="mobile-hamburger-btn"
-            aria-label="Mở menu điều hướng"
-            onClick={() => setIsMobileDrawerOpen(true)}
-            className="p-2 rounded-xl hover:bg-surface-container-low transition-colors"
-          >
-            <span className="material-symbols-outlined text-on-surface leading-none text-[24px]">menu</span>
-          </button>
         </div>
       </div>
 
