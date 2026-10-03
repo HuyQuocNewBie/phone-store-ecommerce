@@ -215,13 +215,13 @@ const Navbar = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setIsDropdownOpen(true)}
               placeholder="Bạn cần tìm điện thoại gì?"
-              className="w-full pl-11 pr-28 py-unit-xs bg-surface-container-lowest rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-[0_1px_3px_rgba(15,23,42,0.06)] border border-surface-container"
+              className="w-full pl-11 pr-28 py-unit-xs bg-surface-container-lowest rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline outline-none focus:outline-none focus:ring-0 shadow-[0_1px_3px_rgba(15,23,42,0.06)] border border-surface-container"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-24 p-1 text-outline hover:text-on-surface transition-colors"
+                className="absolute right-24 p-1 text-outline hover:text-on-surface transition-colors focus:outline-none"
                 title="Xóa tìm kiếm"
               >
                 <span className="material-symbols-outlined text-sm leading-none">close</span>
@@ -229,7 +229,7 @@ const Navbar = () => {
             )}
             <button
               type="submit"
-              className="absolute right-1 px-unit-md py-unit-xs bg-primary text-on-primary font-body-md text-body-md rounded-full hover:bg-primary-container transition-colors font-medium shadow-sm active:scale-95"
+              className="absolute right-1 px-unit-md py-unit-xs bg-primary text-on-primary font-body-md text-body-md rounded-full hover:bg-primary-container transition-colors font-medium shadow-sm active:scale-95 focus:outline-none focus:ring-0"
             >
               Tìm kiếm
             </button>

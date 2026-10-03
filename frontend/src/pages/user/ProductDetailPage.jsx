@@ -23,10 +23,10 @@ import {
   ZoomIn,
   X,
   Monitor,
-  Camera,
   MemoryStick,
   Maximize2,
   Sparkles,
+  BatteryFull,
 } from "lucide-react";
 import Navbar from "../../components/user/Navbar";
 import Footer from "../../components/user/Footer";
@@ -279,13 +279,15 @@ const ProductDetailPage = () => {
   const quickSpecs = React.useMemo(() => {
     if (!product?.thongsokythuat?.length) return [];
     const specs = product.thongsokythuat;
-    const manHinh = findSpec(specs, ["man hinh", "kich thuoc man", "screen", "hien thi", "display"]);
-    const camera = findSpec(specs, ["camera", "chup anh", "rear camera"]);
-    const ram = findSpec(specs, ["ram", "bo nho ram"]);
+    const rom    = findSpec(specs, ["rom", "dung luong trong", "bo nho trong", "storage", "dung lượng"]);
+    const chip   = findSpec(specs, ["chip", "vi xu ly", "cpu", "processor", "helio", "snapdragon", "apple"]);
+    const screen = findSpec(specs, ["man hinh", "kich thuoc man", "screen", "hien thi", "display", "màn hình"]);
+    const pin    = findSpec(specs, ["pin", "dung luong pin", "battery", "mah"]);
     const result = [];
-    if (manHinh) result.push({ icon: Monitor, label: "Màn hình", value: manHinh });
-    if (camera) result.push({ icon: Camera, label: "Camera", value: camera });
-    if (ram) result.push({ icon: MemoryStick, label: "RAM", value: ram });
+    if (rom)    result.push({ icon: HardDrive,  label: "Bộ nhớ (ROM)",  value: rom });
+    if (chip)   result.push({ icon: Cpu,        label: "Vi xử lý",      value: chip });
+    if (screen) result.push({ icon: Monitor,    label: "Màn hình",       value: screen });
+    if (pin)    result.push({ icon: BatteryFull, label: "Dung lượng pin", value: pin });
     return result;
   }, [product]);
 
@@ -422,8 +424,9 @@ const ProductDetailPage = () => {
         ═══════════════════════════════════════ */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-start">
 
-          {/* Cột Trái: Gallery */}
-          <div className="lg:sticky lg:top-20">
+          {/* Cột Trái: Gallery + Quick Specs */}
+          <div className="md:sticky md:top-24 self-start space-y-6">
+            {/* Ảnh sản phẩm */}
             <div
               className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white border border-slate-100
                          shadow-[0_8px_40px_-8px_rgba(0,0,0,0.08)] flex items-center justify-center group cursor-zoom-in"
@@ -450,28 +453,54 @@ const ProductDetailPage = () => {
                 {zoomActive ? <Maximize2 className="w-3 h-3" /> : <ZoomIn className="w-3 h-3" />}
                 <span>{zoomActive ? "Thu nhỏ" : "Phóng to"}</span>
               </div>
+            </div>
 
-              {/* Stock badge */}
-              <div className="absolute top-4 left-4">
-                {isOutOfStock ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
-                    Hết hàng
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                    Còn hàng
-                  </span>
+            {/* 4 thông số kỹ thuật nổi bật – Grid 2×2 */}
+            {quickSpecs.length > 0 && (
+              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-sm font-semibold text-slate-800">Thông Số Nổi Bật</h3>
+                  </div>
+                  {specGroups.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSpecsModal(true)}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                    >
+                      Xem tất cả
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
+                  {quickSpecs.map(({ icon: Icon, label, value }) => (
+                    <div key={label} className="flex flex-col gap-2 p-4 hover:bg-slate-50/70 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                          <Icon className="w-3.5 h-3.5 text-blue-500" />
+                        </div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-tight">{label}</p>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {specGroups.length > 0 && (
+                  <div className="px-4 py-2.5 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowSpecsModal(true)}
+                      className="w-full text-center text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center justify-center gap-1.5 py-0.5"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      Xem đầy đủ thông số kỹ thuật
+                    </button>
+                  </div>
                 )}
               </div>
-
-              {activeStorage && (
-                <div className="absolute top-4 right-4">
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
-                    {activeStorage}
-                  </span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Cột Phải: Chi tiết + CTA */}
@@ -673,56 +702,7 @@ const ProductDetailPage = () => {
               ))}
             </div>
 
-            {/* Thông số kỹ thuật nhanh */}
-            {(quickSpecs.length > 0 || specGroups.length > 0) && (
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-blue-500" />
-                    <h3 className="text-sm font-semibold text-slate-800">Thông Số Kỹ Thuật</h3>
-                  </div>
-                  {specGroups.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowSpecsModal(true)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-                    >
-                      Xem tất cả
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                {quickSpecs.length > 0 ? (
-                  <div className="divide-y divide-slate-100">
-                    {quickSpecs.map(({ icon: Icon, label, value }) => (
-                      <div key={label} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-                          <Icon className="w-3.5 h-3.5 text-blue-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-500 mb-0.5">{label}</p>
-                          <p className="text-sm font-medium text-slate-800 leading-relaxed">{value}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-5 py-4 text-sm text-slate-400">Thông số đang được cập nhật.</div>
-                )}
-                {specGroups.length > 0 && (
-                  <div className="px-5 py-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setShowSpecsModal(true)}
-                      className="w-full text-center text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center justify-center gap-1.5 py-1"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      Xem tất cả thông số kỹ thuật
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+
           </div>
         </section>
 
