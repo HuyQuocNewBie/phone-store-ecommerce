@@ -25,6 +25,7 @@ import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 
 /* ─────────────────────────────────────────────
    Helper: Format tiền VND
@@ -39,6 +40,7 @@ const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { clearCart, setCartItems } = useCart();
 
   // 1. Items & Voucher từ location state (truyền từ CartPage)
   const initialItems = location.state?.items || null;
@@ -216,8 +218,8 @@ const CheckoutPage = () => {
     }
   };
 
-  /* ── Submit Order ──────────────────────────────────────── */
-  const handleSubmitOrder = async (e) => {
+  /* ── Submit / Create Order ──────────────────────────────────────── */
+  const handleCreateOrder = async (e) => {
     e?.preventDefault();
     if (isSubmitting) return;
 
@@ -256,9 +258,18 @@ const CheckoutPage = () => {
       const response = await api.post('/orders', orderPayload);
 
       if (response.data && response.data.success) {
-        // Thêm hiệu ứng độ trễ mô phỏng 1 giây để trải nghiệm mượt mà
-        await new Promise((r) => setTimeout(r, 1000));
+        // 1. Gọi ngay clearCart() từ CartContext và cập nhật state cartItems về mảng rỗng []
+        if (typeof clearCart === 'function') {
+          clearCart();
+        }
+        if (typeof setCartItems === 'function') {
+          setCartItems([]);
+        }
 
+        // 2. Thêm hiệu ứng độ trễ mô phỏng 600ms để trải nghiệm mượt mà
+        await new Promise((r) => setTimeout(r, 600));
+
+        // 3. Thông báo và chuyển ngay sang trang /checkout/success
         toast.success('Đặt hàng thành công!');
         navigate('/checkout/success', {
           replace: true,
@@ -286,6 +297,8 @@ const CheckoutPage = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleSubmitOrder = handleCreateOrder;
 
   /* ─────────────────────────────────────────────
      Loading / Empty states

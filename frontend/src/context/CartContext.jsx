@@ -103,6 +103,13 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Xóa toàn bộ sản phẩm khỏi giỏ hàng (reset local state về [])
+   */
+  const clearCart = useCallback(() => {
+    setCartItems([]);
+  }, []);
+
   // Tự động fetch giỏ hàng khi auth state thay đổi
   useEffect(() => {
     fetchCart();
@@ -117,6 +124,7 @@ export const CartProvider = ({ children }) => {
     addToCart,
     updateQuantity,
     removeFromCart,
+    clearCart,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
