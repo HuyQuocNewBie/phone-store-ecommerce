@@ -3,40 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, PackageCheck } from 'lucide-react';
 
 /**
- * ProductCard – Component tối giản cho sản phẩm
+ * ProductCard – EVONDEV Light Theme
  * Props:
  *   - item: { MaSanPham, TenSanPham, Anh, Gia, DungLuong }
  *   - onAddToCart: (item) => void
- *   - accentColor: 'sky' | 'indigo' (mặc định 'sky')
  */
-const ProductCard = ({ item, onAddToCart, accentColor = 'sky' }) => {
+const ProductCard = ({ item, onAddToCart }) => {
   const navigate = useNavigate();
 
   const formatVND = (price) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
-  const colorMap = {
-    sky: {
-      price: 'text-sky-400',
-      btn: 'bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white border-sky-500/20',
-      hover: 'hover:border-sky-500/50 hover:shadow-sky-500/10'
-    },
-    indigo: {
-      price: 'text-indigo-400',
-      btn: 'bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white border-indigo-500/20',
-      hover: 'hover:border-indigo-500/50 hover:shadow-indigo-500/10'
-    }
-  };
-
-  const colors = colorMap[accentColor] || colorMap.sky;
-
   return (
     <div
-      className={`bg-slate-900/90 border border-slate-800 ${colors.hover} rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 hover:shadow-2xl group`}
+      className="group bg-white border border-slate-100 rounded-2xl p-4 flex flex-col gap-3
+                 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]
+                 transition-all duration-300
+                 hover:-translate-y-1 hover:shadow-[0_12px_40px_-8px_rgba(37,99,235,0.12)]
+                 hover:border-blue-100 cursor-pointer"
     >
-      {/* Ảnh sản phẩm – aspect-square + object-contain để ảnh vừa vặn không cắt */}
+      {/* Khung ảnh vuông */}
       <div
-        className="w-full aspect-square rounded-xl bg-slate-950 border border-slate-800/80 overflow-hidden flex items-center justify-center p-4 group-hover:border-slate-700 transition-colors cursor-pointer"
+        className="aspect-square rounded-xl bg-slate-50 p-4 flex items-center justify-center overflow-hidden mb-1"
         onClick={() => navigate(`/products/${item.MaSanPham}`)}
       >
         {item.Anh ? (
@@ -50,25 +38,25 @@ const ProductCard = ({ item, onAddToCart, accentColor = 'sky' }) => {
             }}
           />
         ) : (
-          <PackageCheck className="w-12 h-12 text-slate-700" />
+          <PackageCheck className="w-12 h-12 text-slate-300" />
         )}
       </div>
 
       {/* Thông tin sản phẩm */}
-      <div className="flex flex-col gap-1.5 flex-1">
+      <div className="flex flex-col gap-2 flex-1">
         <h3
           onClick={() => navigate(`/products/${item.MaSanPham}`)}
-          className="text-sm font-bold text-slate-100 hover:text-sky-400 transition-colors cursor-pointer line-clamp-2 leading-snug"
+          className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug"
         >
           {item.TenSanPham}
         </h3>
 
-        <div className="flex items-baseline justify-between pt-1">
-          <p className={`text-base font-black ${colors.price}`}>
+        <div className="flex items-center justify-between">
+          <p className="font-bold text-blue-600 text-base">
             {formatVND(item.Gia)}
           </p>
           {item.DungLuong && (
-            <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
               {item.DungLuong}
             </span>
           )}
@@ -79,7 +67,9 @@ const ProductCard = ({ item, onAddToCart, accentColor = 'sky' }) => {
       <button
         type="button"
         onClick={() => onAddToCart?.(item)}
-        className={`w-full py-2 border ${colors.btn} text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5`}
+        className="w-full py-2.5 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl
+                   transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-1.5
+                   shadow-sm shadow-blue-500/20"
       >
         <ShoppingCart className="w-3.5 h-3.5" />
         <span>Thêm vào giỏ</span>

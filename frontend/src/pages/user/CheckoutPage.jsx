@@ -16,6 +16,10 @@ import {
   Check,
   Package,
   X,
+  Phone,
+  MapPin,
+  Clock,
+  HelpCircle,
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
@@ -29,28 +33,7 @@ const formatVND = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
 /* ─────────────────────────────────────────────
-   Inline styles cho stepper animation
-───────────────────────────────────────────── */
-const stepperStyles = `
-  @keyframes stepperFadeIn {
-    from { opacity: 0; transform: translateY(-12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes connectorGrow {
-    from { transform: scaleX(0); }
-    to   { transform: scaleX(1); }
-  }
-  .stepper-wrapper {
-    animation: stepperFadeIn 0.55s cubic-bezier(0.22,1,0.36,1) both;
-  }
-  .stepper-connector {
-    transform-origin: left;
-    animation: connectorGrow 0.4s 0.3s cubic-bezier(0.22,1,0.36,1) both;
-  }
-`;
-
-/* ─────────────────────────────────────────────
-   CheckoutPage Component
+   CheckoutPage Component - Evondev UI/UX Premium (Light Theme)
 ───────────────────────────────────────────── */
 const CheckoutPage = () => {
   const location = useLocation();
@@ -65,8 +48,6 @@ const CheckoutPage = () => {
   const [loadingCart, setLoadingCart] = useState(!initialItems);
 
   // ── Voucher state — sync từ CartPage ──────────────────────
-  // Nếu CartPage đã áp dụng voucher -> hiển thị mã + disabled
-  // Nếu chưa có -> cho phép nhập mới
   const [appliedVoucher, setAppliedVoucher] = useState(initialVoucher);
   const [voucherInput, setVoucherInput] = useState(
     initialVoucher?.MaCode || initialVoucher?.code || ''
@@ -77,7 +58,7 @@ const CheckoutPage = () => {
   // Trạng thái: voucher đến từ cart (đã áp dụng sẵn) hay người dùng tự nhập
   const voucherFromCart = Boolean(initialVoucher);
 
-  // 2. Form Thông tin người nhận (bỏ province/district)
+  // 2. Form Thông tin người nhận
   const [formData, setFormData] = useState({
     fullName: user?.HoTen || user?.TenNguoiDung || '',
     phone:    user?.SoDienThoai || '',
@@ -152,7 +133,7 @@ const CheckoutPage = () => {
     return Math.min(val, subtotal);
   }, [appliedVoucher, subtotal]);
 
-  // Tính phí vận chuyển đơn giản (không cần province/district)
+  // Tính phí vận chuyển đơn giản
   useEffect(() => {
     setCalculatingShipping(true);
     const timer = setTimeout(() => {
@@ -166,7 +147,7 @@ const CheckoutPage = () => {
         setShippingRule('Giao hàng tiêu chuẩn 1 - 3 ngày');
       }
       setCalculatingShipping(false);
-    }, 500);
+    }, 400);
     return () => clearTimeout(timer);
   }, [subtotal]);
 
@@ -310,11 +291,11 @@ const CheckoutPage = () => {
   ───────────────────────────────────────────── */
   if (loadingCart) {
     return (
-      <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans">
         <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
-          <p className="text-slate-400 text-sm">Đang tải thông tin đơn hàng...</p>
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+          <p className="text-slate-500 text-sm font-medium">Đang tải thông tin đơn hàng...</p>
         </main>
         <Footer />
       </div>
@@ -323,20 +304,20 @@ const CheckoutPage = () => {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans">
         <Navbar />
         <main className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center">
-          <div className="w-20 h-20 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-6 shadow-xl">
+          <div className="w-20 h-20 rounded-3xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-6 shadow-sm">
             <ShoppingBag className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-100 mb-2">Chưa có sản phẩm để thanh toán</h1>
-          <p className="text-sm text-slate-400 max-w-sm mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Chưa có sản phẩm để thanh toán</h1>
+          <p className="text-sm text-slate-500 max-w-sm mb-6">
             Giỏ hàng của bạn đang trống hoặc bạn chưa chọn sản phẩm nào để đặt hàng.
           </p>
           <button
             type="button"
             onClick={() => navigate('/cart')}
-            className="px-6 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white shadow-xl shadow-sky-500/25 transition-all flex items-center gap-2"
+            className="px-6 py-3 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quay lại giỏ hàng</span>
@@ -348,65 +329,62 @@ const CheckoutPage = () => {
   }
 
   /* ─────────────────────────────────────────────
-     Main Render
+     Main Render - Evondev UI/UX
   ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-gray-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
-      {/* Inject stepper animation styles */}
-      <style>{stepperStyles}</style>
-
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 py-8 pb-24">
+      <main className="flex-1 py-8 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-          {/* ── Centered Stepper Header ── */}
-          <div className="flex flex-col items-center gap-3 py-2">
+          {/* ── Breadcrumb & Stepper Header ── */}
+          <div className="flex flex-col items-center gap-4 py-2">
             {/* Breadcrumb nhỏ */}
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Link to="/" className="hover:text-sky-400 transition-colors">Trang chủ</Link>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-              <Link to="/cart" className="hover:text-sky-400 transition-colors">Giỏ hàng</Link>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-              <span className="text-slate-200 font-medium">Thanh toán</span>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Link to="/" className="hover:text-blue-600 transition-colors">Trang chủ</Link>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <Link to="/cart" className="hover:text-blue-600 transition-colors">Giỏ hàng</Link>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-900 font-semibold">Thanh toán</span>
             </div>
 
-            {/* Stepper lớn, căn giữa, có animation */}
-            <div className="stepper-wrapper flex items-center gap-0">
+            {/* Stepper chuẩn EVONDEV (Light Theme) */}
+            <div className="flex items-center gap-2 sm:gap-4 bg-white px-5 sm:px-8 py-3.5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
               {/* Step 1 — Giỏ hàng (hoàn thành) */}
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="w-11 h-11 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-all">
-                  <Check className="w-5 h-5 text-emerald-400 stroke-[3]" />
+              <Link to="/cart" className="flex items-center gap-2 group cursor-pointer">
+                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs shadow-sm transition-transform group-hover:scale-105">
+                  <Check className="w-4 h-4 stroke-[3]" />
                 </div>
-                <span className="text-xs font-semibold text-emerald-400 whitespace-nowrap">Giỏ hàng</span>
-              </div>
+                <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-600 transition-colors hidden sm:inline">
+                  Giỏ hàng
+                </span>
+              </Link>
 
-              {/* Connector 1→2 */}
-              <div className="flex items-center pb-5 mx-3">
-                <div className="w-16 sm:w-24 h-0.5 bg-sky-500/50 stepper-connector rounded-full" />
-              </div>
+              {/* Line connector */}
+              <div className="w-8 sm:w-16 h-0.5 bg-blue-600 rounded-full" />
 
               {/* Step 2 — Thanh toán (đang ở) */}
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="relative w-11 h-11 rounded-full bg-sky-500/20 border-2 border-sky-500 flex items-center justify-center shadow-lg shadow-sky-500/25 transition-all">
-                  <span className="text-sm font-black text-sky-400">2</span>
-                  {/* Pulse ring */}
-                  <span className="absolute inset-0 rounded-full border-2 border-sky-400 animate-ping opacity-30 pointer-events-none" />
+              <div className="flex items-center gap-2">
+                <div className="relative w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-500/25 ring-4 ring-blue-100">
+                  <span>2</span>
                 </div>
-                <span className="text-xs font-black text-sky-400 whitespace-nowrap">Thanh toán</span>
+                <span className="text-xs font-bold text-blue-600">
+                  Thanh toán
+                </span>
               </div>
 
-              {/* Connector 2→3 */}
-              <div className="flex items-center pb-5 mx-3">
-                <div className="w-16 sm:w-24 h-0.5 bg-slate-700 rounded-full" />
-              </div>
+              {/* Line connector */}
+              <div className="w-8 sm:w-16 h-0.5 bg-slate-200 rounded-full" />
 
               {/* Step 3 — Hoàn tất (chưa đến) */}
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="w-11 h-11 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center transition-all">
-                  <span className="text-sm font-bold text-slate-500">3</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 border border-slate-200 flex items-center justify-center font-bold text-xs">
+                  <span>3</span>
                 </div>
-                <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Hoàn tất</span>
+                <span className="text-xs font-medium text-slate-400 hidden sm:inline">
+                  Hoàn tất
+                </span>
               </div>
             </div>
           </div>
@@ -418,16 +396,16 @@ const CheckoutPage = () => {
             <div className="lg:col-span-7 space-y-6">
 
               {/* SECTION 1: Form thông tin người nhận */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl backdrop-blur-sm">
-                <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+              <div className="bg-white border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] rounded-2xl p-6 sm:p-7 space-y-6">
+                <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
                     <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-100">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                       1. Thông tin người nhận hàng
                     </h2>
-                    <p className="text-xs text-slate-400">Vui lòng nhập chính xác để đơn hàng được giao nhanh nhất</p>
+                    <p className="text-xs text-slate-500">Vui lòng nhập chính xác để đơn hàng được giao nhanh nhất</p>
                   </div>
                 </div>
 
@@ -436,8 +414,8 @@ const CheckoutPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Họ và tên */}
                     <div>
-                      <label htmlFor="fullName" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Họ và tên người nhận <span className="text-rose-400">*</span>
+                      <label htmlFor="fullName" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Họ và tên người nhận <span className="text-rose-500">*</span>
                       </label>
                       <input
                         id="fullName"
@@ -445,14 +423,14 @@ const CheckoutPage = () => {
                         value={formData.fullName}
                         onChange={(e) => handleInputChange('fullName', e.target.value)}
                         placeholder="Ví dụ: Nguyễn Văn A"
-                        className={`w-full px-4 py-3 bg-slate-950/70 border rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
+                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                           formErrors.fullName
-                            ? 'border-rose-500/80 focus:ring-rose-500/30'
-                            : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
+                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100'
+                            : 'border-slate-200 focus:border-blue-600 focus:ring-blue-100'
                         }`}
                       />
                       {formErrors.fullName && (
-                        <p className="text-rose-400 text-xs mt-1.5 flex items-center gap-1">
+                        <p className="text-rose-500 text-xs font-medium mt-1.5 flex items-center gap-1">
                           <AlertCircle className="w-3.5 h-3.5" />
                           {formErrors.fullName}
                         </p>
@@ -461,8 +439,8 @@ const CheckoutPage = () => {
 
                     {/* Số điện thoại */}
                     <div>
-                      <label htmlFor="phone" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Số điện thoại nhận hàng <span className="text-rose-400">*</span>
+                      <label htmlFor="phone" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Số điện thoại nhận hàng <span className="text-rose-500">*</span>
                       </label>
                       <input
                         id="phone"
@@ -470,14 +448,14 @@ const CheckoutPage = () => {
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         placeholder="Ví dụ: 0912345678"
-                        className={`w-full px-4 py-3 bg-slate-950/70 border rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
+                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                           formErrors.phone
-                            ? 'border-rose-500/80 focus:ring-rose-500/30'
-                            : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
+                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100'
+                            : 'border-slate-200 focus:border-blue-600 focus:ring-blue-100'
                         }`}
                       />
                       {formErrors.phone && (
-                        <p className="text-rose-400 text-xs mt-1.5 flex items-center gap-1">
+                        <p className="text-rose-500 text-xs font-medium mt-1.5 flex items-center gap-1">
                           <AlertCircle className="w-3.5 h-3.5" />
                           {formErrors.phone}
                         </p>
@@ -487,8 +465,8 @@ const CheckoutPage = () => {
 
                   {/* Địa chỉ chi tiết */}
                   <div>
-                    <label htmlFor="address" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Địa chỉ cụ thể (Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành) <span className="text-rose-400">*</span>
+                    <label htmlFor="address" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Địa chỉ cụ thể (Số nhà, tên đường, phường/xã, quận/huyện) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       id="address"
@@ -496,14 +474,14 @@ const CheckoutPage = () => {
                       value={formData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
                       placeholder="Ví dụ: 123 Lê Lợi, Phường Bến Nghé, Quận 1, TP. HCM"
-                      className={`w-full px-4 py-3 bg-slate-950/70 border rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
+                      className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                         formErrors.address
-                          ? 'border-rose-500/80 focus:ring-rose-500/30'
-                          : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
+                          ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100'
+                          : 'border-slate-200 focus:border-blue-600 focus:ring-blue-100'
                       }`}
                     />
                     {formErrors.address && (
-                      <p className="text-rose-400 text-xs mt-1.5 flex items-center gap-1">
+                      <p className="text-rose-500 text-xs font-medium mt-1.5 flex items-center gap-1">
                         <AlertCircle className="w-3.5 h-3.5" />
                         {formErrors.address}
                       </p>
@@ -512,7 +490,7 @@ const CheckoutPage = () => {
 
                   {/* Ghi chú */}
                   <div>
-                    <label htmlFor="note" className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label htmlFor="note" className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Ghi chú đơn hàng (Tuỳ chọn)
                     </label>
                     <textarea
@@ -521,70 +499,70 @@ const CheckoutPage = () => {
                       value={formData.note}
                       onChange={(e) => handleInputChange('note', e.target.value)}
                       placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
-                      className="w-full px-4 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all resize-none"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all resize-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 2: Phí vận chuyển */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-4 shadow-xl backdrop-blur-sm">
-                <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+              <div className="bg-white border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] rounded-2xl p-6 sm:p-7 space-y-4">
+                <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 shrink-0">
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-100">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                       2. Phương thức vận chuyển
                     </h2>
-                    <p className="text-xs text-slate-400">Tự động tính phí theo giá trị đơn hàng</p>
+                    <p className="text-xs text-slate-500">Tự động tính phí theo giá trị đơn hàng</p>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-5 h-5 rounded-full border-2 border-sky-500 flex items-center justify-center bg-sky-500/20">
-                      <div className="w-2.5 h-2.5 rounded-full bg-sky-400" />
+                    <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center bg-blue-50">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <span>Giao hàng tiêu chuẩn</span>
                         {calculatingShipping ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
                         ) : (isFreeship || shippingFee === 0) ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
                             Freeship
                           </span>
                         ) : null}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {calculatingShipping ? 'Đang tính phí vận chuyển...' : shippingRule}
                       </p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     {calculatingShipping ? (
-                      <span className="text-xs text-slate-500">Đang tính...</span>
+                      <span className="text-xs text-slate-400">Đang tính...</span>
                     ) : shippingFee === 0 ? (
-                      <span className="text-sm font-bold text-emerald-400">Miễn phí</span>
+                      <span className="text-sm font-bold text-emerald-600">Miễn phí</span>
                     ) : (
-                      <span className="text-sm font-bold text-slate-100">{formatVND(shippingFee)}</span>
+                      <span className="text-sm font-bold text-slate-900">{formatVND(shippingFee)}</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* SECTION 3: Phương thức thanh toán */}
-              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-4 shadow-xl backdrop-blur-sm">
-                <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <div className="bg-white border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] rounded-2xl p-6 sm:p-7 space-y-4">
+                <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-100">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                       3. Phương thức thanh toán
                     </h2>
-                    <p className="text-xs text-slate-400">Mặc định thanh toán tiền mặt khi nhận hàng (COD)</p>
+                    <p className="text-xs text-slate-500">Mặc định thanh toán tiền mặt khi nhận hàng (COD)</p>
                   </div>
                 </div>
 
@@ -592,7 +570,7 @@ const CheckoutPage = () => {
                   {/* Option COD */}
                   <label
                     htmlFor="payment-cod"
-                    className="relative flex items-start gap-4 p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-500/5 cursor-pointer transition-all hover:bg-emerald-500/10"
+                    className="relative flex items-start gap-4 p-4 rounded-xl border-2 border-blue-600 bg-blue-50/20 cursor-pointer transition-all hover:bg-blue-50/40"
                   >
                     <input
                       id="payment-cod"
@@ -600,42 +578,42 @@ const CheckoutPage = () => {
                       type="radio"
                       checked={paymentMethod === 'COD'}
                       onChange={() => setPaymentMethod('COD')}
-                      className="mt-1 text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                      className="mt-1 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-slate-100">
+                        <span className="text-sm font-bold text-slate-900">
                           Thanh toán khi nhận hàng (COD)
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
                           Khuyên dùng
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                         Bạn chỉ phải thanh toán bằng tiền mặt cho nhân viên giao hàng sau khi đã kiểm tra kiện hàng. An tâm tuyệt đối 100%!
                       </p>
                     </div>
                   </label>
 
                   {/* Option VNPay (coming soon) */}
-                  <div className="relative flex items-start gap-4 p-4 rounded-2xl border border-slate-800 bg-slate-950/40 opacity-65 cursor-not-allowed">
+                  <div className="relative flex items-start gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/60 opacity-60 cursor-not-allowed">
                     <input
                       id="payment-vnpay"
                       name="paymentMethod"
                       type="radio"
                       disabled
-                      className="mt-1 text-slate-600 cursor-not-allowed"
+                      className="mt-1 text-slate-400 cursor-not-allowed"
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-slate-300">
+                        <span className="text-sm font-semibold text-slate-600">
                           Chuyển khoản Ngân hàng / VNPay QR
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 text-slate-600">
                           Sắp mở
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-slate-400 mt-1">
                         Quét mã QR qua ứng dụng ngân hàng hoặc ví điện tử (sẽ sớm có mặt trong bản nâng cấp tới).
                       </p>
                     </div>
@@ -648,37 +626,37 @@ const CheckoutPage = () => {
             {/* ── CỘT PHẢI (5 cols): Kiện hàng + Voucher + Tổng tiền ── */}
             <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
 
-              <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6 shadow-2xl backdrop-blur-xl">
+              <div className="bg-white border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] rounded-2xl p-6 sm:p-7 space-y-6">
 
-                {/* Header: Kiện hàng (?) */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-sky-400" />
+                {/* Header: Kiện hàng */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-blue-600" />
                     <span>Kiện hàng</span>
                     <span
                       title="Danh sách sản phẩm sẽ được đóng gói và giao đến bạn"
-                      className="w-5 h-5 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-400 cursor-help hover:text-slate-200 transition-colors text-[11px] font-bold"
+                      className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-help text-[11px] font-bold"
                     >
                       ?
                     </span>
                   </h3>
                   <Link
                     to="/cart"
-                    className="text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors"
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                   >
                     Sửa giỏ hàng
                   </Link>
                 </div>
 
-                {/* Danh sách sản phẩm — bố cục 2 Div */}
-                <div className="space-y-4 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                {/* Danh sách sản phẩm */}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                   {items.map((it, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors"
+                      className="flex gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors"
                     >
-                      {/* Div 1 — Ảnh sản phẩm */}
-                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] shrink-0 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden flex items-center justify-center p-1">
+                      {/* Ảnh sản phẩm */}
+                      <div className="w-16 h-16 shrink-0 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-1">
                         {it.Anh ? (
                           <img
                             src={it.Anh}
@@ -686,31 +664,28 @@ const CheckoutPage = () => {
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <Package className="w-7 h-7 text-slate-600" />
+                          <Package className="w-6 h-6 text-slate-400" />
                         )}
                       </div>
 
-                      {/* Div 2 — Thông tin sản phẩm */}
+                      {/* Thông tin sản phẩm */}
                       <div className="flex-1 min-w-0 flex flex-col justify-between gap-1">
-                        {/* Dòng 1: Tên sản phẩm */}
-                        <p className="text-xs sm:text-sm font-semibold text-slate-100 line-clamp-2 leading-snug">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">
                           {it.TenSanPham}
                         </p>
 
-                        {/* Dòng 2: Màu | Dung lượng | Số lượng */}
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                        <p className="text-[11px] text-slate-500">
                           {[
-                            it.MauSac   && `Màu: ${it.MauSac}`,
+                            it.MauSac && `Màu: ${it.MauSac}`,
                             it.DungLuong && `Dung lượng: ${it.DungLuong}`,
-                            `Số lượng: ${it.SoLuong}`,
+                            `SL: ${it.SoLuong}`,
                           ]
                             .filter(Boolean)
                             .join(' | ')}
                         </p>
 
-                        {/* Giá sản phẩm — bottom-right */}
                         <div className="flex justify-end">
-                          <p className="text-xs sm:text-sm font-black text-sky-400">
+                          <p className="text-xs sm:text-sm font-bold text-blue-600">
                             {formatVND(Number(it.Gia) * Number(it.SoLuong))}
                           </p>
                         </div>
@@ -720,38 +695,35 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* ── Mã Giảm Giá ── */}
-                <div className="space-y-3 pt-1 border-t border-slate-800">
-                  <div className="flex items-center gap-2 text-sm font-bold text-slate-200">
-                    <Tag className="w-4 h-4 text-violet-400" />
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <Tag className="w-4 h-4 text-violet-600" />
                     <span>Mã giảm giá</span>
                   </div>
 
-                  {/* Nếu đã có voucher từ cart (hoặc đã áp dụng mới) */}
+                  {/* Nếu đã có voucher */}
                   {appliedVoucher ? (
                     <div className="flex items-center gap-2">
-                      {/* Ô input hiện mã — disabled */}
                       <input
                         type="text"
                         value={voucherInput}
                         readOnly
                         disabled
-                        className="flex-1 px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold tracking-wider cursor-not-allowed outline-none"
+                        className="flex-1 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold tracking-wider cursor-not-allowed outline-none"
                       />
-                      {/* Nút Đã áp dụng (disabled) */}
                       <button
                         type="button"
                         disabled
-                        className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl cursor-not-allowed"
+                        className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl cursor-not-allowed"
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                         Đã áp dụng
                       </button>
-                      {/* Nút gỡ (chỉ hiện nếu voucher không phải từ cart) */}
                       {!voucherFromCart && (
                         <button
                           type="button"
                           onClick={handleRemoveVoucher}
-                          className="shrink-0 p-2.5 text-slate-500 hover:text-rose-400 transition-colors rounded-xl bg-slate-800 border border-slate-700"
+                          className="shrink-0 p-2.5 text-slate-400 hover:text-rose-600 transition-colors rounded-xl bg-slate-100 hover:bg-rose-50 border border-slate-200"
                           title="Gỡ mã giảm giá"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -768,17 +740,17 @@ const CheckoutPage = () => {
                         onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
                         placeholder="Nhập mã voucher..."
-                        className="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 text-xs focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all tracking-wider"
+                        className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 text-xs focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all tracking-wider"
                       />
                       <button
                         id="apply-voucher-checkout-btn"
                         type="button"
                         onClick={handleApplyVoucher}
                         disabled={!voucherInput.trim() || applyingVoucher}
-                        className="shrink-0 px-4 py-2.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 text-xs font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="shrink-0 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 text-xs font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {applyingVoucher ? (
-                          <span className="inline-block w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+                          <span className="inline-block w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
                         ) : (
                           'Áp dụng'
                         )}
@@ -788,57 +760,57 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* ── Chi tiết tính tiền ── */}
-                <div className="space-y-3 pt-1 border-t border-slate-800 text-sm">
-                  <div className="flex justify-between text-slate-400">
+                <div className="space-y-3 pt-2 border-t border-slate-100 text-sm">
+                  <div className="flex justify-between text-slate-600">
                     <span>Tạm tính ({items.length} sản phẩm):</span>
-                    <span className="font-semibold text-slate-200">{formatVND(subtotal)}</span>
+                    <span className="font-semibold text-slate-900">{formatVND(subtotal)}</span>
                   </div>
 
-                  <div className="flex justify-between text-slate-400 items-center">
+                  <div className="flex justify-between text-slate-600 items-center">
                     <span className="flex items-center gap-1.5">
                       Phí vận chuyển:
-                      {calculatingShipping && <Loader2 className="w-3 h-3 animate-spin text-sky-400" />}
+                      {calculatingShipping && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
                     </span>
-                    <span className={shippingFee === 0 ? 'text-emerald-400 font-semibold' : 'text-slate-200 font-semibold'}>
+                    <span className={shippingFee === 0 ? 'text-emerald-600 font-semibold' : 'text-slate-900 font-semibold'}>
                       {shippingFee === 0 ? 'Miễn phí' : formatVND(shippingFee)}
                     </span>
                   </div>
 
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-400">
+                    <div className="flex justify-between text-emerald-600">
                       <span>Giảm giá voucher:</span>
                       <span className="font-semibold">-{formatVND(discountAmount)}</span>
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-slate-800 flex justify-between items-baseline">
+                  <div className="pt-4 border-t border-slate-100 flex justify-between items-baseline">
                     <div>
-                      <p className="text-base font-bold text-slate-100">Tổng thanh toán:</p>
+                      <p className="text-base font-bold text-slate-900">Tổng thanh toán:</p>
                       <p className="text-[11px] text-slate-400">Đã bao gồm VAT và mọi chi phí</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-200 to-violet-300">
+                      <span className="text-2xl font-black text-blue-600">
                         {formatVND(totalAmount)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* ── Nút Xác Nhận Đặt Hàng (chỉ text, không icon) ── */}
-                <div className="space-y-3 pt-1">
+                {/* ── Nút Xác Nhận Đặt Hàng ── */}
+                <div className="space-y-3 pt-2">
                   <button
                     id="submit-order-btn"
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center transition-all shadow-xl ${
+                    className={`w-full py-4 px-6 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-lg ${
                       isSubmitting
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-75'
-                        : 'bg-gradient-to-r from-sky-500 via-indigo-600 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white shadow-sky-500/25 hover:shadow-sky-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-500/25 hover:shadow-blue-500/40'
                     }`}
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2 text-sky-400" />
+                        <Loader2 className="w-5 h-5 animate-spin mr-2 text-white" />
                         Đang xử lý đặt hàng...
                       </>
                     ) : (
@@ -848,20 +820,20 @@ const CheckoutPage = () => {
 
                   <p className="text-center text-[11px] text-slate-400 leading-relaxed">
                     Bằng việc nhấn "Xác Nhận Đặt Hàng", bạn đồng ý với các{' '}
-                    <span className="text-sky-400 underline cursor-pointer">Điều khoản dịch vụ</span> và{' '}
-                    <span className="text-sky-400 underline cursor-pointer">Chính sách bảo mật</span> của SmartZone.
+                    <span className="text-blue-600 underline cursor-pointer">Điều khoản dịch vụ</span> và{' '}
+                    <span className="text-blue-600 underline cursor-pointer">Chính sách bảo mật</span> của SmartZone.
                   </p>
                 </div>
 
                 {/* Cam kết an tâm */}
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2.5">
                   {[
                     { icon: ShieldCheck, text: 'Kiểm tra hàng trước khi thanh toán' },
                     { icon: Truck,       text: 'Giao hàng siêu tốc 1 - 3 ngày' },
                     { icon: Sparkles,    text: 'Cam kết 100% sản phẩm chính hãng' },
                   ].map(({ icon: Icon, text }, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-xs text-slate-400">
-                      <Icon className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div key={i} className="flex items-center gap-2.5 text-xs text-slate-600">
+                      <Icon className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>{text}</span>
                     </div>
                   ))}

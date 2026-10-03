@@ -44,88 +44,56 @@ const Navbar = () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setSearchHistory(parsed);
-        }
+        if (Array.isArray(parsed)) setSearchHistory(parsed);
       }
     } catch (e) {
-      console.error('Lỗi khi đọc search history từ localStorage:', e);
+      console.error('Lỗi khi đọc search history:', e);
     }
   }, []);
 
-  // 2. Debounce 350ms khi gõ từ khóa -> gọi API /api/v1/search/suggest?q=...
+  // 2. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
   useEffect(() => {
     const trimmed = searchTerm.trim();
-
-    if (!trimmed) {
-      setSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
-
+    if (!trimmed) { setSuggestions([]); setLoadingSuggestions(false); return; }
     setLoadingSuggestions(true);
-
     const timer = setTimeout(async () => {
       try {
-        const res = await api.get('/search/suggest', {
-          params: { q: trimmed }
-        });
-        if (res.data?.success) {
-          setSuggestions(res.data.data || []);
-        } else {
-          setSuggestions([]);
-        }
-      } catch (err) {
-        console.error('Lỗi khi lấy gợi ý tìm kiếm:', err);
-        setSuggestions([]);
-      } finally {
-        setLoadingSuggestions(false);
-      }
+        const res = await api.get('/search/suggest', { params: { q: trimmed } });
+        if (res.data?.success) setSuggestions(res.data.data || []);
+        else setSuggestions([]);
+      } catch { setSuggestions([]); }
+      finally { setLoadingSuggestions(false); }
     }, 350);
-
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 3. Click outside & Escape Key handler để đóng dropdown
+  // 3. Click outside & Escape Key handler
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target))
         setIsDropdownOpen(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target))
         setIsUserMenuOpen(false);
-      }
     };
-
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setIsDropdownOpen(false);
-        setIsUserMenuOpen(false);
-      }
+      if (event.key === 'Escape') { setIsDropdownOpen(false); setIsUserMenuOpen(false); }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  // 4. Hàm lưu từ khóa vào Lịch sử tìm kiếm (localStorage)
+  // 4. Lưu từ khóa vào Lịch sử
   const saveSearchHistory = (keyword) => {
     const trimmed = keyword.trim();
     if (!trimmed) return;
-
     setSearchHistory((prev) => {
       const filtered = prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
       const updated = [trimmed, ...filtered].slice(0, 10);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Lỗi khi ghi search history vào localStorage:', e);
-      }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
       return updated;
     });
   };
@@ -134,22 +102,14 @@ const Navbar = () => {
   const handleRemoveHistoryItem = (keyword) => {
     setSearchHistory((prev) => {
       const updated = prev.filter((item) => item !== keyword);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Lỗi khi xóa từ khóa history:', e);
-      }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
       return updated;
     });
   };
 
   const handleClearAllHistory = () => {
     setSearchHistory([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.error('Lỗi khi xóa toàn bộ search history:', e);
-    }
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   };
 
   // 6. Thực hiện Tìm kiếm
@@ -164,45 +124,42 @@ const Navbar = () => {
     }
   };
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    executeSearch(searchTerm);
-  };
+  const handleSearchSubmit = (e) => { e.preventDefault(); executeSearch(searchTerm); };
 
   const handleSelectKeyword = (keyword, productId) => {
     saveSearchHistory(keyword);
     setSearchTerm(keyword);
     setIsDropdownOpen(false);
-    if (!productId) {
-      navigate(`/products?search=${encodeURIComponent(keyword)}`);
-    }
+    if (!productId) navigate(`/products?search=${encodeURIComponent(keyword)}`);
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm text-slate-900">
-      {/* ── Topbar Thông Báo / Banner Nhỏ ── */}
-      <div className="bg-slate-800 text-xs py-2 px-4 hidden md:block">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          {/* Bên trái: Hotline & thông tin cửa hàng */}
-          <div className="flex items-center gap-4 text-slate-300">
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-[0_1px_12px_-2px_rgba(0,0,0,0.06)]">
+
+      {/* ── Topbar Thông Báo Mỏng ── */}
+      <div className="bg-blue-600 hidden md:block">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-9">
+
+          {/* Bên trái */}
+          <div className="flex items-center gap-5 text-xs text-blue-100">
             <span className="flex items-center gap-1.5">
-              <PhoneCall className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>Hotline: <strong className="text-white">1900 8888</strong> (8:00 - 21:30)</span>
+              <PhoneCall className="w-3 h-3 text-blue-200 shrink-0" />
+              <span>Hotline: <strong className="text-white font-semibold">1900 8888</strong> (8:00 - 21:30)</span>
             </span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Hệ thống <strong className="text-slate-200">45 cửa hàng</strong> toàn quốc</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Thu cũ đổi mới trợ giá tới <strong className="text-amber-400">2.000.000đ</strong></span>
+            <span className="text-blue-400/60">|</span>
+            <span className="text-blue-200">Hệ thống <strong className="text-white font-semibold">45 cửa hàng</strong> toàn quốc</span>
+            <span className="text-blue-400/60">|</span>
+            <span className="text-blue-200">Thu cũ đổi mới trợ giá tới <strong className="text-yellow-300 font-semibold">2.000.000đ</strong></span>
           </div>
 
-          {/* Bên phải: Đại lý & Giao hàng */}
-          <div className="flex items-center gap-5 text-slate-400">
-            <span className="flex items-center gap-1.5 hover:text-slate-200 transition-colors cursor-pointer">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          {/* Bên phải */}
+          <div className="flex items-center gap-5 text-xs text-blue-200">
+            <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
+              <ShieldCheck className="w-3 h-3 text-blue-300" />
               <span>Đại lý ủy quyền chính hãng</span>
             </span>
-            <span className="flex items-center gap-1.5 hover:text-slate-200 transition-colors cursor-pointer">
-              <Truck className="w-3.5 h-3.5 text-sky-400" />
+            <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
+              <Truck className="w-3 h-3 text-blue-300" />
               <span>Giao nhanh miễn phí</span>
             </span>
           </div>
@@ -218,64 +175,56 @@ const Navbar = () => {
             <img
               src="/assets/logo.png"
               alt="SmartZone Logo"
-              className="h-10 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+              className="h-9 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
               onError={(e) => {
-                // Fallback nếu logo.png không tồn tại
                 e.currentTarget.style.display = 'none';
                 e.currentTarget.nextSibling.style.display = 'flex';
               }}
             />
             {/* Fallback icon logo */}
-            <div className="hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-violet-600 items-center justify-center shadow-lg shadow-sky-500/20">
-              <Store className="w-5 h-5 text-white" />
+            <div className="hidden w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 items-center justify-center shadow-md shadow-blue-500/25">
+              <Store className="w-4.5 h-4.5 text-white" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-black tracking-wider bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">
-                SmartZone
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium tracking-widest uppercase -mt-1">
-                Store Premium
-              </span>
+            <div className="flex flex-col leading-none">
+              <span className="text-base font-black tracking-tight text-slate-900">SmartZone</span>
+              <span className="text-[9px] text-slate-400 font-medium tracking-widest uppercase">Premium Store</span>
             </div>
           </Link>
 
-          {/* 2. Header Search Input & Dropdown */}
-          <div className="flex-1 max-w-2xl relative" ref={searchContainerRef}>
+          {/* 2. Search Bar */}
+          <div className="flex-1 max-w-xl relative" ref={searchContainerRef}>
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onFocus={() => setIsDropdownOpen(true)}
-                placeholder="Tìm kiếm điện thoại, phụ kiện, iPhone 15 Pro Max..."
-                className="w-full pl-11 pr-24 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-inner"
+                placeholder="Tìm kiếm iPhone, Samsung, phụ kiện..."
+                className="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all duration-200 shadow-sm"
               />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
 
-              {/* Icon Tìm kiếm bên trái */}
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-
-              {/* Nút Clear & Nút Tìm kiếm bên phải */}
               <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {searchTerm && (
                   <button
                     type="button"
                     onClick={() => setSearchTerm('')}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-sky-500/20 transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all duration-200 active:scale-[0.97] flex items-center gap-1"
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tìm kiếm</span>
+                  <span className="hidden sm:inline">Tìm</span>
                 </button>
               </div>
             </form>
 
-            {/* Search Dropdown Component */}
+            {/* Search Dropdown */}
             <SearchDropdown
               isOpen={isDropdownOpen}
               onClose={() => setIsDropdownOpen(false)}
@@ -289,50 +238,51 @@ const Navbar = () => {
             />
           </div>
 
-          {/* 3. Actions Right: Cart & User Account */}
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Nút Giỏ Hàng */}
+          {/* 3. Actions Right */}
+          <div className="flex items-center gap-2.5 shrink-0">
+
+            {/* Giỏ hàng */}
             <Link
               to="/cart"
-              className="relative p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:text-sky-600 hover:border-sky-200 hover:bg-sky-50 transition-all group"
-              title="Giỏ hàng của bạn"
+              className="relative p-2.5 border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all duration-200 group"
+              title="Giỏ hàng"
             >
               <ShoppingCart className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-r from-rose-500 to-violet-600 text-white font-bold text-[10px] rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-blue-600 text-white font-bold text-[10px] rounded-full flex items-center justify-center px-1 shadow-md border-2 border-white">
                 0
               </span>
             </Link>
 
-            {/* Tài Khoản / User Menu */}
+            {/* Tài Khoản */}
             {isAuthenticated ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 p-1.5 bg-slate-50 border border-slate-200 hover:border-sky-200 hover:bg-sky-50 rounded-xl text-slate-700 transition-all"
+                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 rounded-xl text-slate-700 transition-all duration-200"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-400 to-violet-600 flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
                     {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
                   </div>
-                  <span className="text-xs font-medium max-w-[100px] truncate hidden md:inline">
+                  <span className="text-xs font-medium max-w-[90px] truncate hidden md:inline text-slate-700">
                     {user?.HoTen || user?.TaiKhoan}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Dropdown Menu User */}
+                {/* Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] p-2 z-50 animate-scale-in">
+                    <div className="px-3 py-2.5 border-b border-slate-100 mb-1">
                       <p className="text-xs font-semibold text-slate-800 truncate">{user?.HoTen || user?.TaiKhoan}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{user?.Email || 'Khách hàng SmartZone'}</p>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{user?.Email || 'Khách hàng SmartZone'}</p>
                     </div>
 
                     {isAdmin && (
                       <Link
                         to="/admin/dashboard"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-sky-600 hover:bg-sky-50 rounded-xl font-medium transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 rounded-xl font-medium transition-colors"
                       >
                         <LayoutDashboard className="w-4 h-4" />
                         <span>Trang Quản trị Admin</span>
@@ -344,16 +294,13 @@ const Navbar = () => {
                       onClick={() => setIsUserMenuOpen(false)}
                       className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
                     >
-                      <ShoppingCart className="w-4 h-4 text-violet-500" />
+                      <ShoppingCart className="w-4 h-4 text-blue-500" />
                       <span>Đơn hàng của tôi</span>
                     </Link>
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        logout();
-                      }}
+                      onClick={() => { setIsUserMenuOpen(false); logout(); }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-500 hover:bg-rose-50 rounded-xl transition-colors mt-1 font-medium"
                     >
                       <LogOut className="w-4 h-4" />
@@ -365,20 +312,20 @@ const Navbar = () => {
             ) : (
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-sky-600 text-xs font-semibold rounded-xl transition-all shadow-sm"
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.97]"
               >
                 <User className="w-4 h-4" />
                 <span className="hidden sm:inline">Đăng nhập</span>
               </Link>
             )}
 
-            {/* Mobile Menu Toggle button */}
+            {/* Mobile Menu Toggle */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-slate-500 hover:text-slate-700 md:hidden"
+              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors md:hidden"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { AlertTriangle, X, Trash2 } from 'lucide-react';
 
 /**
  * DeleteConfirmModal — Modal xác nhận xóa sản phẩm khỏi giỏ hàng.
+ * Evondev UI/UX Premium (Light Theme)
  *
  * Props:
  *  - isOpen      {boolean}   : Hiển thị / ẩn modal
@@ -57,18 +58,18 @@ const DeleteConfirmModal = ({
     >
       {/* Overlay mờ */}
       <div
-        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl shadow-rose-500/10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-2xl shadow-slate-900/10 animate-in fade-in zoom-in-95 duration-200">
 
         {/* Nút đóng góc phải */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-all"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
           aria-label="Đóng modal"
         >
           <X className="w-4 h-4" />
@@ -78,39 +79,39 @@ const DeleteConfirmModal = ({
         <div className="p-7 flex flex-col items-center text-center gap-5">
 
           {/* Icon cảnh báo */}
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shadow-lg shadow-rose-500/10">
-            <Trash2 className="w-8 h-8 text-rose-400" />
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-sm">
+            <Trash2 className="w-8 h-8" />
           </div>
 
           {/* Title */}
           <div className="space-y-2">
             <h2
               id="delete-modal-title"
-              className="text-lg font-black text-slate-100 tracking-tight"
+              className="text-lg font-bold text-slate-900 tracking-tight"
             >
               {title}
             </h2>
 
             {/* Warning badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
-              <AlertTriangle className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-700 text-xs font-semibold">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
               <span>Không thể hoàn tác sau khi xóa</span>
             </div>
           </div>
 
           {/* Content */}
-          <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
             {message || defaultMessage}
           </p>
 
           {/* Action Buttons */}
-          <div className="w-full flex items-center gap-3 pt-1">
+          <div className="w-full flex items-center gap-3 pt-2">
             {/* Hủy */}
             <button
               type="button"
               id="delete-modal-cancel-btn"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-slate-100 text-sm font-semibold rounded-2xl transition-all"
+              className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition-all"
             >
               Hủy bỏ
             </button>
@@ -123,7 +124,7 @@ const DeleteConfirmModal = ({
                 onConfirm();
                 onClose();
               }}
-              className="flex-1 py-2.5 px-4 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white text-sm font-bold rounded-2xl shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 transition-all flex items-center justify-center gap-2"
             >
               <Trash2 className="w-4 h-4" />
               <span>Xác nhận xóa</span>
