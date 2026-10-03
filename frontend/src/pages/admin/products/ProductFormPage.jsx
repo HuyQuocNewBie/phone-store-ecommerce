@@ -41,8 +41,8 @@ const ProductFormPage = () => {
   const [moTa, setMoTa] = useState('');
   const [maLoaiSanPham, setMaLoaiSanPham] = useState('');
   const [maNhaSanXuat, setMaNhaSanXuat] = useState('');
-  const [dungLuong, setDungLuong] = useState('');
-  const [mauSac, setMauSac] = useState('');
+  const [dungLuongList, setDungLuongList] = useState(['']);
+  const [mauSacList, setMauSacList] = useState(['']);
   const [imageMode, setImageMode] = useState('file'); // 'file' | 'url'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -99,6 +99,13 @@ const ProductFormPage = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty, isSubmitting]);
+
+  // ─── Helper: Tách chuỗi phân cách bởi dấu phẩy thành mảng ───────────────────
+  const parseCommaSeparated = (str) => {
+    if (!str || typeof str !== 'string') return [''];
+    const items = str.split(',').map((s) => s.trim()).filter(Boolean);
+    return items.length > 0 ? items : [''];
+  };
 
   // ─── Helper: Un-flatten mảng thông số từ backend (Edit Mode) ───────────────
   const groupSpecsByNhom = (flatSpecsArray) => {
@@ -177,8 +184,8 @@ const ProductFormPage = () => {
           setMoTa(product.MoTa || '');
           setMaLoaiSanPham(product.MaLoaiSanPham ? String(product.MaLoaiSanPham) : '');
           setMaNhaSanXuat(product.MaNhaSanXuat ? String(product.MaNhaSanXuat) : '');
-          setDungLuong(product.DungLuong || '');
-          setMauSac(product.MauSac || '');
+          setDungLuongList(parseCommaSeparated(product.DungLuong));
+          setMauSacList(parseCommaSeparated(product.MauSac));
 
           const existingImg = product.Anh || '';
           setInitialImage(existingImg);
@@ -362,6 +369,45 @@ const ProductFormPage = () => {
     markDirty();
   };
 
+  // ─── Dynamic Dung Lượng & Màu Sắc Operations ───────────────────────────────
+  const handleDungLuongChange = (index, value) => {
+    setDungLuongList((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+    markDirty();
+  };
+
+  const handleAddDungLuong = () => {
+    setDungLuongList((prev) => [...prev, '']);
+    markDirty();
+  };
+
+  const handleRemoveDungLuong = (index) => {
+    setDungLuongList((prev) => prev.filter((_, idx) => idx !== index));
+    markDirty();
+  };
+
+  const handleMauSacChange = (index, value) => {
+    setMauSacList((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+    markDirty();
+  };
+
+  const handleAddMauSac = () => {
+    setMauSacList((prev) => [...prev, '']);
+    markDirty();
+  };
+
+  const handleRemoveMauSac = (index) => {
+    setMauSacList((prev) => prev.filter((_, idx) => idx !== index));
+    markDirty();
+  };
+
   // ─── Navigation Guard Handler ──────────────────────────────────────────────
   const handleBackNavigation = () => {
     if (isDirty && !isSubmitting) {
@@ -431,8 +477,19 @@ const ProductFormPage = () => {
       formData.append('MoTa', moTa);
       if (maLoaiSanPham) formData.append('MaLoaiSanPham', maLoaiSanPham);
       if (maNhaSanXuat) formData.append('MaNhaSanXuat', maNhaSanXuat);
-      formData.append('DungLuong', dungLuong);
-      formData.append('MauSac', mauSac);
+      // Chuẩn hóa Dung lượng & Màu sắc: lọc bỏ các ô rỗng, ghép bằng dấu phẩy ", "
+      const dungLuongJoined = dungLuongList
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join(', ');
+
+      const mauSacJoined = mauSacList
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join(', ');
+
+      formData.append('DungLuong', dungLuongJoined);
+      formData.append('MauSac', mauSacJoined);
 
       if (imageFile) {
         formData.append('file', imageFile);
@@ -680,34 +737,104 @@ const ProductFormPage = () => {
               </div>
             </div>
 
-            {/* Dung lượng & Màu sắc (2 cols) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Dung lượng */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Dung lượng
-                </label>
-                <input
-                  type="text"
-                  value={dungLuong}
-                  onChange={(e) => { setDungLuong(e.target.value); markDirty(); }}
-                  placeholder="128GB, 256GB, 512GB..."
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
-                />
+            {/* Dung lượng & Màu sắc (2 cols - Dynamic Input List) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+              {/* Cột Dung lượng */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Dung lượng
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {dungLuongList.length} lựa chọn
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {dungLuongList.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleDungLuongChange(idx, e.target.value)}
+                        placeholder={`Dung lượng ${idx + 1} (VD: 128GB)`}
+                        className="flex-1 min-w-0 px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDungLuong(idx)}
+                        className="p-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all shrink-0"
+                        title="Xóa dung lượng này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {dungLuongList.length === 0 && (
+                    <p className="text-xs text-slate-500 italic py-1">
+                      Chưa có dung lượng nào. Bấm nút bên dưới để thêm.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddDungLuong}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-750 text-sky-400 hover:text-sky-300 text-xs font-semibold rounded-xl border border-slate-700/80 hover:border-sky-500/40 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Thêm Dung lượng</span>
+                </button>
               </div>
 
-              {/* Màu sắc */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Màu sắc
-                </label>
-                <input
-                  type="text"
-                  value={mauSac}
-                  onChange={(e) => { setMauSac(e.target.value); markDirty(); }}
-                  placeholder="Đen Titan, Trắng Titan..."
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
-                />
+              {/* Cột Màu sắc */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Màu sắc
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {mauSacList.length} lựa chọn
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {mauSacList.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleMauSacChange(idx, e.target.value)}
+                        placeholder={`Màu sắc ${idx + 1} (VD: Đen Titan)`}
+                        className="flex-1 min-w-0 px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMauSac(idx)}
+                        className="p-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all shrink-0"
+                        title="Xóa màu sắc này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {mauSacList.length === 0 && (
+                    <p className="text-xs text-slate-500 italic py-1">
+                      Chưa có màu sắc nào. Bấm nút bên dưới để thêm.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddMauSac}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-750 text-sky-400 hover:text-sky-300 text-xs font-semibold rounded-xl border border-slate-700/80 hover:border-sky-500/40 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Thêm Màu sắc</span>
+                </button>
               </div>
             </div>
 
