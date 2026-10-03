@@ -45,20 +45,36 @@ const CartPage = () => {
     if (!cartLoading) setIsLoading(false);
   }, [cartLoading]);
 
+  // Đồng bộ selectedIds khi cartItems thay đổi
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      setSelectedIds((prev) => prev.filter((id) => cartItems.some((item) => item.id === id)));
+    } else {
+      setSelectedIds([]);
+    }
+  }, [cartItems]);
+
   const fetchVouchers = async () => {
     try {
-      const res = await api.get('/admin/vouchers');
-      if (res.data.success)
-        setAvailableVouchers(res.data.data.filter(v => v.TrangThai === 'HoatDong' || !v.TrangThai));
-    } catch {}
+      const res = await api.get('/vouchers/active');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setAvailableVouchers(res.data.data);
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách voucher:', err);
+    }
   };
 
   const isEmpty = cartItems.length === 0;
-  const isAllSelected = cartItems.length > 0 && selectedIds.length === cartItems.length;
-  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < cartItems.length;
+  const isAllSelected = cartItems.length > 0 && cartItems.every((item) => selectedIds.includes(item.id));
+  const isIndeterminate = selectedIds.length > 0 && !isAllSelected;
 
   const handleToggleAll = () => {
-    setSelectedIds(isAllSelected ? [] : cartItems.map((item) => item.id));
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(cartItems.map((item) => item.id));
+    }
   };
   const handleToggleItem = (id) => {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -102,32 +118,89 @@ const CartPage = () => {
   };
 
   const selectedItems = cartItems.filter((item) => selectedIds.includes(item.id));
-  const subtotal = selectedItems.reduce((sum, item) => sum + item.Gia * item.SoLuong, 0);
+  const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.Gia) * Number(item.SoLuong), 0);
   const SHIPPING_FEE = selectedItems.length === 0 ? null : (subtotal > 0 && subtotal < 5000000 ? 30000 : 0);
+
+  // Tính tiền giảm dựa trên appliedVoucher và subtotal
   const discount = appliedVoucher
-    ? (appliedVoucher.LoaiGiamGia === 'PhanTram'
-        ? subtotal * (appliedVoucher.GiaTriGiam / 100)
-        : appliedVoucher.GiaTriGiam)
+    ? (appliedVoucher.LoaiGiam === 'phantram' || appliedVoucher.LoaiGiamGia === 'PhanTram'
+        ? Math.round(subtotal * (Number(appliedVoucher.GiaTriGiam) / 100))
+        : Number(appliedVoucher.GiaTriGiam))
     : 0;
   const actualDiscount = Math.min(discount, subtotal);
   const total = Math.max(0, subtotal + (SHIPPING_FEE || 0) - actualDiscount);
 
-  const handleApplyVoucher = () => {
-    const code = voucherCode.trim().toUpperCase();
-    if (!code) return;
+  // Tự động kiểm tra giá trị tối thiểu của voucher khi subtotal thay đổi
+  useEffect(() => {
+    if (appliedVoucher) {
+      const minRequired = Number(appliedVoucher.GiaTriToiThieu || appliedVoucher.DonToiThieu || 0);
+      if (subtotal > 0 && subtotal < minRequired) {
+        setAppliedVoucher(null);
+        toast(`Mã ${appliedVoucher.Code || appliedVoucher.MaCode} đã được gỡ vì đơn hàng chưa đạt giá trị tối thiểu ${formatVND(minRequired)}`, {
+          icon: '⚠️'
+        });
+      }
+    }
+  }, [subtotal, appliedVoucher]);
+
+  const handleApplyVoucher = async (codeToApply = null) => {
+    const rawCode = (typeof codeToApply === 'string' ? codeToApply : voucherCode);
+    const code = rawCode.trim().toUpperCase();
+    if (!code) {
+      toast.error('Vui lòng nhập mã giảm giá');
+      return;
+    }
+
+    if (selectedItems.length === 0) {
+      toast.error('Vui lòng chọn sản phẩm trong giỏ hàng trước khi áp dụng mã');
+      return;
+    }
+
     setApplyingVoucher(true);
-    setTimeout(() => {
-      const voucher = availableVouchers.find(v => v.MaCode === code);
-      if (voucher) {
-        if (voucher.DonToiThieu && subtotal < voucher.DonToiThieu)
-          toast.error(`Đơn hàng chưa đạt mức tối thiểu ${formatVND(voucher.DonToiThieu)}`);
-        else { setAppliedVoucher(voucher); toast.success('Áp dụng mã giảm giá thành công!'); }
-      } else toast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+    try {
+      const res = await api.post('/vouchers/apply', {
+        code,
+        orderSubtotal: subtotal
+      });
+
+      if (res.data?.success) {
+        const { voucher, discountAmount } = res.data.data;
+        const voucherData = {
+          ...voucher,
+          discountAmount,
+          MaCode: voucher.Code,
+          code: voucher.Code,
+          Code: voucher.Code,
+          GiaTriGiam: Number(voucher.GiaTriGiam),
+          LoaiGiam: voucher.LoaiGiam,
+          LoaiGiamGia: voucher.LoaiGiam === 'phantram' ? 'PhanTram' : 'Tien',
+          DonToiThieu: Number(voucher.GiaTriToiThieu),
+          GiaTriToiThieu: Number(voucher.GiaTriToiThieu)
+        };
+        setAppliedVoucher(voucherData);
+        setVoucherCode(voucher.Code);
+        toast.success(res.data.message || 'Áp dụng mã giảm giá thành công!');
+      } else {
+        toast.error(res.data?.message || 'Không thể áp dụng mã giảm giá');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Mã giảm giá không hợp lệ hoặc không đủ điều kiện';
+      toast.error(msg);
+    } finally {
       setApplyingVoucher(false);
-    }, 400);
+    }
   };
 
-  const handleRemoveVoucher = () => { setAppliedVoucher(null); setVoucherCode(''); toast.success('Đã gỡ mã giảm giá.'); };
+  const handleSelectAndApplyVoucher = (voucher) => {
+    setVoucherCode(voucher.Code);
+    handleApplyVoucher(voucher.Code);
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCode('');
+    toast.success('Đã gỡ mã giảm giá.');
+  };
 
   const handleCheckout = () => {
     if (selectedItems.length === 0) return;
@@ -219,15 +292,18 @@ const CartPage = () => {
             <div className="xl:col-span-2 space-y-4">
               {/* Select All bar */}
               <div className="flex items-center justify-between px-5 py-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                <label id="select-all-label" htmlFor="select-all-checkbox" className="flex items-center gap-3 cursor-pointer group">
+                <label id="select-all-label" htmlFor="select-all-checkbox" className="flex items-center gap-3 cursor-pointer group select-none">
                   <div className="relative">
-                    <input id="select-all-checkbox" type="checkbox" checked={isAllSelected}
+                    <input
+                      id="select-all-checkbox"
+                      type="checkbox"
+                      checked={isAllSelected}
                       ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
-                      onChange={handleToggleAll} className="sr-only"
+                      onChange={handleToggleAll}
+                      className="sr-only"
                     />
                     <div
-                      onClick={handleToggleAll}
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
                         isAllSelected ? 'bg-blue-600 border-blue-600'
                         : isIndeterminate ? 'bg-blue-100 border-blue-400'
                         : 'border-slate-300 group-hover:border-blue-400'
@@ -397,21 +473,31 @@ const CartPage = () => {
                       <Tag className="w-4 h-4 text-blue-500" />
                       <span className="text-sm font-semibold text-slate-700">Mã giảm giá</span>
                     </div>
-                    <span className="text-xs text-slate-400">Nhập hoặc chọn mã</span>
+                    <span className="text-xs text-slate-400">
+                      {availableVouchers.length > 0 ? `${availableVouchers.length} mã khả dụng` : 'Nhập hoặc chọn mã'}
+                    </span>
                   </div>
 
                   {appliedVoucher ? (
-                    <div className="flex items-center justify-between px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md tracking-wider">
-                          {appliedVoucher.MaCode}
+                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md tracking-wider">
+                          {appliedVoucher.Code || appliedVoucher.MaCode}
                         </span>
-                        <span className="text-xs text-emerald-600 font-medium">
-                          Giảm {appliedVoucher.LoaiGiamGia === 'PhanTram' ? `${appliedVoucher.GiaTriGiam}%` : formatVND(appliedVoucher.GiaTriGiam)}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs text-emerald-700 font-bold truncate">
+                            Giảm {appliedVoucher.LoaiGiam === 'phantram' || appliedVoucher.LoaiGiamGia === 'PhanTram' ? `${appliedVoucher.GiaTriGiam}%` : formatVND(appliedVoucher.GiaTriGiam)}
+                          </p>
+                          <p className="text-[10px] text-emerald-600">Đã áp dụng mã thành công</p>
+                        </div>
                       </div>
-                      <button type="button" onClick={handleRemoveVoucher} className="p-1 text-slate-400 hover:text-rose-500 transition-colors rounded-lg">
-                        <X className="w-3.5 h-3.5" />
+                      <button
+                        type="button"
+                        onClick={handleRemoveVoucher}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-white"
+                        title="Gỡ mã giảm giá"
+                      >
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
@@ -423,44 +509,104 @@ const CartPage = () => {
                         onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
                         placeholder="Nhập mã voucher..."
-                        className="flex-1 px-3 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all tracking-wider"
+                        className="flex-1 px-3 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-slate-800 placeholder-slate-400 text-xs focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all tracking-wider font-semibold uppercase"
                       />
                       <button
                         id="apply-voucher-btn"
                         type="button"
-                        onClick={handleApplyVoucher}
+                        onClick={() => handleApplyVoucher()}
                         disabled={!voucherCode.trim() || applyingVoucher}
-                        className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 text-xs font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[75px]"
                       >
                         {applyingVoucher ? (
-                          <span className="inline-block w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                          <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                         ) : 'Áp dụng'}
                       </button>
                     </div>
                   )}
 
                   {/* Available Vouchers List */}
-                  {!appliedVoucher && availableVouchers.length > 0 && (
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {availableVouchers.map(v => (
-                        <div
-                          key={v.MaVoucher}
-                          onClick={() => setVoucherCode(v.MaCode)}
-                          className="p-2.5 bg-slate-50 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 rounded-xl cursor-pointer transition-all"
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-blue-600">{v.MaCode}</span>
-                            <span className="text-[10px] text-slate-500">
-                              Giảm {v.LoaiGiamGia === 'PhanTram' ? `${v.GiaTriGiam}%` : formatVND(v.GiaTriGiam)}
-                            </span>
-                          </div>
-                          {v.DonToiThieu > 0 && (
-                            <p className="text-[10px] text-slate-400 mt-0.5">Đơn tối thiểu {formatVND(v.DonToiThieu)}</p>
-                          )}
-                        </div>
-                      ))}
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-700">Mã giảm giá khả dụng</span>
+                      {availableVouchers.length > 0 && (
+                        <span className="text-[10px] text-blue-600 font-medium">Nhấp để áp dụng ngay</span>
+                      )}
                     </div>
-                  )}
+
+                    {availableVouchers.length === 0 ? (
+                      <div className="py-3 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Chưa có mã giảm giá nào
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+                        {availableVouchers.map((v) => {
+                          const isEligible = subtotal >= Number(v.GiaTriToiThieu);
+                          const isCurrentlyApplied = appliedVoucher && (appliedVoucher.Code === v.Code || appliedVoucher.MaCode === v.Code);
+
+                          return (
+                            <div
+                              key={v.MaVoucher || v.Code}
+                              onClick={() => handleSelectAndApplyVoucher(v)}
+                              className={`p-2.5 rounded-xl border transition-all cursor-pointer relative group ${
+                                isCurrentlyApplied
+                                  ? 'bg-emerald-50/80 border-emerald-300 ring-1 ring-emerald-300'
+                                  : isEligible
+                                  ? 'bg-blue-50/40 border-blue-200 hover:border-blue-400 hover:bg-blue-50/70 hover:shadow-xs'
+                                  : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-bold tracking-wider text-blue-600 bg-white px-2 py-0.5 rounded border border-blue-100 shadow-2xs">
+                                      {v.Code}
+                                    </span>
+                                    <span className="text-xs font-bold text-slate-800">
+                                      Giảm {v.LoaiGiam === 'phantram' ? `${v.GiaTriGiam}%` : formatVND(v.GiaTriGiam)}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 mt-1">
+                                    Đơn tối thiểu: <span className="font-semibold text-slate-600">{formatVND(v.GiaTriToiThieu)}</span>
+                                  </p>
+                                  {!isEligible && (
+                                    <p className="text-[10px] text-amber-600 mt-0.5 font-medium">
+                                      Cần mua thêm {formatVND(Number(v.GiaTriToiThieu) - subtotal)}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="shrink-0 flex flex-col items-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectAndApplyVoucher(v);
+                                    }}
+                                    disabled={isCurrentlyApplied || applyingVoucher}
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                                      isCurrentlyApplied
+                                        ? 'bg-emerald-600 text-white cursor-default'
+                                        : isEligible
+                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                                        : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                                    }`}
+                                  >
+                                    {isCurrentlyApplied ? 'Đang dùng' : 'Áp dụng'}
+                                  </button>
+                                  {v.NgayHetHan && (
+                                    <span className="text-[9px] text-slate-400">
+                                      HSD: {new Date(v.NgayHetHan).toLocaleDateString('vi-VN')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Order Total Summary */}

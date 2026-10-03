@@ -106,12 +106,10 @@ const CheckoutPage = () => {
   // Fetch danh sách voucher (chỉ khi chưa có voucher từ cart)
   useEffect(() => {
     if (!voucherFromCart) {
-      api.get('/admin/vouchers')
+      api.get('/vouchers/active')
         .then(res => {
           if (res.data?.success) {
-            setAvailableVouchers(
-              (res.data.data || []).filter(v => v.TrangThai === 'HoatDong' || !v.TrangThai)
-            );
+            setAvailableVouchers(res.data.data || []);
           }
         })
         .catch(() => {/* im lặng nếu lỗi */});
@@ -127,7 +125,7 @@ const CheckoutPage = () => {
   const discountAmount = useMemo(() => {
     if (!appliedVoucher) return 0;
     const val = Number(appliedVoucher.value || appliedVoucher.GiaTriGiam || 0);
-    if (appliedVoucher.LoaiGiamGia === 'PhanTram') {
+    if (appliedVoucher.LoaiGiamGia === 'PhanTram' || appliedVoucher.LoaiGiam === 'phantram') {
       return Math.min(subtotal * (val / 100), subtotal);
     }
     return Math.min(val, subtotal);
