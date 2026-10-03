@@ -211,6 +211,7 @@ const ProductDetailPage = () => {
   const [error, setError] = useState(null);
   const [zoomActive, setZoomActive] = useState(false);
   const [selectedRom, setSelectedRom] = useState("");
+  const [selectedStorage, setSelectedStorage] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
@@ -227,10 +228,15 @@ const ProductDetailPage = () => {
       if (res.data?.success) {
         const data = res.data.data;
         setProduct(data);
-        if (data.danhSachDungLuong?.length > 0)
-          setSelectedRom(data.DungLuong || data.danhSachDungLuong[0]);
-        if (data.danhSachMauSac?.length > 0)
-          setSelectedColor(data.MauSac || data.danhSachMauSac[0]);
+        // Luôn parse từ chuỗi để tránh trường hợp danhSachDungLuong chứa chuỗi gốc
+        if (data.DungLuong) {
+          const parsed = data.DungLuong.split(',').map(item => item.trim()).filter(Boolean);
+          if (parsed.length > 0) setSelectedStorage(parsed[0]);
+        }
+        if (data.MauSac) {
+          const parsed = data.MauSac.split(',').map(item => item.trim()).filter(Boolean);
+          if (parsed.length > 0) setSelectedColor(parsed[0]);
+        }
       } else {
         setError("Không tìm thấy sản phẩm");
       }
@@ -284,6 +290,17 @@ const ProductDetailPage = () => {
   }, [product]);
 
   const isOutOfStock = product?.TonKho <= 0;
+
+  /* ── Parse chuỗi biến thể từ DB (luôn dùng chuỗi, bỏ qua mảng raw) ── */
+  const storageList = product?.DungLuong
+    ? product.DungLuong.split(',').map(item => item.trim()).filter(Boolean)
+    : [];
+  const colorList = product?.MauSac
+    ? product.MauSac.split(',').map(item => item.trim()).filter(Boolean)
+    : [];
+
+  const activeStorage = selectedStorage;
+  const activeColor   = selectedColor;
 
   const saveIntentAndRedirectToLogin = (actionType) => {
     const intent = {
@@ -447,10 +464,10 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {selectedRom && (
+              {activeStorage && (
                 <div className="absolute top-4 right-4">
                   <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
-                    {selectedRom}
+                    {activeStorage}
                   </span>
                 </div>
               )}
@@ -487,26 +504,26 @@ const ProductDetailPage = () => {
               </p>
             </div>
 
-            {/* Chọn Phiên bản (ROM) */}
-            {product.danhSachDungLuong?.length > 0 && (
+            {/* Chọn Phiên bản (Dung lượng) */}
+            {storageList.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <HardDrive className="w-4 h-4 text-blue-500 shrink-0" />
                   <h3 className="text-sm font-semibold text-slate-700">Phiên bản</h3>
-                  {selectedRom && (
+                  {activeStorage && (
                     <span className="ml-auto px-3 py-0.5 text-xs font-medium bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                      {selectedRom}
+                      {activeStorage}
                     </span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.danhSachDungLuong.map((rom) => {
-                    const isSelected = selectedRom === rom;
+                  {storageList.map((rom) => {
+                    const isSelected = activeStorage === rom;
                     return (
                       <button
                         key={rom}
                         type="button"
-                        onClick={() => setSelectedRom(rom)}
+                        onClick={() => setSelectedStorage(rom)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
                           isSelected
                             ? "bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-500/20"
@@ -523,20 +540,20 @@ const ProductDetailPage = () => {
             )}
 
             {/* Chọn Màu sắc */}
-            {product.danhSachMauSac?.length > 0 && (
+            {colorList.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-blue-500 shrink-0" />
                   <h3 className="text-sm font-semibold text-slate-700">Màu sắc</h3>
-                  {selectedColor && (
+                  {activeColor && (
                     <span className="ml-auto px-3 py-0.5 text-xs font-medium bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                      {selectedColor}
+                      {activeColor}
                     </span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.danhSachMauSac.map((color) => {
-                    const isSelected = selectedColor === color;
+                  {colorList.map((color) => {
+                    const isSelected = activeColor === color;
                     return (
                       <button
                         key={color}
