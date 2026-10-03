@@ -600,7 +600,7 @@ const CatalogPage = () => {
             {/* ── Product Grid Responsive ── */}
             {loading ? (
               /* Skeleton Loader Grid */
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 animate-pulse">
                     <div className="w-full h-48 bg-slate-800 rounded-xl" />
@@ -632,28 +632,28 @@ const CatalogPage = () => {
               </div>
             ) : (
               /* Actual Product Grid */
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                 {products.map((item) => (
                   <div
                     key={item.MaSanPham}
-                    className="bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/10 group relative"
+                    className="bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-3 sm:p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/10 group relative"
                   >
                     {/* Badges */}
-                    <div className="absolute top-6 left-6 z-10 flex flex-col gap-1">
+                    <div className="absolute top-3 sm:top-6 left-3 sm:left-6 z-10 flex flex-col gap-1">
                       {item.DungLuong && (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                        <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
                           {item.DungLuong}
                         </span>
                       )}
                       {item.MauSac && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
                           {item.MauSac}
                         </span>
                       )}
                     </div>
 
                     {/* Thumbnail Image */}
-                    <div className="relative w-full h-48 rounded-xl bg-slate-950 border border-slate-800/80 overflow-hidden flex items-center justify-center p-3 mb-4 group-hover:border-slate-700 transition-colors">
+                    <div className="relative w-full h-32 sm:h-48 rounded-xl bg-slate-950 border border-slate-800/80 overflow-hidden flex items-center justify-center p-2 sm:p-3 mb-3 sm:mb-4 group-hover:border-slate-700 transition-colors">
                       {item.Anh ? (
                         <img
                           src={item.Anh}
@@ -665,7 +665,7 @@ const CatalogPage = () => {
                           }}
                         />
                       ) : (
-                        <PackageCheck className="w-12 h-12 text-slate-700" />
+                        <PackageCheck className="w-10 h-10 sm:w-12 sm:h-12 text-slate-700" />
                       )}
                     </div>
 
@@ -675,12 +675,12 @@ const CatalogPage = () => {
                         <div className="flex items-center gap-1 text-amber-400 text-xs mb-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400" />
                           <span className="font-bold text-slate-300">4.9</span>
-                          <span className="text-slate-500 text-[10px]">(Standard)</span>
+                          <span className="text-slate-500 text-[10px] hidden sm:inline">(Standard)</span>
                         </div>
 
                         <h3
                           onClick={() => navigate(`/products/${item.MaSanPham}`)}
-                          className="text-sm font-bold text-slate-100 hover:text-sky-400 transition-colors cursor-pointer line-clamp-2"
+                          className="text-xs sm:text-sm font-bold text-slate-100 hover:text-sky-400 transition-colors cursor-pointer line-clamp-2"
                         >
                           {item.TenSanPham}
                         </h3>
@@ -688,7 +688,7 @@ const CatalogPage = () => {
 
                       <div className="pt-2 border-t border-slate-800/60 flex items-baseline justify-between">
                         <div>
-                          <p className="text-base font-black text-sky-400">
+                          <p className="text-sm sm:text-base font-black text-sky-400">
                             {formatVND(item.Gia)}
                           </p>
                         </div>
@@ -696,20 +696,21 @@ const CatalogPage = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
+                    <div className="mt-3 sm:mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleAddToCart(item)}
-                        className="flex-1 py-2 bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white border border-sky-500/20 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 min-h-[44px] bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white border border-sky-500/20 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
-                        <span>Thêm giỏ</span>
+                        <span className="hidden xs:inline sm:inline">Thêm giỏ</span>
+                        <span className="inline xs:hidden sm:hidden">+</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => navigate(`/products/${item.MaSanPham}`)}
-                        className="p-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 hover:text-white rounded-xl transition-colors"
+                        className="p-2.5 min-h-[44px] min-w-[44px] bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-xl transition-colors flex items-center justify-center"
                         title="Xem chi tiết"
                       >
                         <Eye className="w-4 h-4" />

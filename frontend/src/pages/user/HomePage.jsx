@@ -464,9 +464,9 @@ const HomePage = () => {
 
           {/* Grid sản phẩm */}
           {loadingProducts ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 animate-pulse">
+                <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-4 animate-pulse">
                   <div className="w-full aspect-square bg-slate-800 rounded-xl" />
                   <div className="h-4 bg-slate-800 rounded w-3/4" />
                   <div className="h-4 bg-slate-800 rounded w-1/2" />
@@ -476,7 +476,7 @@ const HomePage = () => {
           ) : featuredProducts.length === 0 ? (
             <div className="py-12 text-center text-slate-500 text-sm">Chưa có sản phẩm nào</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
               {featuredProducts.map((item) => (
                 <ProductCard
                   key={item.MaSanPham}
@@ -548,7 +548,7 @@ const HomePage = () => {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {NEWS_ITEMS.map((news) => (
               <article
                 key={news.id}

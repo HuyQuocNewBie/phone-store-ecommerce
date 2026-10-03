@@ -437,7 +437,7 @@ const CartPage = () => {
                               type="button"
                               onClick={() => handleQtyChange(item.id, -1)}
                               disabled={item.SoLuong <= 1}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                              className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
@@ -448,7 +448,7 @@ const CartPage = () => {
                               type="button"
                               onClick={() => handleQtyChange(item.id, +1)}
                               disabled={item.SoLuong >= item.TonKho}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                              className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -459,7 +459,7 @@ const CartPage = () => {
                             type="button"
                             disabled={!trashEnabled}
                             onClick={() => openDeleteModal(item.id)}
-                            className={`p-2 rounded-xl border transition-all ${
+                            className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border transition-all ${
                               trashEnabled
                                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 cursor-pointer'
                                 : 'bg-slate-800/50 border-slate-700/50 text-slate-600 cursor-not-allowed opacity-40'
@@ -610,7 +610,7 @@ const CartPage = () => {
                     type="button"
                     disabled={selectedItems.length === 0}
                     onClick={handleCheckout}
-                    className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                    className={`w-full py-3.5 min-h-[44px] rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                       selectedItems.length > 0
                         ? 'bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white shadow-xl shadow-sky-500/25 hover:shadow-sky-500/40 hover:scale-[1.02] active:scale-[0.98]'
                         : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'

@@ -262,11 +262,10 @@ const ReviewModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
                     className="p-1.5 focus:outline-none transition-transform hover:scale-125 active:scale-95"
                   >
                     <Star
-                      className={`w-8 h-8 transition-colors ${
-                        isFilled
+                      className={`w-8 h-8 transition-colors ${isFilled
                           ? 'text-amber-400 fill-amber-400 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]'
                           : 'text-slate-600 hover:text-slate-500'
-                      }`}
+                        }`}
                     />
                   </button>
                 );
@@ -288,11 +287,10 @@ const ReviewModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
                     key={tag}
                     type="button"
                     onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                      isSelected
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${isSelected
                         ? 'bg-sky-500/20 border border-sky-500/40 text-sky-300 shadow-sm'
                         : 'bg-slate-800/60 border border-slate-700/60 text-slate-300 hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     {isSelected ? '✓ ' : '+ '}
                     {tag}
@@ -966,20 +964,18 @@ const OrderHistoryPage = () => {
                   <button
                     key={tab.id}
                     onClick={() => handleSelectTab(tab.id)}
-                    className={`flex-1 min-w-[120px] py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap ${
-                      isActive
+                    className={`flex-1 min-w-[120px] py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap ${isActive
                         ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md shadow-sky-500/25'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                    }`}
+                      }`}
                   >
                     <span>{tab.label}</span>
                     {count > 0 && (
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          isActive
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive
                             ? 'bg-white/20 text-white'
                             : 'bg-slate-800 text-slate-400 border border-slate-700/60'
-                        }`}
+                          }`}
                       >
                         {count}
                       </span>
