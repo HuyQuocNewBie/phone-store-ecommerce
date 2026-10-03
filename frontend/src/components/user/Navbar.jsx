@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -159,6 +160,7 @@ const Navbar = () => {
   };
 
   return (
+    <>
     <header className="sticky top-0 w-full z-50 bg-surface/95 backdrop-blur-xl border-b border-surface-container shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       {/* ── Topbar Thông Báo Mỏng (chỉ Desktop) ── */}
       <div className="bg-surface-container text-on-surface-variant font-body-sm text-body-sm py-unit-2xs hidden md:block">
@@ -452,29 +454,35 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════
-          MOBILE DRAWER (Slide từ phải sang trái)
-      ══════════════════════════════════════════════════════ */}
-      {/* Backdrop - lớp phủ đen bên ngoài */}
-      <div
-        onClick={() => setIsMobileDrawerOpen(false)}
-        className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          isMobileDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        aria-hidden="true"
-      />
+    </header>
 
-      {/* Drawer Panel */}
-      <div
-        className={`fixed inset-y-0 right-0 w-4/5 max-w-sm bg-surface shadow-2xl z-[70] flex flex-col transition-transform duration-300 ease-in-out md:hidden ${
-          isMobileDrawerOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Menu điều hướng"
-      >
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-container bg-surface-container-lowest shrink-0">
+    {/* ══════════════════════════════════════════════════════
+        MOBILE DRAWER — Dùng Portal để thoát khỏi stacking
+        context của <header z-50>, render thẳng vào body
+    ══════════════════════════════════════════════════════ */}
+    {ReactDOM.createPortal(
+      <>
+        {/* Backdrop */}
+        <div
+          onClick={() => setIsMobileDrawerOpen(false)}
+          className={`fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+            isMobileDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          aria-hidden="true"
+        />
+
+        {/* Drawer Panel */}
+        <div
+          className={`fixed inset-y-0 right-0 w-[82vw] max-w-[340px] bg-white z-[9999] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-[-4px_0_30px_rgba(0,0,0,0.15)] ${
+            isMobileDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu điều hướng"
+        >
+
+        {/* ── HEADER: Logo + Nút X ── */}
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 bg-white shrink-0">
           <Link
             to="/"
             onClick={() => setIsMobileDrawerOpen(false)}
@@ -490,166 +498,221 @@ const Navbar = () => {
                   'https://lh3.googleusercontent.com/aida/AEtjO1VFkMUR9lR9HPntOzoRJD2b-3_Otg0zsUpN5dPmnqxMZkNfgXXEuXKX9mDfxFH6gWnTmh3uZtp7BLICIT33cp7pZ-Q1fen8dWJ1z33hnwzcy23h0efriIZ1Ki9aUkgHtlRjF7cZ_5pe42ElHyJNs1cqwyaG7rA4tDnjXpX7Ja4u7T600203lPn-oq6i3zYmy36cdPRjohA8dadvbwuBJz1D5W26dV5-4MSGnPY_ohrsU-qpeyHSCSKjtQM';
               }}
             />
-            <span className="font-bold text-base text-primary tracking-tight">
-              Smart<span className="text-tertiary-container">Zone</span>
+            <span className="font-bold text-[15px] text-blue-600 tracking-tight leading-none">
+              Smart<span className="text-orange-500">Zone</span>
             </span>
           </Link>
-          {/* Nút X đóng Drawer */}
+
           <button
             type="button"
             id="mobile-drawer-close-btn"
             aria-label="Đóng menu"
             onClick={() => setIsMobileDrawerOpen(false)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
           >
-            <span className="material-symbols-outlined text-on-surface-variant text-[22px] leading-none">close</span>
+            <span className="material-symbols-outlined text-slate-500 text-[20px] leading-none">close</span>
           </button>
         </div>
 
-        {/* Drawer Content - Scrollable */}
+        {/* ── SCROLLABLE BODY ── */}
         <div className="flex-1 overflow-y-auto">
-          {/* User Info / Đăng nhập */}
-          <div className="px-5 py-4 border-b border-surface-container">
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-primary text-on-primary font-bold text-sm flex items-center justify-center shadow-sm uppercase shrink-0">
+
+          {/* ── KHU VỰC AUTH ── */}
+          {isAuthenticated ? (
+            /* ─── LOGGED-IN: Profile Block ─── */
+            <div className="bg-gradient-to-br from-blue-50 to-slate-50 border-b border-slate-100">
+              {/* Profile Card */}
+              <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                {/* Avatar */}
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold text-base flex items-center justify-center shadow-md uppercase shrink-0 ring-2 ring-white ring-offset-1">
                   {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm text-on-surface truncate">
+                {/* Name & Email */}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[14px] text-slate-800 truncate leading-tight">
                     {user?.HoTen || user?.TaiKhoan}
                   </p>
-                  <p className="text-xs text-on-surface-variant truncate">
+                  <p className="text-[12px] text-slate-500 truncate mt-0.5">
                     {user?.Email || 'Khách hàng SmartZone'}
                   </p>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                <p className="text-sm text-on-surface-variant">Đăng nhập để xem ưu đãi và theo dõi đơn hàng</p>
+
+              {/* Quick Links */}
+              <div className="flex gap-2 px-4 pb-4">
+                <button
+                  type="button"
+                  onClick={() => handleDrawerNavigate('/profile')}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-slate-200 text-slate-700 text-[12px] font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[15px] leading-none">manage_accounts</span>
+                  Hồ sơ cá nhân
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDrawerNavigate('/orders')}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-slate-200 text-slate-700 text-[12px] font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[15px] leading-none">receipt_long</span>
+                  Đơn hàng
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ─── GUEST: 2 Nút Auth ─── */
+            <div className="px-4 py-4 border-b border-slate-100 bg-slate-50">
+              <p className="text-[12px] text-slate-500 mb-3 leading-snug">
+                Đăng nhập để xem ưu đãi độc quyền &amp; theo dõi đơn hàng
+              </p>
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => handleDrawerNavigate('/login')}
-                  className="w-full py-2.5 bg-primary text-on-primary text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-transform"
+                  className="flex-1 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-blue-700"
                 >
-                  <span className="material-symbols-outlined text-[18px] leading-none">person</span>
-                  Đăng nhập ngay
+                  <span className="material-symbols-outlined text-[16px] leading-none">login</span>
+                  Đăng nhập
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDrawerNavigate('/register')}
+                  className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 text-[13px] font-semibold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all hover:bg-slate-50 hover:border-slate-300"
+                >
+                  <span className="material-symbols-outlined text-[16px] leading-none">person_add</span>
+                  Đăng ký
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Navigation Links */}
-          <nav className="px-3 py-3" aria-label="Menu điều hướng mobile">
-            <p className="px-2 py-1 text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+          {/* ── MENU ĐIỀU HƯỚNG CHÍNH ── */}
+          <nav className="px-3 pt-3 pb-1" aria-label="Menu điều hướng mobile">
+            <p className="px-2 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Điều hướng
             </p>
 
             <button
               type="button"
               onClick={() => handleDrawerNavigate('/')}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors text-sm font-medium"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors text-[13px] font-medium group"
             >
-              <span className="material-symbols-outlined text-primary text-[20px] leading-none">home</span>
+              <span className="material-symbols-outlined text-blue-500 text-[20px] leading-none group-hover:scale-110 transition-transform">home</span>
               <span>Trang chủ</span>
             </button>
 
             <button
               type="button"
-              onClick={() => handleDrawerNavigate('/products')}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors text-sm font-medium"
-            >
-              <span className="material-symbols-outlined text-primary text-[20px] leading-none">smartphone</span>
-              <span>Tất cả điện thoại</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => handleDrawerNavigate('/cart')}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors text-sm font-medium"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors text-[13px] font-medium group"
             >
-              <span className="material-symbols-outlined text-primary text-[20px] leading-none">shopping_cart</span>
+              <span className="material-symbols-outlined text-blue-500 text-[20px] leading-none group-hover:scale-110 transition-transform">shopping_cart</span>
               <span>Giỏ hàng</span>
               {totalCartCount > 0 && (
-                <span className="ml-auto min-w-[22px] h-[22px] px-1 rounded-full bg-tertiary-container text-on-tertiary text-xs font-bold flex items-center justify-center">
+                <span className="ml-auto min-w-[20px] h-5 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
                   {totalCartCount > 99 ? '99+' : totalCartCount}
                 </span>
               )}
             </button>
 
-            {isAuthenticated && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleDrawerNavigate('/orders')}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors text-sm font-medium"
-                >
-                  <span className="material-symbols-outlined text-primary text-[20px] leading-none">receipt_long</span>
-                  <span>Đơn hàng của tôi</span>
-                </button>
-
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => handleDrawerNavigate('/admin/dashboard')}
-                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-container-low text-primary transition-colors text-sm font-medium"
-                  >
-                    <span className="material-symbols-outlined text-[20px] leading-none">dashboard</span>
-                    <span>Trang Quản trị Admin</span>
-                  </button>
-                )}
-              </>
+            {isAuthenticated && isAdmin && (
+              <button
+                type="button"
+                onClick={() => handleDrawerNavigate('/admin/dashboard')}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-600 transition-colors text-[13px] font-semibold group"
+              >
+                <span className="material-symbols-outlined text-[20px] leading-none group-hover:scale-110 transition-transform">dashboard</span>
+                <span>Trang Quản trị Admin</span>
+                <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-bold">Admin</span>
+              </button>
             )}
           </nav>
 
-          {/* Divider */}
-          <div className="mx-5 border-t border-surface-container" />
-
-          {/* Hotline & Hỗ trợ */}
-          <div className="px-5 py-4">
-            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">
-              Hỗ trợ khách hàng
+          {/* ── DANH MỤC SẢN PHẨM ── */}
+          <div className="px-3 py-1">
+            <p className="px-2 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Danh mục sản phẩm
             </p>
-            <a
-              href="tel:19006868"
-              className="flex items-center gap-3 py-2.5 text-on-surface hover:text-primary transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-primary-fixed flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[18px] leading-none">call</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-primary">1900 6868</p>
-                <p className="text-xs text-on-surface-variant">8:00 – 21:30 mỗi ngày</p>
-              </div>
-            </a>
 
-            <div className="flex items-center gap-3 py-2">
-              <div className="w-9 h-9 rounded-xl bg-secondary-fixed flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-secondary text-[18px] leading-none">location_on</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-on-surface">45 cửa hàng toàn quốc</p>
-                <p className="text-xs text-on-surface-variant">Đại lý ủy quyền chính hãng</p>
+            {[
+              { label: 'iPhone (Apple)', icon: 'phone_iphone', query: 'iPhone', color: 'text-slate-600' },
+              { label: 'Samsung Galaxy', icon: 'smartphone', query: 'Samsung', color: 'text-blue-500' },
+              { label: 'Xiaomi / POCO', icon: 'smartphone', query: 'Xiaomi', color: 'text-orange-500' },
+              { label: 'OPPO / Reno', icon: 'smartphone', query: 'OPPO', color: 'text-green-500' },
+              { label: 'Vivo / Y-Series', icon: 'smartphone', query: 'Vivo', color: 'text-purple-500' },
+              { label: 'Tất cả điện thoại', icon: 'apps', query: '', color: 'text-blue-600' },
+            ].map(({ label, icon, query, color }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() =>
+                  query
+                    ? handleDrawerNavigate(`/products?search=${encodeURIComponent(query)}`)
+                    : handleDrawerNavigate('/products')
+                }
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-[13px] font-medium text-slate-700 group"
+              >
+                <span className={`material-symbols-outlined text-[20px] leading-none ${color} group-hover:scale-110 transition-transform`}>
+                  {icon}
+                </span>
+                <span>{label}</span>
+                <span className="material-symbols-outlined text-[14px] leading-none text-slate-300 ml-auto">chevron_right</span>
+              </button>
+            ))}
+          </div>
+
+          {/* ── HỖ TRỢ KHÁCH HÀNG ── */}
+          <div className="px-4 pt-2 pb-4 mt-1">
+            <div className="bg-gradient-to-r from-blue-50 to-slate-50 rounded-2xl p-3 border border-blue-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                Hỗ trợ khách hàng
+              </p>
+              <a
+                href="tel:19008888"
+                className="flex items-center gap-3 py-1 group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-white text-[18px] leading-none">call</span>
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold text-blue-600 leading-tight">1900 8888</p>
+                  <p className="text-[11px] text-slate-500">8:00 – 21:30 • Miễn phí</p>
+                </div>
+              </a>
+
+              <div className="flex items-center gap-3 py-1 mt-1">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+                  <span className="material-symbols-outlined text-white text-[18px] leading-none">location_on</span>
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-slate-700">45 cửa hàng toàn quốc</p>
+                  <p className="text-[11px] text-slate-500">Đại lý ủy quyền chính hãng</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Drawer Footer - Đăng xuất (khi đã đăng nhập) */}
+        </div>
+        {/* ── END SCROLLABLE BODY ── */}
+
+        {/* ── FOOTER: Nút Đăng xuất (chỉ khi Logged In) ── */}
         {isAuthenticated && (
-          <div className="px-5 py-4 border-t border-surface-container bg-surface-container-lowest shrink-0">
+          <div className="px-4 py-3 border-t border-slate-100 bg-white shrink-0">
             <button
               type="button"
               onClick={handleDrawerLogout}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-red-600 hover:bg-red-50 font-semibold text-sm transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 font-semibold text-[13px] transition-colors active:scale-95"
             >
               <span className="material-symbols-outlined text-[18px] leading-none">logout</span>
               <span>Đăng xuất</span>
             </button>
           </div>
         )}
-      </div>
-    </header>
+
+        </div>
+      </>,
+      document.body
+    )}
+    </>
   );
 };
 
