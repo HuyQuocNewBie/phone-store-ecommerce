@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  Search,
-  ShoppingCart,
-  User,
-  LogOut,
-  ShieldCheck,
-  Truck,
-  PhoneCall,
-  ChevronDown,
-  Menu,
-  X,
-  LayoutDashboard,
-  Store
-} from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import SearchDropdown from './SearchDropdown';
@@ -31,9 +17,11 @@ const Navbar = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Cart Count State
+  const [cartCount, setCartCount] = useState(0);
+
   // UI State
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const searchContainerRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -51,65 +39,89 @@ const Navbar = () => {
     }
   }, []);
 
-  // 2. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
+  // 2. Tải số lượng giỏ hàng
+  useEffect(() => {
+    if (isAuthenticated) {
+      api.get('/cart')
+        .then((res) => {
+          if (res.data?.success) {
+            const count = res.data.data?.items?.length || res.data.data?.length || 0;
+            setCartCount(count);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setCartCount(0);
+    }
+  }, [isAuthenticated]);
+
+  // 3. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
   useEffect(() => {
     const trimmed = searchTerm.trim();
-    if (!trimmed) { setSuggestions([]); setLoadingSuggestions(false); return; }
+    if (!trimmed) {
+      setSuggestions([]);
+      setLoadingSuggestions(false);
+      return;
+    }
     setLoadingSuggestions(true);
     const timer = setTimeout(async () => {
       try {
         const res = await api.get('/search/suggest', { params: { q: trimmed } });
-        if (res.data?.success) setSuggestions(res.data.data || []);
-        else setSuggestions([]);
-      } catch { setSuggestions([]); }
-      finally { setLoadingSuggestions(false); }
+        if (res.data?.success) {
+          setSuggestions(res.data.data || []);
+        }
+      } catch (err) {
+        console.error('Lỗi gợi ý tìm kiếm:', err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
     }, 350);
+
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 3. Click outside & Escape Key handler
+  // 4. Click ngoài dropdown để đóng
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target))
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
         setIsDropdownOpen(false);
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target))
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setIsUserMenuOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') { setIsDropdownOpen(false); setIsUserMenuOpen(false); }
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 4. Lưu từ khóa vào Lịch sử
+  // 5. Lưu lịch sử tìm kiếm
   const saveSearchHistory = (keyword) => {
-    const trimmed = keyword.trim();
-    if (!trimmed) return;
+    if (!keyword) return;
     setSearchHistory((prev) => {
-      const filtered = prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
-      const updated = [trimmed, ...filtered].slice(0, 10);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+      const filtered = prev.filter((item) => item.toLowerCase() !== keyword.toLowerCase());
+      const updated = [keyword, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
       return updated;
     });
   };
 
-  // 5. Thao tác Xóa Lịch sử
   const handleRemoveHistoryItem = (keyword) => {
     setSearchHistory((prev) => {
       const updated = prev.filter((item) => item !== keyword);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
       return updated;
     });
   };
 
   const handleClearAllHistory = () => {
     setSearchHistory([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
   };
 
   // 6. Thực hiện Tìm kiếm
@@ -124,210 +136,206 @@ const Navbar = () => {
     }
   };
 
-  const handleSearchSubmit = (e) => { e.preventDefault(); executeSearch(searchTerm); };
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    executeSearch(searchTerm);
+  };
 
   const handleSelectKeyword = (keyword, productId) => {
     saveSearchHistory(keyword);
     setSearchTerm(keyword);
     setIsDropdownOpen(false);
-    if (!productId) navigate(`/products?search=${encodeURIComponent(keyword)}`);
+    if (!productId) {
+      navigate(`/products?search=${encodeURIComponent(keyword)}`);
+    }
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-[0_1px_12px_-2px_rgba(0,0,0,0.06)]">
-
+    <header className="sticky top-0 w-full z-50 bg-surface/95 backdrop-blur-xl border-b border-surface-container shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       {/* ── Topbar Thông Báo Mỏng ── */}
-      <div className="bg-blue-600 hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-9">
-
-          {/* Bên trái */}
-          <div className="flex items-center gap-5 text-xs text-blue-100">
-            <span className="flex items-center gap-1.5">
-              <PhoneCall className="w-3 h-3 text-blue-200 shrink-0" />
-              <span>Hotline: <strong className="text-white font-semibold">1900 8888</strong> (8:00 - 21:30)</span>
+      <div className="bg-surface-container text-on-surface-variant font-body-sm text-body-sm py-unit-2xs hidden md:block">
+        <div className="max-w-container-max mx-auto px-gutter-desktop flex items-center justify-between">
+          <span>
+            Hotline: <strong className="text-primary font-bold">1900 6868</strong> (8:00 - 21:30) | Hệ thống 45 cửa hàng toàn quốc | Thu cũ đổi mới trợ giá tới <strong className="text-tertiary-container font-bold">2.000.000đ</strong>
+          </span>
+          <div className="flex items-center gap-unit-md">
+            <span className="flex items-center gap-unit-2xs">
+              <span className="material-symbols-outlined text-sm leading-none text-primary">verified</span>
+              Đại lý ủy quyền chính hãng
             </span>
-            <span className="text-blue-400/60">|</span>
-            <span className="text-blue-200">Hệ thống <strong className="text-white font-semibold">45 cửa hàng</strong> toàn quốc</span>
-            <span className="text-blue-400/60">|</span>
-            <span className="text-blue-200">Thu cũ đổi mới trợ giá tới <strong className="text-yellow-300 font-semibold">2.000.000đ</strong></span>
-          </div>
-
-          {/* Bên phải */}
-          <div className="flex items-center gap-5 text-xs text-blue-200">
-            <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
-              <ShieldCheck className="w-3 h-3 text-blue-300" />
-              <span>Đại lý ủy quyền chính hãng</span>
-            </span>
-            <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
-              <Truck className="w-3 h-3 text-blue-300" />
-              <span>Giao nhanh miễn phí</span>
+            <span className="flex items-center gap-unit-2xs">
+              <span className="material-symbols-outlined text-sm leading-none text-secondary">local_shipping</span>
+              Giao nhanh 1h miễn phí
             </span>
           </div>
         </div>
       </div>
 
       {/* ── Main Navbar ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+      <div className="h-20 max-w-container-max mx-auto px-gutter-desktop flex items-center justify-between gap-unit-lg">
+        {/* 1. Logo Brand */}
+        <Link to="/" className="flex items-center gap-unit-xs shrink-0 group">
+          <img
+            alt="SmartZone Logo"
+            className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
+            src="/assets/logo.png"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src =
+                'https://lh3.googleusercontent.com/aida/AEtjO1VFkMUR9lR9HPntOzoRJD2b-3_Otg0zsUpN5dPmnqxMZkNfgXXEuXKX9mDfxFH6gWnTmh3uZtp7BLICIT33cp7pZ-Q1fen8dWJ1z33hnwzcy23h0efriIZ1Ki9aUkgHtlRjF7cZ_5pe42ElHyJNs1cqwyaG7rA4tDnjXpX7Ja4u7T600203lPn-oq6i3zYmy36cdPRjohA8dadvbwuBJz1D5W26dV5-4MSGnPY_ohrsU-qpeyHSCSKjtQM';
+            }}
+          />
+          <span className="font-headline-sm text-headline-sm text-primary tracking-tight font-extrabold">
+            Smart<span className="text-tertiary-container">Zone</span>
+          </span>
+        </Link>
 
-          {/* 1. Logo Brand */}
-          <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
-            <img
-              src="/assets/logo.png"
-              alt="SmartZone Logo"
-              className="h-9 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextSibling.style.display = 'flex';
-              }}
+        {/* 2. Thanh Tìm kiếm */}
+        <div className="flex-1 max-w-2xl relative" ref={searchContainerRef}>
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            <span className="material-symbols-outlined absolute left-unit-md text-outline pointer-events-none leading-none">
+              search
+            </span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setIsDropdownOpen(true)}
+              placeholder="Bạn tìm điện thoại gì? (VD: iPhone 16 Pro Max, Galaxy S24 Ultra...)"
+              className="w-full pl-11 pr-28 py-unit-xs bg-surface-container-lowest rounded-full text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary shadow-[0_1px_3px_rgba(15,23,42,0.06)] border border-surface-container"
             />
-            {/* Fallback icon logo */}
-            <div className="hidden w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 items-center justify-center shadow-md shadow-blue-500/25">
-              <Store className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-base font-black tracking-tight text-slate-900">SmartZone</span>
-              <span className="text-[9px] text-slate-400 font-medium tracking-widest uppercase">Premium Store</span>
-            </div>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-24 p-1 text-outline hover:text-on-surface transition-colors"
+                title="Xóa tìm kiếm"
+              >
+                <span className="material-symbols-outlined text-sm leading-none">close</span>
+              </button>
+            )}
+            <button
+              type="submit"
+              className="absolute right-1 px-unit-md py-unit-xs bg-primary text-on-primary font-body-md text-body-md rounded-full hover:bg-primary-container transition-colors font-medium shadow-sm active:scale-95"
+            >
+              Tìm kiếm
+            </button>
+          </form>
+
+          {/* Search Dropdown */}
+          <SearchDropdown
+            isOpen={isDropdownOpen}
+            onClose={() => setIsDropdownOpen(false)}
+            searchTerm={searchTerm}
+            history={searchHistory}
+            suggestions={suggestions}
+            loading={loadingSuggestions}
+            onSelectKeyword={handleSelectKeyword}
+            onRemoveHistoryItem={handleRemoveHistoryItem}
+            onClearAllHistory={handleClearAllHistory}
+          />
+        </div>
+
+        {/* 3. Actions Right (Giỏ hàng & Tài khoản) */}
+        <div className="flex items-center gap-unit-md shrink-0">
+          {/* Giỏ hàng */}
+          <Link
+            to="/cart"
+            className="relative flex items-center gap-unit-xs px-unit-sm py-unit-xs bg-surface-container-low hover:bg-surface-container-high rounded-xl text-on-surface transition-colors group shadow-sm"
+            title="Giỏ hàng"
+          >
+            <span className="material-symbols-outlined text-primary leading-none group-hover:scale-110 transition-transform">
+              shopping_cart
+            </span>
+            <span className="font-body-sm text-body-sm font-semibold hidden sm:inline">Giỏ hàng</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-tertiary-container text-on-tertiary font-body-sm text-body-sm flex items-center justify-center font-bold shadow-sm">
+                {cartCount}
+              </span>
+            )}
           </Link>
 
-          {/* 2. Search Bar */}
-          <div className="flex-1 max-w-xl relative" ref={searchContainerRef}>
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => setIsDropdownOpen(true)}
-                placeholder="Tìm kiếm iPhone, Samsung, phụ kiện..."
-                className="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all duration-200 shadow-sm"
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all duration-200 active:scale-[0.97] flex items-center gap-1"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tìm</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Search Dropdown */}
-            <SearchDropdown
-              isOpen={isDropdownOpen}
-              onClose={() => setIsDropdownOpen(false)}
-              searchTerm={searchTerm}
-              history={searchHistory}
-              suggestions={suggestions}
-              loading={loadingSuggestions}
-              onSelectKeyword={handleSelectKeyword}
-              onRemoveHistoryItem={handleRemoveHistoryItem}
-              onClearAllHistory={handleClearAllHistory}
-            />
-          </div>
-
-          {/* 3. Actions Right */}
-          <div className="flex items-center gap-2.5 shrink-0">
-
-            {/* Giỏ hàng */}
-            <Link
-              to="/cart"
-              className="relative p-2.5 border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all duration-200 group"
-              title="Giỏ hàng"
-            >
-              <ShoppingCart className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-blue-600 text-white font-bold text-[10px] rounded-full flex items-center justify-center px-1 shadow-md border-2 border-white">
-                0
-              </span>
-            </Link>
-
-            {/* Tài Khoản */}
-            {isAuthenticated ? (
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 rounded-xl text-slate-700 transition-all duration-200"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
-                    {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
-                  </div>
-                  <span className="text-xs font-medium max-w-[90px] truncate hidden md:inline text-slate-700">
+          {/* Tài Khoản Người Dùng */}
+          {isAuthenticated ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-unit-xs px-unit-xs py-1 hover:bg-surface-container-low rounded-xl transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm uppercase">
+                  {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
+                </div>
+                <div className="hidden md:flex flex-col text-left">
+                  <span className="font-body-sm text-body-sm text-on-surface-variant leading-none">Xin chào,</span>
+                  <span className="font-body-md text-body-md text-on-surface font-semibold leading-tight max-w-[100px] truncate">
                     {user?.HoTen || user?.TaiKhoan}
                   </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
+                </div>
+                <span
+                  className={`material-symbols-outlined text-sm text-outline leading-none transition-transform duration-200 ${
+                    isUserMenuOpen ? 'rotate-180' : ''
+                  }`}
+                >
+                  expand_more
+                </span>
+              </button>
 
-                {/* Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] p-2 z-50 animate-scale-in">
-                    <div className="px-3 py-2.5 border-b border-slate-100 mb-1">
-                      <p className="text-xs font-semibold text-slate-800 truncate">{user?.HoTen || user?.TaiKhoan}</p>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">{user?.Email || 'Khách hàng SmartZone'}</p>
-                    </div>
-
-                    {isAdmin && (
-                      <Link
-                        to="/admin/dashboard"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 rounded-xl font-medium transition-colors"
-                      >
-                        <LayoutDashboard className="w-4 h-4" />
-                        <span>Trang Quản trị Admin</span>
-                      </Link>
-                    )}
-
-                    <Link
-                      to="/orders"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
-                    >
-                      <ShoppingCart className="w-4 h-4 text-blue-500" />
-                      <span>Đơn hàng của tôi</span>
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => { setIsUserMenuOpen(false); logout(); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-500 hover:bg-rose-50 rounded-xl transition-colors mt-1 font-medium"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Đăng xuất</span>
-                    </button>
+              {/* Dropdown Menu */}
+              {isUserMenuOpen && (
+                <div className="absolute right-0 mt-unit-2xs w-60 bg-surface-container-lowest border border-surface-container rounded-xl shadow-[0_10px_25px_-5px_rgba(15,23,42,0.12)] p-unit-xs z-50 animate-scale-in">
+                  <div className="px-unit-sm py-unit-xs border-b border-surface-container mb-unit-2xs">
+                    <p className="font-body-md text-body-md font-semibold text-on-surface truncate">
+                      {user?.HoTen || user?.TaiKhoan}
+                    </p>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
+                      {user?.Email || 'Khách hàng SmartZone'}
+                    </p>
                   </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all duration-200 shadow-sm shadow-blue-500/20 active:scale-[0.97]"
-              >
-                <User className="w-4 h-4" />
-                <span className="hidden sm:inline">Đăng nhập</span>
-              </Link>
-            )}
 
-            {/* Mobile Menu Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors md:hidden"
+                  {isAdmin && (
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-unit-sm px-unit-sm py-unit-xs rounded-lg text-primary hover:bg-surface-container-low transition-colors font-medium font-body-md text-body-md"
+                    >
+                      <span className="material-symbols-outlined text-sm">dashboard</span>
+                      <span>Trang Quản trị Admin</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    to="/orders"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-unit-sm px-unit-sm py-unit-xs rounded-lg text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors font-body-md text-body-md"
+                  >
+                    <span className="material-symbols-outlined text-sm text-primary">receipt_long</span>
+                    <span>Đơn hàng của tôi</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-unit-sm px-unit-sm py-unit-xs rounded-lg text-red-600 hover:bg-red-50 transition-colors font-medium font-body-md text-body-md mt-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">logout</span>
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-unit-xs px-unit-md py-unit-xs bg-primary text-on-primary font-body-md text-body-md rounded-full hover:bg-primary-container transition-all shadow-sm active:scale-95 font-semibold"
             >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
+              <span className="material-symbols-outlined text-base">person</span>
+              <span>Đăng nhập</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>

@@ -1,8 +1,137 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+/* ─── Stitch AI Design Tokens & Utilities ─── */
+.bg-surface { background-color: #faf8ff; }
+.bg-surface-container-lowest { background-color: #ffffff; }
+.bg-surface-container-low { background-color: #f2f3ff; }
+.bg-surface-container { background-color: #eaedff; }
+.bg-surface-container-high { background-color: #e2e7ff; }
+.bg-surface-container-highest { background-color: #dae2fd; }
+
+.bg-primary { background-color: #004ac6; }
+.bg-primary-container { background-color: #2563eb; }
+.bg-primary-fixed { background-color: #dbe1ff; }
+.bg-primary-fixed\/40 { background-color: rgba(219, 225, 255, 0.4); }
+
+.bg-secondary { background-color: #00687a; }
+.bg-secondary-fixed { background-color: #acedff; }
+.bg-secondary-container { background-color: #57dffe; }
+
+.bg-tertiary-container { background-color: #b54e00; }
+.bg-tertiary-fixed { background-color: #ffdbca; }
+.hover\:bg-tertiary:hover { background-color: #8e3c00; }
+.hover\:bg-primary:hover { background-color: #003ea8; }
+.hover\:bg-primary-container:hover { background-color: #1d4ed8; }
+.hover\:bg-surface-container-high:hover { background-color: #dae2fd; }
+.hover\:bg-surface-container:hover { background-color: #eaedff; }
+
+.text-primary { color: #004ac6; }
+.text-secondary { color: #00687a; }
+.text-tertiary { color: #8e3c00; }
+.text-tertiary-container { color: #b54e00; }
+.text-on-primary { color: #ffffff; }
+.text-on-tertiary { color: #ffffff; }
+.text-on-surface { color: #131b2e; }
+.text-on-surface-variant { color: #434655; }
+.text-outline { color: #737686; }
+
+/* Spacing tokens */
+.p-unit-xs { padding: 0.5rem; }
+.p-unit-sm { padding: 0.75rem; }
+.p-unit-md { padding: 1rem; }
+.p-unit-lg { padding: 1.5rem; }
+.p-unit-xl { padding: 2rem; }
+
+.px-unit-xs { padding-left: 0.5rem; padding-right: 0.5rem; }
+.px-unit-sm { padding-left: 0.75rem; padding-right: 0.75rem; }
+.px-unit-md { padding-left: 1rem; padding-right: 1rem; }
+.px-unit-lg { padding-left: 1.5rem; padding-right: 1.5rem; }
+.px-unit-xl { padding-left: 2rem; padding-right: 2rem; }
+.px-gutter-desktop { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+.py-unit-2xs { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.py-unit-xs { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-unit-sm { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.py-unit-md { padding-top: 1rem; padding-bottom: 1rem; }
+
+.pt-unit-md { padding-top: 1rem; }
+.pt-unit-lg { padding-top: 1.5rem; }
+.pt-unit-xl { padding-top: 2rem; }
+.pt-unit-2xl { padding-top: 3rem; }
+.pt-unit-3xl { padding-top: 4rem; }
+.pt-unit-4xl { padding-top: 6rem; }
+.pb-unit-sm { padding-bottom: 0.75rem; }
+.pb-unit-md { padding-bottom: 1rem; }
+.pb-unit-xl { padding-bottom: 2rem; }
+.pb-unit-2xl { padding-bottom: 3rem; }
+.pb-unit-3xl { padding-bottom: 4rem; }
+
+.mb-unit-2xs { margin-bottom: 0.25rem; }
+.mb-unit-xs { margin-bottom: 0.5rem; }
+.mb-unit-sm { margin-bottom: 0.75rem; }
+.mb-unit-md { margin-bottom: 1rem; }
+.mb-unit-lg { margin-bottom: 1.5rem; }
+.mb-unit-xl { margin-bottom: 2rem; }
+.mb-unit-3xl { margin-bottom: 4rem; }
+.mt-unit-xs { margin-top: 0.5rem; }
+.mt-unit-md { margin-top: 1rem; }
+.mt-unit-xl { margin-top: 2rem; }
+
+.gap-unit-2xs { gap: 0.25rem; }
+.gap-unit-xs { gap: 0.5rem; }
+.gap-unit-sm { gap: 0.75rem; }
+.gap-unit-md { gap: 1rem; }
+.gap-unit-lg { gap: 1.5rem; }
+.gap-unit-xl { gap: 2rem; }
+
+.max-w-container-max { max-width: 80rem; }
+
+/* Typography */
+.font-headline-lg { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 40px; line-height: 48px; letter-spacing: -0.025em; font-weight: 700; }
+.font-headline-md { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 700; }
+.font-headline-sm { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; line-height: 28px; letter-spacing: -0.015em; font-weight: 600; }
+.font-title-card { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
+.font-body-lg { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; line-height: 24px; letter-spacing: -0.005em; font-weight: 400; }
+.font-body-md { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; line-height: 20px; letter-spacing: 0em; font-weight: 400; }
+.font-body-sm { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; line-height: 16px; letter-spacing: 0em; font-weight: 400; }
+.font-price-hero { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; line-height: 32px; letter-spacing: -0.02em; font-weight: 800; }
+.font-price-regular { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px; line-height: 26px; letter-spacing: -0.01em; font-weight: 700; }
+.font-label-spec { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; line-height: 14px; letter-spacing: 0.04em; font-weight: 700; }
+
+.text-headline-lg { font-size: 40px; line-height: 48px; letter-spacing: -0.025em; font-weight: 700; }
+.text-headline-md { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; font-weight: 700; }
+.text-headline-sm { font-size: 22px; line-height: 28px; letter-spacing: -0.015em; font-weight: 600; }
+.text-title-card { font-size: 18px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
+.text-body-lg { font-size: 16px; line-height: 24px; letter-spacing: -0.005em; font-weight: 400; }
+.text-body-md { font-size: 14px; line-height: 20px; letter-spacing: 0em; font-weight: 400; }
+.text-body-sm { font-size: 12px; line-height: 16px; letter-spacing: 0em; font-weight: 400; }
+.text-price-hero { font-size: 28px; line-height: 32px; letter-spacing: -0.02em; font-weight: 800; }
+.text-price-regular { font-size: 20px; line-height: 26px; letter-spacing: -0.01em; font-weight: 700; }
+.text-label-spec { font-size: 11px; line-height: 14px; letter-spacing: 0.04em; font-weight: 700; }
 
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -28,6 +157,13 @@ html, body, #root {
   min-height: 100vh;
   background-color: var(--color-bg);
   color: var(--color-text);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
 }
 
 /* ─── Scrollbar Custom ───────────────────────────────────────────────────── */

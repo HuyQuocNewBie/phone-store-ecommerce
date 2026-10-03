@@ -40,6 +40,7 @@ app.use('/api/v1/cart', userCartRoutes);
 app.use('/api/v1/orders', userOrderRoutes);
 app.use('/api/v1/shipping', userOrderRoutes);
 app.use('/api/v1/manufacturers', userManufacturerRoutes);
+app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
 
 // Centralized error handling middleware
 app.use(errorHandler);

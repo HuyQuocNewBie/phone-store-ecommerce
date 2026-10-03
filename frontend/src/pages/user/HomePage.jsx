@@ -1,530 +1,662 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ShieldCheck,
-  Truck,
-  RotateCcw,
-  CreditCard,
-  Sparkles,
-  ArrowRight,
-  Newspaper,
-  Building2
-} from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import ProductCard from '../../components/user/ProductCard';
 import api from '../../services/api';
 
-/* ─── Banner Data ─────────────────────────────────────────────────────────── */
-const MAIN_BANNERS = [
+/* ─── Hero Showcase Promotional Slides ───────────────────────────────────── */
+const HERO_SLIDES = [
   {
     id: 1,
-    title: 'iPhone 15 Pro Max',
-    subtitle: 'Khung Titanium Hàng Không · Chip A17 Pro Siêu Đỉnh',
-    badge: 'Mới Ra Mắt',
-    price: 'Từ 29.990.000đ',
-    buttonText: 'Mua Ngay',
-    bg: 'from-blue-600 to-indigo-700',
-    image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80'
+    tag1: 'SIÊU PHẨM 2025',
+    tag2: 'SẴN HÀNG TOÀN QUỐC',
+    title: (
+      <>
+        ĐẶT TRƯỚC <span className="text-primary">IPHONE 16 PRO</span> &amp; PRO MAX
+      </>
+    ),
+    desc: (
+      <>
+        Titanium Sa Mạc đỉnh cao. Trợ giá thu cũ đổi mới lên đến{' '}
+        <span className="text-tertiary font-semibold">2.500.000đ</span>. Giảm thêm{' '}
+        <span className="text-primary font-semibold">1.000.000đ</span> khi thanh toán qua VNPay-QR.
+      </>
+    ),
+    stat1Label: 'Trả góp ưu đãi',
+    stat1Val: '0% Lãi Suất',
+    stat2Label: 'Bảo hành đặc quyền',
+    stat2Val: '24 Tháng 1 Đổi 1',
+    link: '/products',
   },
   {
     id: 2,
-    title: 'Samsung Galaxy S24 Ultra',
-    subtitle: 'Galaxy AI · Camera 200MP · Zoom 100x',
-    badge: 'Hot Seller',
-    price: 'Từ 26.990.000đ',
-    buttonText: 'Khám Phá Ngay',
-    bg: 'from-violet-600 to-blue-600',
-    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80'
+    tag1: 'GALAXY AI ĐỈNH CAO',
+    tag2: 'GIẢM ĐẾN 5 TRIỆU',
+    title: (
+      <>
+        SỞ HỮU <span className="text-primary">GALAXY S24 ULTRA</span> 5G
+      </>
+    ),
+    desc: (
+      <>
+        Quyền năng trí tuệ nhân tạo thế hệ mới. Trợ giá thu cũ đổi mới lên đến{' '}
+        <span className="text-tertiary font-semibold">3.000.000đ</span> cùng gói quà tặng chính hãng độc quyền.
+      </>
+    ),
+    stat1Label: 'Đặc quyền VIP',
+    stat1Val: 'Tặng Củ Sạc 45W',
+    stat2Label: 'Bảo hành đặc quyền',
+    stat2Val: '24 Tháng Toàn Diện',
+    link: '/products?search=Galaxy%20S24',
   },
   {
     id: 3,
-    title: 'Xiaomi 14 Ultra Leica',
-    subtitle: 'Ống Kính Quang Học Leica · Sạc Siêu Nhanh 90W',
-    badge: 'Siêu Cấu Hình',
-    price: 'Từ 24.490.000đ',
-    buttonText: 'Trải Nghiệm Ngay',
-    bg: 'from-indigo-600 to-violet-700',
-    image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80'
-  }
+    tag1: 'NHIẾP ẢNH LEICA',
+    tag2: 'SẠC SIÊU NHANH 120W',
+    title: (
+      <>
+        KHÁM PHÁ <span className="text-primary">XIAOMI 14 ULTRA</span> LEICA
+      </>
+    ),
+    desc: (
+      <>
+        Nhiếp ảnh bậc thầy ống kính Summilux Leica đỉnh cao, cảm biến 1-inch vượt trội cùng chip Snapdragon 8 Gen 3 siêu mạnh mẽ.
+      </>
+    ),
+    stat1Label: 'Bộ quà độc quyền',
+    stat1Val: 'Photography Kit VIP',
+    stat2Label: 'Bảo hành đặc quyền',
+    stat2Val: '18 Tháng 1 Đổi 1',
+    link: '/products?search=Xiaomi',
+  },
 ];
 
-const SUB_BANNERS = [
-  {
-    id: 1,
-    title: 'Thu Cũ Đổi Mới',
-    desc: 'Trợ giá lên đến 3.000.000đ',
-    tag: 'Tiết kiệm nhất',
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-blue-600',
-    border: 'border-blue-100 hover:border-blue-300'
-  },
-  {
-    id: 2,
-    title: 'Trả Góp 0% Lãi Suất',
-    desc: 'Duyệt hồ sơ Online 5 phút',
-    tag: 'Thủ tục siêu nhanh',
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
-    border: 'border-violet-100 hover:border-violet-300'
-  },
-  {
-    id: 3,
-    title: 'Siêu Sale Phụ Kiện',
-    desc: 'Sạc, Tai nghe giảm đến 50%',
-    tag: 'Giá sập sàn',
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-    border: 'border-emerald-100 hover:border-emerald-300'
-  }
-];
-
-const COMMITMENTS = [
-  {
-    icon: ShieldCheck,
-    title: '100% Chính Hãng',
-    desc: 'Cam kết hàng phân phối chính thức, đầy đủ hóa đơn VAT & tem bảo hành',
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-blue-600',
-    border: 'border-blue-100'
-  },
-  {
-    icon: Truck,
-    title: 'Giao Siêu Tốc 2H',
-    desc: 'Nhận hàng nhanh trong 2 giờ tại khu vực nội thành Hà Nội & TP.HCM',
-    iconBg: 'bg-indigo-50',
-    iconColor: 'text-indigo-600',
-    border: 'border-indigo-100'
-  },
-  {
-    icon: RotateCcw,
-    title: '30 Ngày 1 Đổi 1',
-    desc: 'Bảo hành đổi mới 100% trong 30 ngày nếu phát sinh lỗi nhà sản xuất',
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
-    border: 'border-violet-100'
-  },
-  {
-    icon: CreditCard,
-    title: 'Trả Góp 0%',
-    desc: 'Hỗ trợ trả góp 0% lãi suất qua thẻ tín dụng hoặc công ty tài chính',
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-    border: 'border-emerald-100'
-  }
-];
-
-const NEWS_ITEMS = [
-  {
-    id: 1,
-    title: 'Đánh giá chi tiết iPhone 15 Pro Max sau 6 tháng sử dụng: Vẫn là vua flagship?',
-    date: '12 Tháng 9, 2026',
-    timeRead: '5 phút đọc',
-    category: 'Đánh giá',
-    image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=500&auto=format&fit=crop&q=80',
-    excerpt: 'Cùng phân tích độ bền của khung vỏ Titanium, hiệu năng chip A17 Pro và chất lượng camera sau thời gian dài trải nghiệm thực tế.'
-  },
-  {
-    id: 2,
-    title: 'Galaxy AI trên S24 Series có gì mới? Hướng dẫn sử dụng tính năng dịch thuật thông minh',
-    date: '10 Tháng 9, 2026',
-    timeRead: '4 phút đọc',
-    category: 'Mẹo hay',
-    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=500&auto=format&fit=crop&q=80',
-    excerpt: 'Tổng hợp các tính năng Galaxy AI đột phá nhất giúp bạn tối ưu hóa công việc và giải trí hàng ngày.'
-  },
-  {
-    id: 3,
-    title: 'Top 5 mẫu smartphone tầm trung đáng mua nhất mùa khai trường 2026',
-    date: '08 Tháng 9, 2026',
-    timeRead: '6 phút đọc',
-    category: 'Tư vấn',
-    image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
-    excerpt: 'Gợi ý những dòng điện thoại sở hữu pin trâu, màn hình 120Hz mượt mà cùng mức giá cực hấp dẫn cho học sinh, sinh viên.'
-  },
-  {
-    id: 4,
-    title: 'Chip Apple M4 có thực sự vượt trội? Điểm số Benchmark khiến đối thủ ngỡ ngàng',
-    date: '05 Tháng 9, 2026',
-    timeRead: '3 phút đọc',
-    category: 'Công nghệ',
-    image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=500&auto=format&fit=crop&q=80',
-    excerpt: 'Khám phá kiến trúc nhân mới và hiệu năng xử lý trí tuệ nhân tạo thần tốc của dòng chip M4 vừa ra mắt.'
-  }
-];
-
-/* ─── Skeleton ProductCard Placeholder ───────────────────────────────────── */
-const ProductSkeleton = () => (
-  <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 animate-pulse shadow-sm">
-    <div className="aspect-square rounded-xl bg-slate-100" />
-    <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
-    <div className="h-4 bg-slate-100 rounded-lg w-1/2" />
-    <div className="h-10 bg-slate-100 rounded-xl" />
-  </div>
-);
-
-/* ─── Main HomePage ───────────────────────────────────────────────────────── */
 const HomePage = () => {
   const navigate = useNavigate();
+
+  // Slider State
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+
+  // Dynamic Data States
+  const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState(null);
   const [manufacturers, setManufacturers] = useState([]);
   const [loadingManufacturers, setLoadingManufacturers] = useState(true);
 
-  // Auto-slide every 5s
+  // Auto-slide Hero Showcase every 6 seconds
   useEffect(() => {
-    const t = setInterval(() => setCurrentSlide((p) => (p + 1) % MAIN_BANNERS.length), 5000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 6000);
+    return () => clearInterval(timer);
   }, []);
 
-  // Fetch categories
+  // Fetch Danh mục sản phẩm (Categories)
   useEffect(() => {
-    api.get('/products/categories')
-      .then((res) => { if (res.data?.success) setCategories(res.data.data || []); })
-      .catch(() => {});
+    api
+      .get('/categories')
+      .then((res) => {
+        if (res.data?.success) {
+          setCategories(res.data.data || []);
+        }
+      })
+      .catch(() => {
+        // Dự phòng endpoint /products/categories nếu backend có cấu trúc cũ
+        api
+          .get('/products/categories')
+          .then((res) => {
+            if (res.data?.success) setCategories(res.data.data || []);
+          })
+          .catch(() => {});
+      });
   }, []);
 
-  // Fetch featured products
+  // Fetch Sản phẩm nổi bật (Featured Products)
   useEffect(() => {
     setLoadingProducts(true);
-    const params = { limit: 8, page: 1 };
-    if (activeCategory !== null) params.category_id = activeCategory;
-    api.get('/products', { params })
-      .then((res) => { if (res.data?.success) setFeaturedProducts(res.data.data || []); })
+    api
+      .get('/products', { params: { limit: 8, page: 1 } })
+      .then((res) => {
+        if (res.data?.success) {
+          setProducts(res.data.data || []);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingProducts(false));
-  }, [activeCategory]);
+  }, []);
 
-  // Fetch manufacturers
+  // Fetch Danh sách Thương hiệu / Đối tác (Manufacturers)
   useEffect(() => {
-    api.get('/manufacturers')
-      .then((res) => { if (res.data?.success) setManufacturers(res.data.data || []); })
+    setLoadingManufacturers(true);
+    api
+      .get('/manufacturers')
+      .then((res) => {
+        if (res.data?.success) {
+          setManufacturers(res.data.data || []);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingManufacturers(false));
   }, []);
 
-  const handleAddToCart = (product) => {
-    toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, { id: `add-cart-${product.MaSanPham}` });
+  // Thêm vào giỏ hàng
+  const handleAddToCart = async (product) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      if (token) {
+        await api.post('/cart/items', { MaSanPham: product.MaSanPham, SoLuong: 1 });
+      }
+      toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
+        id: `add-cart-${product.MaSanPham}`,
+      });
+    } catch {
+      toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
+        id: `add-cart-${product.MaSanPham}`,
+      });
+    }
+  };
+
+  // Mua ngay
+  const handleBuyNow = async (product) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      if (token) {
+        await api.post('/cart/items', { MaSanPham: product.MaSanPham, SoLuong: 1 });
+        navigate('/cart');
+      } else {
+        toast.success(`Đang chuyển tới trang chi tiết "${product.TenSanPham}"!`, {
+          id: `buy-now-${product.MaSanPham}`,
+        });
+        navigate(`/products/${product.MaSanPham}`);
+      }
+    } catch {
+      navigate(`/products/${product.MaSanPham}`);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col">
       <Navbar />
 
-      <main className="flex-1 space-y-16 py-8 pb-20">
-
-        {/* ── 1. Hero Section ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-            {/* Main Slider (8 cols) */}
-            <div className="lg:col-span-8 relative rounded-2xl overflow-hidden shadow-[0_8px_40px_-8px_rgba(37,99,235,0.2)] group min-h-[360px] sm:min-h-[420px]">
-              {MAIN_BANNERS.map((banner, idx) => (
-                <div
-                  key={banner.id}
-                  className={`absolute inset-0 bg-gradient-to-br ${banner.bg} flex flex-col justify-between p-7 sm:p-10 transition-opacity duration-700 ${
-                    idx === currentSlide ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'
-                  }`}
-                >
-                  {/* Background image glow */}
-                  <div className="absolute right-0 top-0 bottom-0 w-2/5 opacity-20 pointer-events-none">
-                    <img src={banner.image} alt={banner.title} className="w-full h-full object-cover blur-sm scale-110" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="relative z-10 space-y-4 max-w-lg">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-white/20 text-white border border-white/25 backdrop-blur-sm">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {banner.badge}
-                    </span>
-
-                    <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight tracking-tight drop-shadow-sm">
-                      {banner.title}
-                    </h1>
-
-                    <p className="text-sm text-white/80 font-medium leading-relaxed">{banner.subtitle}</p>
-
-                    <div className="pt-1">
-                      <span className="text-2xl sm:text-3xl font-extrabold text-white">{banner.price}</span>
+      <main className="w-full bg-surface min-h-screen">
+        <div className="flex flex-col w-full">
+          <div className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-3xl">
+            {/* 1. Hero Showcase Area */}
+            <section className="grid grid-cols-12 gap-unit-md pt-unit-md pb-unit-xl items-stretch">
+              {/* Main Promotional Slider Card */}
+              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl shadow-md flex flex-col justify-between overflow-hidden relative group min-h-[420px]">
+                <div className="absolute -right-16 -bottom-16 w-96 h-96 bg-primary-fixed/40 rounded-full blur-3xl pointer-events-none" />
+                <div className="p-unit-lg lg:p-unit-xl relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-unit-xs mb-unit-sm">
+                      <span className="px-unit-xs py-unit-2xs bg-tertiary-container text-on-tertiary rounded font-label-spec text-label-spec uppercase tracking-wider">
+                        {HERO_SLIDES[currentSlide].tag1}
+                      </span>
+                      <span className="px-unit-xs py-unit-2xs bg-secondary-fixed text-secondary font-label-spec text-label-spec uppercase tracking-wider">
+                        {HERO_SLIDES[currentSlide].tag2}
+                      </span>
                     </div>
-
-                    <div className="pt-2">
+                    <div className="max-w-xl">
+                      <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight leading-none mb-unit-xs">
+                        {HERO_SLIDES[currentSlide].title}
+                      </h1>
+                      <p className="font-body-lg text-body-lg text-on-surface-variant mb-unit-md">
+                        {HERO_SLIDES[currentSlide].desc}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-unit-sm">
+                        <button
+                          type="button"
+                          onClick={() => navigate(HERO_SLIDES[currentSlide].link)}
+                          className="px-unit-lg py-unit-sm bg-tertiary-container text-on-tertiary font-title-card text-title-card rounded-lg shadow-sm hover:bg-tertiary transition-transform active:scale-95 flex items-center gap-unit-2xs"
+                        >
+                          <span className="material-symbols-outlined leading-none">bolt</span>
+                          <span>Đặt Trước Ngay</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(HERO_SLIDES[currentSlide].link)}
+                          className="px-unit-lg py-unit-sm bg-surface-container-high text-primary font-title-card text-title-card rounded-lg hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-unit-2xs"
+                        >
+                          <span>Xem Đặc Quyền</span>
+                          <span className="material-symbols-outlined text-sm leading-none">arrow_forward</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-unit-lg mt-unit-md flex items-center justify-between border-t border-surface-container/50">
+                    <div className="flex items-center gap-unit-lg">
+                      <div className="flex flex-col">
+                        <span className="font-body-sm text-body-sm text-on-surface-variant">
+                          {HERO_SLIDES[currentSlide].stat1Label}
+                        </span>
+                        <span className="font-title-card text-title-card text-primary font-bold">
+                          {HERO_SLIDES[currentSlide].stat1Val}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-body-sm text-body-sm text-on-surface-variant">
+                          {HERO_SLIDES[currentSlide].stat2Label}
+                        </span>
+                        <span className="font-title-card text-title-card text-on-surface font-bold">
+                          {HERO_SLIDES[currentSlide].stat2Val}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-unit-2xs">
                       <button
-                        onClick={() => navigate('/products')}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-700 text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all duration-200 active:scale-[0.97]"
+                        type="button"
+                        aria-label="Slide trước"
+                        onClick={() => setCurrentSlide((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1))}
+                        className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary hover:text-on-primary transition-colors"
                       >
-                        <span>{banner.buttonText}</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Slide sau"
+                        onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+                        className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary hover:text-on-primary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
                       </button>
                     </div>
                   </div>
-
-                  {/* Product float preview */}
-                  <div className="hidden sm:block absolute right-6 bottom-6 z-10 w-40 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2.5 shadow-xl">
-                    <img src={banner.image} alt={banner.title} className="w-full h-24 object-cover rounded-xl mb-2" />
-                    <p className="text-[11px] font-bold text-white truncate">{banner.title}</p>
-                    <p className="text-[10px] text-white/80 font-medium mt-0.5">{banner.price}</p>
-                  </div>
                 </div>
-              ))}
-
-              {/* Controls */}
-              <button
-                type="button"
-                onClick={() => setCurrentSlide((p) => (p === 0 ? MAIN_BANNERS.length - 1 : p - 1))}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all backdrop-blur-sm opacity-0 group-hover:opacity-100"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentSlide((p) => (p + 1) % MAIN_BANNERS.length)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all backdrop-blur-sm opacity-0 group-hover:opacity-100"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-
-              {/* Dots */}
-              <div className="absolute bottom-4 left-7 z-20 flex items-center gap-2">
-                {MAIN_BANNERS.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentSlide(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === currentSlide ? 'w-8 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'
-                    }`}
-                  />
-                ))}
               </div>
-            </div>
 
-            {/* Sub-banners (4 cols) */}
-            <div className="lg:col-span-4 flex flex-col gap-4">
-              {SUB_BANNERS.map((sub) => (
+              {/* 2 Side Sub-Banners */}
+              <div className="col-span-12 lg:col-span-4 flex flex-col gap-unit-md">
+                {/* Sub Banner 1 */}
                 <div
-                  key={sub.id}
-                  onClick={() => navigate('/products')}
-                  className={`flex-1 p-5 rounded-2xl bg-white border ${sub.border} shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col justify-between`}
+                  onClick={() => navigate('/products?search=Galaxy%20S24')}
+                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex-1 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
                 >
-                  <div className="space-y-1.5">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${sub.iconBg} ${sub.iconColor}`}>
-                      {sub.tag}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                      {sub.title}
-                    </h3>
-                    <p className="text-xs text-slate-500">{sub.desc}</p>
-                  </div>
-                  <div className="pt-3 flex items-center text-xs font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
-                    <span>Xem chi tiết</span>
-                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 2. Cam Kết Dịch Vụ ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {COMMITMENTS.map((item, index) => {
-              const IconComponent = item.icon;
-              return (
-                <div
-                  key={index}
-                  className={`p-5 rounded-2xl bg-white border ${item.border} shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 flex items-start gap-4`}
-                >
-                  <div className={`p-3 rounded-xl ${item.iconBg} shrink-0`}>
-                    <IconComponent className={`w-5 h-5 ${item.iconColor}`} />
-                  </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">{item.title}</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed mt-1">{item.desc}</p>
+                    <div className="flex items-center justify-between mb-unit-2xs">
+                      <span className="px-unit-xs py-unit-2xs bg-primary-fixed text-primary rounded font-label-spec text-label-spec uppercase">
+                        Galaxy AI
+                      </span>
+                      <span className="font-body-sm text-body-sm text-tertiary font-bold">
+                        Giảm 5.000.000đ
+                      </span>
+                    </div>
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface mb-unit-2xs">
+                      Galaxy S24 Ultra
+                    </h2>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant">
+                      Quyền năng trí tuệ nhân tạo thế hệ mới, khung viền Titanium chống trầy.
+                    </p>
+                  </div>
+                  <div className="pt-unit-sm flex items-center justify-between">
+                    <span className="font-price-regular text-price-regular text-primary font-bold">
+                      25.990.000đ
+                    </span>
+                    <span className="px-unit-sm py-unit-2xs bg-surface-container-low text-primary rounded-lg font-body-md text-body-md hover:bg-primary hover:text-on-primary transition-colors font-medium">
+                      Chi tiết
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
 
-        {/* ── 3. Điện Thoại Nổi Bật ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                  Điện Thoại Nổi Bật
-                </h2>
-                <p className="text-xs text-slate-500">Lựa chọn hàng đầu từ SmartZone</p>
-              </div>
-            </div>
-
-            {/* Category pills + Xem tất cả */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setActiveCategory(null)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 ${
-                  activeCategory === null
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 hover:text-blue-600'
-                }`}
-              >
-                Tất cả
-              </button>
-
-              {categories.map((cat) => (
-                <button
-                  key={cat.MaLoaiSanPham}
-                  onClick={() => setActiveCategory(cat.MaLoaiSanPham)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 ${
-                    activeCategory === cat.MaLoaiSanPham
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 hover:text-blue-600'
-                  }`}
-                >
-                  {cat.TenLoaiSanPham}
-                </button>
-              ))}
-
-              <Link
-                to={activeCategory ? `/products?category=${activeCategory}` : '/products'}
-                className="ml-1 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-              >
-                Xem tất cả
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Product Grid */}
-          {loadingProducts ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}
-            </div>
-          ) : featuredProducts.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-slate-400 text-sm">Chưa có sản phẩm nào trong danh mục này</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {featuredProducts.map((item) => (
-                <ProductCard
-                  key={item.MaSanPham}
-                  item={item}
-                  onAddToCart={handleAddToCart}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── 4. Đối Tác Chiến Lược ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="text-center space-y-1">
-            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Thương Hiệu Hàng Đầu</p>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Đối Tác Chiến Lược Chính Thức</h2>
-          </div>
-
-          {loadingManufacturers ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-14 rounded-2xl bg-slate-100 animate-pulse" />
-              ))}
-            </div>
-          ) : manufacturers.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-sm flex flex-col items-center gap-2">
-              <Building2 className="w-8 h-8 text-slate-300" />
-              <span>Chưa có nhà sản xuất nào</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              {manufacturers.map((m) => (
+                {/* Sub Banner 2 */}
                 <div
-                  key={m.MaNhaSanXuat}
-                  onClick={() => navigate(`/products?manufacturer=${m.MaNhaSanXuat}`)}
-                  className="p-4 rounded-2xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-md text-center transition-all duration-300 cursor-pointer group flex items-center justify-center min-h-[56px] shadow-sm"
+                  onClick={() => navigate('/products?search=Xiaomi')}
+                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex-1 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
                 >
-                  <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">
-                    {m.TenNhaSanXuat}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── 5. Tin Tức Công Nghệ ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-                <Newspaper className="w-5 h-5 text-violet-600" />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Tin Tức Công Nghệ</h2>
-                <p className="text-xs text-slate-500">Bài viết đánh giá, mẹo hay và xu hướng thị trường</p>
-              </div>
-            </div>
-            <Link
-              to="/news"
-              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
-            >
-              Đọc thêm
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {NEWS_ITEMS.map((news) => (
-              <article
-                key={news.id}
-                className="bg-white border border-slate-100 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_-8px_rgba(0,0,0,0.1)] hover:border-slate-200 shadow-sm group cursor-pointer"
-              >
-                <div className="relative h-44 overflow-hidden bg-slate-100">
-                  <img
-                    src={news.image}
-                    alt={news.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 text-blue-600 border border-blue-100 backdrop-blur-sm shadow-sm">
-                    {news.category}
-                  </span>
-                </div>
-
-                <div className="p-4 space-y-2.5 flex-1 flex flex-col">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>{news.date}</span>
-                    <span>{news.timeRead}</span>
+                  <div>
+                    <div className="flex items-center justify-between mb-unit-2xs">
+                      <span className="px-unit-xs py-unit-2xs bg-secondary-fixed text-secondary rounded font-label-spec text-label-spec uppercase">
+                        Leica Optics
+                      </span>
+                      <span className="font-body-sm text-body-sm text-tertiary font-bold">
+                        Sạc 120W Tặng Kèm
+                      </span>
+                    </div>
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface mb-unit-2xs">
+                      Xiaomi 14T Series
+                    </h2>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant">
+                      Nhiếp ảnh bậc thầy ống kính Summilux Leica, màn hình 144Hz AI chân thực.
+                    </p>
                   </div>
-
-                  <h3 className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug">
-                    {news.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed flex-1">
-                    {news.excerpt}
-                  </p>
-
-                  <div className="pt-1 text-xs font-medium text-blue-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                    <span>Đọc tiếp</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                  <div className="pt-unit-sm flex items-center justify-between">
+                    <span className="font-price-regular text-price-regular text-primary font-bold">
+                      12.490.000đ
+                    </span>
+                    <span className="px-unit-sm py-unit-2xs bg-surface-container-low text-primary rounded-lg font-body-md text-body-md hover:bg-primary hover:text-on-primary transition-colors font-medium">
+                      Chi tiết
+                    </span>
                   </div>
                 </div>
-              </article>
-            ))}
+              </div>
+            </section>
+
+            {/* 2. Khối cam kết dịch vụ / Ưu đãi độc quyền */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-unit-md pb-unit-2xl">
+              <div className="p-unit-md bg-surface-container-lowest rounded-xl shadow-sm flex items-center gap-unit-sm">
+                <div className="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+                  <span className="material-symbols-outlined text-2xl">verified_user</span>
+                </div>
+                <div>
+                  <h3 className="font-title-card text-title-card text-on-surface font-semibold">100% Chính Hãng</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">Bảo hành 12 - 24 tháng chính ngạch</p>
+                </div>
+              </div>
+
+              <div className="p-unit-md bg-surface-container-lowest rounded-xl shadow-sm flex items-center gap-unit-sm">
+                <div className="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary shrink-0">
+                  <span className="material-symbols-outlined text-2xl">rocket_launch</span>
+                </div>
+                <div>
+                  <h3 className="font-title-card text-title-card text-on-surface font-semibold">Giao Siêu Tốc 2H</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">Miễn phí giao hàng nội thành</p>
+                </div>
+              </div>
+
+              <div className="p-unit-md bg-surface-container-lowest rounded-xl shadow-sm flex items-center gap-unit-sm">
+                <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+                  <span className="material-symbols-outlined text-2xl">published_with_changes</span>
+                </div>
+                <div>
+                  <h3 className="font-title-card text-title-card text-on-surface font-semibold">30 Ngày 1 Đổi 1</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">Lỗi phần cứng từ nhà sản xuất</p>
+                </div>
+              </div>
+
+              <div className="p-unit-md bg-surface-container-lowest rounded-xl shadow-sm flex items-center gap-unit-sm">
+                <div className="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center text-tertiary shrink-0">
+                  <span className="material-symbols-outlined text-2xl">credit_card_clock</span>
+                </div>
+                <div>
+                  <h3 className="font-title-card text-title-card text-on-surface font-semibold">Trả Góp 0% Lãi Suất</h3>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">Duyệt nhanh hồ sơ online trong 5 phút</p>
+                </div>
+              </div>
+            </section>
+
+            {/* 3. Khối Điện Thoại Nổi Bật (Thay cho khối Điện thoại mới ra mắt & Bán chạy) */}
+            <section className="mb-unit-3xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-unit-md mb-unit-lg">
+                <div>
+                  <span className="font-label-spec text-label-spec text-primary font-bold uppercase tracking-wider">
+                    TUYỂN CHỌN HÀNG ĐẦU
+                  </span>
+                  <h2 className="font-headline-lg text-headline-lg text-on-surface">
+                    Điện Thoại Nổi Bật
+                  </h2>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-unit-2xs overflow-x-auto py-unit-2xs">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/products')}
+                    className="px-unit-md py-unit-xs rounded-full bg-primary text-on-primary font-body-md text-body-md font-semibold whitespace-nowrap shadow-sm hover:bg-primary-container transition-colors"
+                  >
+                    Tất cả
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.MaLoaiSanPham}
+                      type="button"
+                      onClick={() => navigate(`/products?category=${cat.MaLoaiSanPham}`)}
+                      className="px-unit-md py-unit-xs rounded-full bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container hover:text-primary font-body-md text-body-md whitespace-nowrap transition-colors"
+                    >
+                      {cat.TenLoaiSanPham}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => navigate('/products')}
+                    className="px-unit-md py-unit-xs rounded-full bg-surface-container-high text-primary hover:bg-primary hover:text-on-primary font-body-md text-body-md font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
+                  >
+                    <span>Xem tất cả</span>
+                    <span className="material-symbols-outlined text-sm leading-none">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lưới sản phẩm */}
+              {loadingProducts ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-unit-md">
+                  {[...Array(8)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-surface-container-lowest rounded-xl p-unit-md shadow-sm space-y-3 animate-pulse"
+                    >
+                      <div className="w-full h-48 bg-surface-container-low rounded-lg" />
+                      <div className="h-5 bg-surface-container-low rounded w-3/4" />
+                      <div className="h-6 bg-surface-container-low rounded w-1/2" />
+                      <div className="grid grid-cols-2 gap-unit-xs pt-2">
+                        <div className="h-8 bg-surface-container-low rounded" />
+                        <div className="h-8 bg-surface-container-low rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : products.length === 0 ? (
+                <div className="py-16 text-center text-outline">
+                  <span className="material-symbols-outlined text-5xl mb-2 text-outline">devices_off</span>
+                  <p className="font-body-md text-body-md">Chưa có sản phẩm nào để hiển thị</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-unit-md">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.MaSanPham}
+                      product={product}
+                      onAddToCart={handleAddToCart}
+                      onBuyNow={handleBuyNow}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-unit-xl flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="px-unit-xl py-unit-sm bg-surface-container-high text-primary font-title-card text-title-card rounded-xl hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-unit-xs shadow-sm"
+                >
+                  <span>Xem Thêm Điện Thoại Khác</span>
+                  <span className="material-symbols-outlined text-sm">expand_more</span>
+                </button>
+              </div>
+            </section>
+
+            {/* 4. Khối Đối Tác Chiến Lược (Thương hiệu) */}
+            <section className="mb-unit-3xl bg-surface-container-lowest rounded-xl p-unit-lg shadow-sm">
+              <div className="flex flex-col items-center text-center mb-unit-lg">
+                <span className="font-label-spec text-label-spec text-primary font-bold uppercase tracking-wider mb-unit-2xs">
+                  ĐỐI TÁC CHIẾN LƯỢC
+                </span>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface">
+                  Đại Lý Ủy Quyền Chính Thức Tại Việt Nam
+                </h3>
+                <p className="font-body-md text-body-md text-on-surface-variant max-w-2xl">
+                  Mọi thiết bị bán ra tại SmartZone đều có hóa đơn VAT điện tử, đầy đủ tem niêm phong và bảo hành điện tử chính hãng từ hãng sản xuất.
+                </p>
+              </div>
+
+              {loadingManufacturers ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-unit-sm items-center">
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} className="p-unit-sm bg-surface-container-low rounded-xl h-20 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-unit-sm items-center">
+                  {manufacturers.map((brand, idx) => {
+                    const brandIcons = [
+                      'laptop_mac',
+                      'smartphone',
+                      'devices',
+                      'phone_android',
+                      'cell_wifi',
+                      'bolt',
+                      'sports_esports',
+                    ];
+                    const iconName = brandIcons[idx % brandIcons.length];
+                    return (
+                      <div
+                        key={brand.MaNhaSanXuat}
+                        onClick={() => navigate(`/products?manufacturer=${brand.MaNhaSanXuat}`)}
+                        className="p-unit-sm bg-surface-container-low rounded-xl flex flex-col items-center justify-center gap-unit-2xs text-center hover:bg-surface-container-high transition-colors cursor-pointer group min-h-[80px]"
+                      >
+                        <span className="material-symbols-outlined text-3xl text-primary group-hover:scale-110 transition-transform">
+                          {iconName}
+                        </span>
+                        <span className="font-body-sm text-body-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                          {brand.TenNhaSanXuat}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* 5. Khối Tin Tức & Đánh Giá Công Nghệ (SMARTZONE BLOG) */}
+            <section className="mb-unit-xl">
+              <div className="flex items-center justify-between mb-unit-lg">
+                <div>
+                  <span className="font-label-spec text-label-spec text-primary font-bold uppercase tracking-wider">
+                    SMARTZONE BLOG
+                  </span>
+                  <h2 className="font-headline-sm text-headline-sm text-on-surface">
+                    Tin Tức &amp; Đánh Giá Công Nghệ Mới Nhất
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="font-body-md text-body-md text-primary font-semibold hover:underline flex items-center gap-unit-2xs"
+                >
+                  <span>Xem tất cả bài viết</span>
+                  <span className="material-symbols-outlined text-sm leading-none">arrow_forward</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-unit-lg">
+                {/* Post 1 */}
+                <article
+                  onClick={() => navigate('/products')}
+                  className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer border border-surface-container/60"
+                >
+                  <div>
+                    <div className="w-full h-48 overflow-hidden relative">
+                      <img
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        alt="Đánh giá chi tiết nút Camera Control trên iPhone 16 Pro"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF5PuI_MKuVe1Yb9W5GZ6D3hVzzmujhVESqDytJlq-YQFbj64kkMB93lVa4FvBzj_y7jREDiAB1xFmyCz7Sl9N1pywAcmjL3ZMkVVzwmfchdKoIFKChd6NlMEK4aRtss50BjN7PcRVMpmxfEfWXSZm3I8nw7QOxTkcw4BotIB8FJJbMriTLev9vavklvy_-fWkJhER8D-q727ONJsBWtYuvB7qNfdpks0c8bhudT1erDGMXPefzFL8"
+                      />
+                      <span className="absolute top-unit-xs left-unit-xs px-unit-xs py-unit-2xs bg-surface-container-lowest/90 backdrop-blur rounded text-primary font-label-spec text-label-spec uppercase font-bold shadow-sm">
+                        Đánh giá
+                      </span>
+                    </div>
+                    <div className="p-unit-md">
+                      <div className="flex items-center gap-unit-xs font-body-sm text-body-sm text-outline mb-unit-xs">
+                        <span>24/10/2025</span>
+                        <span>•</span>
+                        <span>5 phút đọc</span>
+                      </div>
+                      <h3 className="font-title-card text-title-card text-on-surface mb-unit-xs group-hover:text-primary transition-colors leading-snug">
+                        Đánh giá chi tiết nút Camera Control trên iPhone 16 Pro: Cuộc cách mạng chụp ảnh di động?
+                      </h3>
+                      <p className="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                        Trải nghiệm thực tế phím bấm điện dung mới của Apple sau 2 tuần: Nhanh hơn, chính xác hơn và mở ra cách quay phim hoàn toàn mới.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="px-unit-md pb-unit-md">
+                    <span className="font-body-md text-body-md text-primary font-semibold hover:underline flex items-center gap-unit-2xs">
+                      <span>Đọc tiếp</span>
+                      <span className="material-symbols-outlined text-xs leading-none">arrow_forward</span>
+                    </span>
+                  </div>
+                </article>
+
+                {/* Post 2 */}
+                <article
+                  onClick={() => navigate('/products')}
+                  className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer border border-surface-container/60"
+                >
+                  <div>
+                    <div className="w-full h-48 overflow-hidden relative">
+                      <img
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        alt="Top 5 tính năng Galaxy AI hữu ích nhất cho người đi làm"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBhogMxY9PMDq8PKbHOpyQAB1nbX3wD8nEwHRiWTfWCYMskCRwub-i7Ce-ZgxByBFQgu-YkCtoeUrCUqhVjh2-YqRJf4rZTeM0Dcd1IrHPmk3eHwGIuSy3Zn6JI_tH39Exq7OcKlhzcGR9mGHqFw3kzmwC3Lreemknb4IkgMHd-kJgA517VhZLTt_mE8JaTli6dUoXYanG-9LNf96JIduP4WVSBJfUxWlsa4p46zUv2B35kPHFogB-"
+                      />
+                      <span className="absolute top-unit-xs left-unit-xs px-unit-xs py-unit-2xs bg-surface-container-lowest/90 backdrop-blur rounded text-secondary font-label-spec text-label-spec uppercase font-bold shadow-sm">
+                        Mẹo &amp; Thủ thuật
+                      </span>
+                    </div>
+                    <div className="p-unit-md">
+                      <div className="flex items-center gap-unit-xs font-body-sm text-body-sm text-outline mb-unit-xs">
+                        <span>22/10/2025</span>
+                        <span>•</span>
+                        <span>4 phút đọc</span>
+                      </div>
+                      <h3 className="font-title-card text-title-card text-on-surface mb-unit-xs group-hover:text-primary transition-colors leading-snug">
+                        Top 5 tính năng Galaxy AI hữu ích nhất cho người đi làm bạn không nên bỏ lỡ
+                      </h3>
+                      <p className="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                        Khoanh tròn tìm kiếm, tóm tắt ghi chú cuộc họp tức thì và dịch cuộc gọi song phương trực tiếp không cần mạng Internet.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="px-unit-md pb-unit-md">
+                    <span className="font-body-md text-body-md text-primary font-semibold hover:underline flex items-center gap-unit-2xs">
+                      <span>Đọc tiếp</span>
+                      <span className="material-symbols-outlined text-xs leading-none">arrow_forward</span>
+                    </span>
+                  </div>
+                </article>
+
+                {/* Post 3 */}
+                <article
+                  onClick={() => navigate('/products')}
+                  className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer border border-surface-container/60"
+                >
+                  <div>
+                    <div className="w-full h-48 overflow-hidden relative">
+                      <img
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        alt="So sánh chất ảnh Leica trên Xiaomi 14T Series và hệ thống xử lý màu trên iPhone 15"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi2SScxqW3aL9Mgq9wHdEhHt0fDTNIL05KDVBB7bELLwUFXHqcYVbJ_-VQgdMsUigXNbz6-liCcILv06nKrQ1GA4S43a3E6LpFiV5qmM_LMQMztbgSCqBHclJ4Z58mw1Mj4K8iZMAnIQN7RtV5vGLwNk32SBG2KA5CSkX_lx1Q9KSSf0YZmt4QNQPdWa2049GAFuWnIbg3igqYX32ZOx6zmfyyUkeSg9yWmzXaC9HeWa2g-aKBcoFk"
+                      />
+                      <span className="absolute top-unit-xs left-unit-xs px-unit-xs py-unit-2xs bg-surface-container-lowest/90 backdrop-blur rounded text-tertiary-container font-label-spec text-label-spec uppercase font-bold shadow-sm">
+                        So sánh
+                      </span>
+                    </div>
+                    <div className="p-unit-md">
+                      <div className="flex items-center gap-unit-xs font-body-sm text-body-sm text-outline mb-unit-xs">
+                        <span>19/10/2025</span>
+                        <span>•</span>
+                        <span>6 phút đọc</span>
+                      </div>
+                      <h3 className="font-title-card text-title-card text-on-surface mb-unit-xs group-hover:text-primary transition-colors leading-snug">
+                        So sánh chất ảnh Leica trên Xiaomi 14T Series và hệ thống xử lý màu trên iPhone 15
+                      </h3>
+                      <p className="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                        Khi Leica Authentic đối đầu với Smart HDR 5 của Apple: Điểm khác biệt rõ rệt trong nhiếp ảnh chân dung và tương phản ánh sáng.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="px-unit-md pb-unit-md">
+                    <span className="font-body-md text-body-md text-primary font-semibold hover:underline flex items-center gap-unit-2xs">
+                      <span>Đọc tiếp</span>
+                      <span className="material-symbols-outlined text-xs leading-none">arrow_forward</span>
+                    </span>
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </main>
 
       <Footer />

@@ -1,146 +1,160 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Smartphone, Truck, RotateCcw, CreditCard, Mail, PhoneCall, MapPin, Facebook, Youtube, Instagram, ShieldCheck } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 pt-12 pb-8 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-
-        {/* Top Benefits Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pb-8 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-              <Truck className="w-5 h-5" />
+    <footer className="w-full bg-surface-container-low mt-20 md:mt-28 pt-16 md:pt-24 pb-14 md:pb-16 border-t border-slate-200/80 shadow-[0_-4px_24px_rgba(0,0,0,0.02)]">
+      <div className="max-w-container-max mx-auto px-gutter-desktop">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-unit-xl pb-unit-2xl">
+          {/* Cột 1: Thông tin công ty */}
+          <div className="flex flex-col gap-unit-sm">
+            <div className="flex items-center gap-unit-xs">
+              <span className="font-headline-sm text-headline-sm text-primary font-bold">
+                Smart<span className="text-tertiary-container">Zone</span>
+              </span>
             </div>
-            <div>
-              <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Giao Siêu Tốc 2H</h5>
-              <p className="text-[11px] text-slate-500 mt-0.5">Miễn phí giao toàn quốc</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
-              <RotateCcw className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wide">30 Ngày 1 Đổi 1</h5>
-              <p className="text-[11px] text-slate-500 mt-0.5">Lỗi do nhà sản xuất</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Trả Góp 0%</h5>
-              <p className="text-[11px] text-slate-500 mt-0.5">Duyệt hồ sơ nhanh 5 phút</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Footer Links */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
-
-          {/* Col 1: Store info */}
-          <div className="space-y-4">
-            <Link to="/" className="flex items-center gap-2">
-              <img
-                src="/assets/logo.png"
-                alt="SmartZone Logo"
-                className="h-8 w-auto object-contain brightness-200"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div className="hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 items-center justify-center">
-                <Smartphone className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-base font-black text-white">SmartZone</span>
-            </Link>
-
-            <p className="text-slate-400 leading-relaxed text-xs">
-              Hệ thống bán lẻ điện thoại, laptop, phụ kiện công nghệ chính hãng hàng đầu Việt Nam.
+            <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+              Hệ thống bán lẻ điện thoại thông minh, máy tính bảng và phụ kiện công nghệ chính hãng hàng đầu Việt Nam.
             </p>
-
-            <div className="space-y-2.5 text-slate-300">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-xs text-slate-400">123 Đường Công Nghệ, Q. Cầu Giấy, Hà Nội</span>
+            <div className="flex flex-col gap-unit-2xs font-body-md text-body-md text-on-surface-variant">
+              <div className="flex items-start gap-unit-xs">
+                <span className="material-symbols-outlined text-primary leading-tight">location_on</span>
+                <span>Trụ sở chính: Tầng 8, Tòa nhà Smart Tower, 128 Nguyễn Trãi, Thanh Xuân, Hà Nội.</span>
               </div>
-              <div className="flex items-center gap-2">
-                <PhoneCall className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-xs text-slate-400">1900 8888 (8:00 - 21:30)</span>
+              <div className="flex items-center gap-unit-xs">
+                <span className="material-symbols-outlined text-primary leading-none">call</span>
+                <span>Tổng đài: <strong className="text-on-surface">1900 6868</strong> (Miễn phí)</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                <span className="text-xs text-slate-400">support@smartzone.vn</span>
+              <div className="flex items-center gap-unit-xs">
+                <span className="material-symbols-outlined text-primary leading-none">mail</span>
+                <span>cskh@smartzone.vn</span>
+              </div>
+              <div className="flex items-center gap-unit-xs">
+                <span className="material-symbols-outlined text-primary leading-none">description</span>
+                <span>GPĐKKD số: 0108962341 do Sở KH&amp;ĐT TP. Hà Nội cấp.</span>
               </div>
             </div>
           </div>
 
-          {/* Col 2: Categories */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Sản Phẩm</h4>
-            <ul className="space-y-2 text-slate-400">
-              <li><Link to="/products?category=1" className="hover:text-blue-400 transition-colors">iPhone Chính Hãng</Link></li>
-              <li><Link to="/products?category=1" className="hover:text-blue-400 transition-colors">Samsung Galaxy Series</Link></li>
-              <li><Link to="/products?category=1" className="hover:text-blue-400 transition-colors">Xiaomi &amp; Poco Phone</Link></li>
-              <li><Link to="/products?category=2" className="hover:text-blue-400 transition-colors">Laptop Gaming &amp; Văn Phòng</Link></li>
-              <li><Link to="/products?category=4" className="hover:text-blue-400 transition-colors">Tai nghe &amp; Phụ kiện cao cấp</Link></li>
+          {/* Cột 2: Chính sách & Bảo hành */}
+          <div className="flex flex-col gap-unit-sm">
+            <h4 className="font-title-card text-title-card text-on-surface font-semibold">Chính sách &amp; Bảo hành</h4>
+            <ul className="flex flex-col gap-unit-xs font-body-md text-body-md text-on-surface-variant">
+              <li>
+                <Link to="/products" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-sm leading-none text-primary">check_circle</span>
+                  Chính sách 1 đổi 1 trong 30 ngày
+                </Link>
+              </li>
+              <li>
+                <Link to="/products" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-sm leading-none text-primary">check_circle</span>
+                  Bảo hành chính hãng 12 tháng
+                </Link>
+              </li>
+              <li>
+                <Link to="/products" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-sm leading-none text-primary">check_circle</span>
+                  Giao hàng &amp; Thanh toán tận nơi
+                </Link>
+              </li>
+              <li>
+                <Link to="/products" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-sm leading-none text-primary">check_circle</span>
+                  Chính sách bảo mật thông tin
+                </Link>
+              </li>
+              <li>
+                <Link to="/products" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-sm leading-none text-primary">check_circle</span>
+                  Tra cứu thông tin bảo hành
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Col 3: Support policies */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Chính Sách &amp; Hỗ Trợ</h4>
-            <ul className="space-y-2 text-slate-400">
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Chính sách bảo hành</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Chính sách đổi trả 30 ngày</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Hướng dẫn mua trả góp 0%</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Chính sách giao hàng &amp; Vận chuyển</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Chính sách bảo mật thông tin</a></li>
-            </ul>
-          </div>
-
-          {/* Col 4: Newsletter & Social */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Kết Nối Với Chúng Tôi</h4>
-            <p className="text-xs text-slate-400">Đăng ký nhận thông báo ưu đãi và coupon giảm giá mới nhất.</p>
-
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Email của bạn..."
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder-slate-500 transition-all"
-              />
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs shrink-0 transition-colors active:scale-[0.97]">
-                Gửi
-              </button>
+          {/* Cột 3: Phương thức thanh toán */}
+          <div className="flex flex-col gap-unit-sm">
+            <h4 className="font-title-card text-title-card text-on-surface font-semibold">Phương thức thanh toán</h4>
+            <p className="font-body-md text-body-md text-on-surface-variant">Đa dạng cổng thanh toán an toàn và bảo mật tiêu chuẩn quốc tế:</p>
+            <div className="grid grid-cols-2 gap-unit-xs font-body-md text-body-md text-on-surface">
+              <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
+                <span className="material-symbols-outlined text-primary leading-none">credit_card</span>
+                <span>Visa / Master</span>
+              </div>
+              <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
+                <span className="material-symbols-outlined text-secondary leading-none">qr_code_scanner</span>
+                <span>VNPay-QR</span>
+              </div>
+              <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
+                <span className="material-symbols-outlined text-tertiary leading-none">account_balance_wallet</span>
+                <span>Ví MoMo</span>
+              </div>
+              <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
+                <span className="material-symbols-outlined text-primary leading-none">percent</span>
+                <span>Trả góp 0%</span>
+              </div>
             </div>
+            <div className="pt-unit-xs">
+              <span className="font-body-sm text-body-sm text-on-surface-variant block mb-unit-2xs">Chứng nhận an toàn giao dịch</span>
+              <div className="inline-flex items-center gap-unit-2xs px-unit-sm py-unit-2xs bg-surface-container-high rounded-full text-primary font-body-sm text-body-sm font-semibold">
+                <span className="material-symbols-outlined text-sm leading-none">lock</span>
+                Bảo mật SSL 256-bit Certified
+              </div>
+            </div>
+          </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
-              <a href="#" className="p-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-blue-400 hover:border-slate-600 transition-all">
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-red-400 hover:border-slate-600 transition-all">
-                <Youtube className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-pink-400 hover:border-slate-600 transition-all">
-                <Instagram className="w-4 h-4" />
-              </a>
+          {/* Cột 4: Đăng ký nhận khuyến mãi */}
+          <div className="flex flex-col gap-unit-sm">
+            <h4 className="font-title-card text-title-card text-on-surface font-semibold">Đăng ký nhận khuyến mãi</h4>
+            <p className="font-body-md text-body-md text-on-surface-variant">Nhận voucher 200.000đ và cập nhật siêu phẩm công nghệ mới nhất.</p>
+            <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-unit-xs">
+              <div className="relative flex items-center">
+                <input
+                  className="w-full px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary border border-surface-container/60"
+                  placeholder="Nhập email của bạn..."
+                  type="email"
+                />
+                <button
+                  className="absolute right-1 px-unit-sm py-unit-2xs bg-tertiary-container text-on-tertiary font-body-sm text-body-sm rounded-lg font-bold hover:bg-tertiary transition-colors"
+                  type="button"
+                >
+                  Đăng ký
+                </button>
+              </div>
+            </form>
+            <div className="pt-unit-2xs">
+              <span className="font-body-sm text-body-sm text-on-surface-variant block mb-unit-xs">Kết nối với SmartZone qua mạng xã hội:</span>
+              <div className="flex items-center gap-unit-xs">
+                <a className="w-9 h-9 rounded-xl bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface flex items-center justify-center shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all border border-surface-container/60" href="#">
+                  <span className="material-symbols-outlined text-base leading-none">public</span>
+                </a>
+                <a className="w-9 h-9 rounded-xl bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface flex items-center justify-center shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all border border-surface-container/60" href="#">
+                  <span className="material-symbols-outlined text-base leading-none">smart_display</span>
+                </a>
+                <a className="w-9 h-9 rounded-xl bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface flex items-center justify-center shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all border border-surface-container/60" href="#">
+                  <span className="material-symbols-outlined text-base leading-none">videocam</span>
+                </a>
+                <a className="w-9 h-9 rounded-xl bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface flex items-center justify-center shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all border border-surface-container/60" href="#">
+                  <span className="material-symbols-outlined text-base leading-none">chat</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom copyright */}
-        <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
-          <p>© 2026 SmartZone Store. Tất cả các quyền được bảo lưu.</p>
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3 h-3 text-emerald-500" />
-            <span>Thiết kế bởi <span className="text-slate-400 font-medium">Antigravity AI</span></span>
+        {/* Bản quyền dưới chân */}
+        <div className="pt-unit-xl border-t border-surface-container flex flex-col md:flex-row items-center justify-between gap-unit-md">
+          <div className="font-body-sm text-body-sm text-on-surface-variant text-center md:text-left">
+            <span>© 2025 SmartZone Vietnam. Tất cả quyền được bảo lưu. Đối tác ủy quyền cao cấp của Apple, Samsung, Xiaomi tại Việt Nam.</span>
+          </div>
+          <div className="flex items-center gap-unit-md">
+            <span className="font-label-spec text-label-spec uppercase tracking-wider text-secondary px-unit-xs py-unit-2xs bg-secondary-fixed rounded">
+              Đã thông báo Bộ Công Thương
+            </span>
+            <span className="font-label-spec text-label-spec uppercase tracking-wider text-primary px-unit-xs py-unit-2xs bg-primary-fixed rounded">
+              DMCA Protected
+            </span>
           </div>
         </div>
       </div>
