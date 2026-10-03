@@ -437,14 +437,7 @@ const HomePage = () => {
                       {cat.TenLoaiSanPham}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/products')}
-                    className="px-unit-md py-unit-xs rounded-full bg-surface-container-high text-primary hover:bg-primary hover:text-on-primary font-body-md text-body-md font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
-                  >
-                    <span>Xem tất cả</span>
-                    <span className="material-symbols-outlined text-sm leading-none">arrow_forward</span>
-                  </button>
+
                 </div>
               </div>
 
