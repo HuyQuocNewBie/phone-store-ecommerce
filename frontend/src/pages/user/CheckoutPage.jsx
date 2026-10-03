@@ -256,6 +256,9 @@ const CheckoutPage = () => {
       const response = await api.post('/orders', orderPayload);
 
       if (response.data && response.data.success) {
+        // Thêm hiệu ứng độ trễ mô phỏng 1 giây để trải nghiệm mượt mà
+        await new Promise((r) => setTimeout(r, 1000));
+
         toast.success('Đặt hàng thành công!');
         navigate('/checkout/success', {
           replace: true,
@@ -802,14 +805,14 @@ const CheckoutPage = () => {
                     disabled={isSubmitting}
                     className={`w-full py-4 px-6 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-lg ${
                       isSubmitting
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                        ? 'bg-blue-400 text-white cursor-not-allowed opacity-90 shadow-none'
                         : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-500/25 hover:shadow-blue-500/40'
                     }`}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin mr-2 text-white" />
-                        Đang xử lý đặt hàng...
+                        Đang xử lý đơn hàng...
                       </>
                     ) : (
                       'Xác Nhận Đặt Hàng'

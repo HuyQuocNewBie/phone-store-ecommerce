@@ -21,4 +21,9 @@ router.get('/', orderController.getUserOrders);
 router.post('/:order_id/reorder', orderController.reorder);
 router.post('/:id/reorder', orderController.reorder);
 
+// 5. POST /api/v1/orders/:id/cancel -> Khách hàng hủy đơn hàng khi Chờ xác nhận
+router.post('/:order_id/cancel', orderController.cancelOrder);
+router.post('/:id/cancel', orderController.cancelOrder);
+
 module.exports = router;
+

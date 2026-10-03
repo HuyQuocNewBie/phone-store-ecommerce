@@ -21,6 +21,7 @@ import {
   X,
   Eye,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
@@ -230,7 +231,7 @@ const ReviewModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
 };
 
 /* ─── OrderDetailModal ───────────────────────────────────────────────────── */
-const OrderDetailModal = ({ isOpen, onClose, order }) => {
+const OrderDetailModal = ({ isOpen, onClose, order, onOpenCancel }) => {
   if (!isOpen || !order) return null;
   const statusInfo = getStatusInfo(order.TrangThaiDonHang);
   const StatusIcon = statusInfo.icon;
@@ -334,9 +335,111 @@ const OrderDetailModal = ({ isOpen, onClose, order }) => {
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-slate-100 flex justify-end">
+        <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          {order.TrangThaiDonHang === 'Chờ xác nhận' ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenCancel?.(order);
+              }}
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-rose-600 bg-rose-50/80 hover:bg-rose-100 hover:text-rose-700 border border-rose-200/70 transition-all flex items-center gap-1.5 active:scale-[0.97]"
+            >
+              <XCircle className="w-4 h-4" />
+              Hủy đơn hàng
+            </button>
+          ) : <div />}
           <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">
             Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── CancelOrderConfirmModal ────────────────────────────────────────────── */
+const CancelOrderConfirmModal = ({ isOpen, onClose, order, onConfirm, isCancelling }) => {
+  if (!isOpen || !order) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md animate-fade-in">
+      <div
+        className="relative w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 sm:p-7 shadow-2xl overflow-hidden animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header with Icon */}
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-slate-900">Xác nhận hủy đơn hàng</h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Bạn có chắc chắn muốn hủy đơn hàng <strong className="text-slate-800">#{order.MaDonHang}</strong> không?
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isCancelling}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Order Brief Info */}
+        <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs sm:text-sm space-y-2">
+          <div className="flex justify-between text-slate-600">
+            <span>Mã đơn hàng:</span>
+            <span className="font-semibold text-slate-900">#{order.MaDonHang}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Ngày đặt:</span>
+            <span className="text-slate-700">{formatDateTime(order.NgayMuaHang)}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Tổng thanh toán:</span>
+            <span className="font-bold text-blue-600">{formatVND(order.TongTien)}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Số lượng sản phẩm:</span>
+            <span className="font-medium text-slate-700">{order.chitietdonhang?.length || 0} sản phẩm</span>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200/60 text-amber-700 text-xs flex items-center gap-2">
+          <Clock className="w-4 h-4 shrink-0 text-amber-600" />
+          <span>Số lượng tồn kho và voucher (nếu có) sẽ được tự động hoàn lại ngay lập tức.</span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isCancelling}
+            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+          >
+            Giữ lại đơn
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(order.MaDonHang)}
+            disabled={isCancelling}
+            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-500/20 transition-all flex items-center gap-2 active:scale-[0.97] disabled:opacity-50"
+          >
+            {isCancelling ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Đang xử lý...</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-4 h-4" />
+                <span>Xác nhận hủy đơn</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -364,7 +467,7 @@ const EmptyOrderState = () => (
 );
 
 /* ─── OrderCard ──────────────────────────────────────────────────────────── */
-const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail }) => {
+const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail, onOpenCancel }) => {
   const statusInfo = getStatusInfo(order.TrangThaiDonHang);
   const StatusIcon = statusInfo.icon;
   const isDelivered = order.TrangThaiDonHang === 'Đã giao' || order.TrangThaiDonHang === 'Đã hoàn thành';
@@ -460,6 +563,18 @@ const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail 
               Chi tiết
             </button>
 
+            {/* Hủy đơn hàng khi ở trạng thái Chờ xác nhận */}
+            {order.TrangThaiDonHang === 'Chờ xác nhận' && (
+              <button
+                type="button"
+                onClick={() => onOpenCancel(order)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50/80 hover:bg-rose-100 hover:text-rose-700 border border-rose-200/70 transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.97]"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Hủy đơn hàng
+              </button>
+            )}
+
             {/* Buttons for delivered orders */}
             {isDelivered && (
               <>
@@ -501,6 +616,8 @@ const OrderHistoryPage = () => {
   const [reorderingOrderId, setReorderingOrderId] = useState(null);
   const [reviewOrder, setReviewOrder] = useState(null);
   const [detailOrder, setDetailOrder] = useState(null);
+  const [cancelTargetOrder, setCancelTargetOrder] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => { if (validTab !== activeTab) setActiveTab(validTab); }, [validTab]);
 
@@ -564,6 +681,31 @@ const OrderHistoryPage = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Sản phẩm hiện không khả dụng để mua lại.');
     } finally { setReorderingOrderId(null); }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    setIsCancelling(true);
+    try {
+      const res = await api.post(`/orders/${orderId}/cancel`);
+      if (res.data?.success) {
+        toast.success('Hủy đơn hàng thành công!');
+        setCancelTargetOrder(null);
+        if (detailOrder?.MaDonHang === orderId) {
+          setDetailOrder(null);
+        }
+        // Chuyển sang tab Đã hủy và làm mới danh sách
+        handleSelectTab('CANCELLED');
+        fetchOrders('CANCELLED');
+        fetchAllOrdersCount();
+      } else {
+        toast.error(res.data?.message || 'Không thể hủy đơn hàng này.');
+      }
+    } catch (error) {
+      console.error('Lỗi khi hủy đơn hàng:', error);
+      toast.error(error.response?.data?.message || 'Hủy đơn hàng thất bại. Vui lòng thử lại!');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   return (
@@ -676,6 +818,7 @@ const OrderHistoryPage = () => {
                   isReordering={reorderingOrderId === order.MaDonHang}
                   onOpenReview={(ord) => setReviewOrder(ord)}
                   onOpenDetail={(ord) => setDetailOrder(ord)}
+                  onOpenCancel={(ord) => setCancelTargetOrder(ord)}
                 />
               ))}
             </div>
@@ -694,6 +837,15 @@ const OrderHistoryPage = () => {
         isOpen={!!detailOrder}
         onClose={() => setDetailOrder(null)}
         order={detailOrder}
+        onOpenCancel={(ord) => setCancelTargetOrder(ord)}
+      />
+
+      <CancelOrderConfirmModal
+        isOpen={!!cancelTargetOrder}
+        onClose={() => setCancelTargetOrder(null)}
+        order={cancelTargetOrder}
+        onConfirm={handleCancelOrder}
+        isCancelling={isCancelling}
       />
 
       <Footer />

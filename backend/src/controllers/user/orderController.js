@@ -768,10 +768,159 @@ const reorder = async (req, res, next) => {
   }
 };
 
+/**
+ * 5. POST /api/v1/orders/:id/cancel
+ * Khách hàng hủy đơn hàng khi ở trạng thái "Chờ xác nhận"
+ * - Cập nhật TrangThaiDonHang thành "Đã hủy"
+ * - Hoàn trả số lượng TonKho cho sản phẩm trong DB
+ * - Nếu sản phẩm đang ở trạng thái 'HetHang' và TonKho > 0 -> chuyển về 'DangBan'
+ * - Ghi log biến động vào lichsutonkho với LoaiBienDong = 'HuyDon'
+ * - Hoàn lại số lượng voucher nếu có sử dụng
+ */
+const cancelOrder = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { MaNguoiDung } = req.user;
+    const { id, order_id } = req.params;
+    const orderId = Number(id || order_id);
+
+    if (!orderId || isNaN(orderId)) {
+      connection.release();
+      return res.status(400).json({
+        success: false,
+        message: 'Mã đơn hàng không hợp lệ'
+      });
+    }
+
+    // 1. Kiểm tra đơn hàng có tồn tại và thuộc về người dùng không
+    const [orders] = await connection.query(
+      `SELECT MaDonHang, MaNguoiDung, TrangThaiDonHang, MaVoucher 
+       FROM donhang 
+       WHERE MaDonHang = ? AND MaNguoiDung = ?`,
+      [orderId, MaNguoiDung]
+    );
+
+    if (orders.length === 0) {
+      connection.release();
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền hủy đơn hàng này'
+      });
+    }
+
+    const order = orders[0];
+
+    // 2. Kiểm tra trạng thái đơn hàng (chỉ cho phép hủy khi TrangThaiDonHang === "Chờ xác nhận")
+    if (order.TrangThaiDonHang !== 'Chờ xác nhận') {
+      connection.release();
+      return res.status(400).json({
+        success: false,
+        message: `Chỉ có thể hủy đơn hàng khi ở trạng thái "Chờ xác nhận". Đơn hàng hiện tại: "${order.TrangThaiDonHang}".`
+      });
+    }
+
+    // Bắt đầu Transaction
+    await connection.beginTransaction();
+
+    // 3. Cập nhật TrangThaiDonHang thành "Đã hủy"
+    await connection.query(
+      `UPDATE donhang SET TrangThaiDonHang = 'Đã hủy' WHERE MaDonHang = ?`,
+      [orderId]
+    );
+
+    // Cập nhật bảng lichsumuahang nếu tồn tại bản ghi của đơn hàng này
+    await connection.query(
+      `UPDATE lichsumuahang SET TrangThai = 'Đã hủy' WHERE MaDonHang = ?`,
+      [orderId]
+    );
+
+    // 4. Lấy chi tiết các sản phẩm trong đơn hàng để hoàn trả kho
+    const [items] = await connection.query(
+      `SELECT MaSanPham, SoLuong FROM chitietdonhang WHERE MaDonHang = ?`,
+      [orderId]
+    );
+
+    for (const item of items) {
+      const soLuongHoanTra = Number(item.SoLuong) || 0;
+      const maSanPham = item.MaSanPham;
+
+      if (soLuongHoanTra > 0) {
+        // Hoàn trả lại số lượng TonKho
+        await connection.query(
+          `UPDATE sanpham SET TonKho = TonKho + ? WHERE MaSanPham = ?`,
+          [soLuongHoanTra, maSanPham]
+        );
+
+        // Lấy lại thông tin tồn kho và trạng thái sau khi hoàn trả
+        const [prodRows] = await connection.query(
+          `SELECT TonKho, TrangThai FROM sanpham WHERE MaSanPham = ?`,
+          [maSanPham]
+        );
+
+        if (prodRows.length > 0) {
+          const newTonKho = Number(prodRows[0].TonKho);
+          const currentTrangThai = prodRows[0].TrangThai;
+
+          // Nếu trước đó là 'HetHang' và giờ TonKho > 0, cập nhật lại thành 'DangBan'
+          if (currentTrangThai === 'HetHang' && newTonKho > 0) {
+            await connection.query(
+              `UPDATE sanpham SET TrangThai = 'DangBan' WHERE MaSanPham = ?`,
+              [maSanPham]
+            );
+          }
+
+          // Ghi log vào lichsutonkho
+          await connection.query(
+            `INSERT INTO lichsutonkho 
+              (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
+             VALUES (?, 'HuyDon', ?, ?, ?, NOW(), ?)`,
+            [
+              maSanPham,
+              soLuongHoanTra,
+              newTonKho,
+              orderId,
+              `Hoàn tồn do khách hàng hủy đơn hàng #${orderId}`
+            ]
+          );
+        }
+      }
+    }
+
+    // 5. Khôi phục số lượng voucher nếu đơn hàng có áp dụng
+    if (order.MaVoucher) {
+      await connection.query(
+        `UPDATE voucher SET SoLuong = SoLuong + 1 WHERE MaVoucher = ?`,
+        [order.MaVoucher]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Hủy đơn hàng thành công',
+      data: {
+        MaDonHang: orderId,
+        TrangThaiDonHang: 'Đã hủy'
+      }
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   calculateShipping,
   createOrder,
   getUserOrders,
-  reorder
+  reorder,
+  cancelOrder
 };
 
