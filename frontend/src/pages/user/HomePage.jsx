@@ -5,6 +5,8 @@ import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import ProductCard from '../../components/user/ProductCard';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 
 /* ─── Hero Showcase Promotional Slides ───────────────────────────────────── */
 const HERO_SLIDES = [
@@ -75,6 +77,8 @@ const HERO_SLIDES = [
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
 
   // Slider State
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -142,38 +146,64 @@ const HomePage = () => {
       .finally(() => setLoadingManufacturers(false));
   }, []);
 
+  // Lưu ý định hành động và chuyển đến đăng nhập
+  const saveIntentAndRedirectToLogin = (product, actionType) => {
+    const intent = {
+      product_id: product.MaSanPham,
+      quantity: 1,
+      action_type: actionType,
+      product_name: product.TenSanPham,
+      redirect_back: '/',
+    };
+    sessionStorage.setItem('cart_action_intent', JSON.stringify(intent));
+    toast('Vui lòng đăng nhập để tiếp tục', { icon: '🔐', id: 'login-required', duration: 2500 });
+    navigate('/login');
+  };
+
   // Thêm vào giỏ hàng
   const handleAddToCart = async (product) => {
+    if (!isAuthenticated) {
+      saveIntentAndRedirectToLogin(product, 'add_to_cart');
+      return;
+    }
+    if (product.TonKho !== undefined && product.TonKho <= 0) {
+      toast.error('Sản phẩm đã hết hàng', { id: `out-of-stock-${product.MaSanPham}` });
+      return;
+    }
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      if (token) {
-        await api.post('/cart/items', { MaSanPham: product.MaSanPham, SoLuong: 1 });
+      const result = await addToCart(product.MaSanPham, 1);
+      if (result.success) {
+        toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
+          id: `add-cart-${product.MaSanPham}`,
+          duration: 3000,
+        });
+      } else {
+        toast.error(result.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
       }
-      toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
-        id: `add-cart-${product.MaSanPham}`,
-      });
-    } catch {
-      toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
-        id: `add-cart-${product.MaSanPham}`,
-      });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
     }
   };
 
   // Mua ngay
   const handleBuyNow = async (product) => {
+    if (!isAuthenticated) {
+      saveIntentAndRedirectToLogin(product, 'buy_now');
+      return;
+    }
+    if (product.TonKho !== undefined && product.TonKho <= 0) {
+      toast.error('Sản phẩm đã hết hàng', { id: `out-of-stock-${product.MaSanPham}` });
+      return;
+    }
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      if (token) {
-        await api.post('/cart/items', { MaSanPham: product.MaSanPham, SoLuong: 1 });
+      const result = await addToCart(product.MaSanPham, 1);
+      if (result.success) {
         navigate('/cart');
       } else {
-        toast.success(`Đang chuyển tới trang chi tiết "${product.TenSanPham}"!`, {
-          id: `buy-now-${product.MaSanPham}`,
-        });
-        navigate(`/products/${product.MaSanPham}`);
+        toast.error(result.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
       }
-    } catch {
-      navigate(`/products/${product.MaSanPham}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
     }
   };
 

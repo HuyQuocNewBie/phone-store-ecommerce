@@ -25,6 +25,7 @@ import {
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
+import { useCart } from '../../context/CartContext';
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 const formatVND = (price) =>
@@ -486,6 +487,7 @@ const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail 
 /* ─── OrderHistoryPage (Main) ────────────────────────────────────────────── */
 const OrderHistoryPage = () => {
   const navigate = useNavigate();
+  const { fetchCart } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const currentTabParam = (searchParams.get('tab') || 'ALL').toUpperCase();
@@ -555,6 +557,7 @@ const OrderHistoryPage = () => {
     try {
       const res = await api.post(`/orders/${orderId}/reorder`);
       if (res.data?.success) {
+        await fetchCart(); // Đồng bộ badge giỏ hàng
         toast.success('Đã thêm toàn bộ sản phẩm vào giỏ hàng thành công!');
         setTimeout(() => navigate('/cart'), 500);
       } else toast.error(res.data?.message || 'Không thể mua lại đơn hàng này.');

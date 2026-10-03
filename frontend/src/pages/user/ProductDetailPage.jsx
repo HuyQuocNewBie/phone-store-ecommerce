@@ -32,6 +32,7 @@ import Navbar from "../../components/user/Navbar";
 import Footer from "../../components/user/Footer";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext";
 
 const SESSION_INTENT_KEY = "cart_action_intent";
 
@@ -203,6 +204,7 @@ const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -302,10 +304,14 @@ const ProductDetailPage = () => {
     if (isOutOfStock) { toast.error("Sản phẩm đã hết hàng", { id: "out-of-stock" }); return; }
     try {
       setAddingToCart(true);
-      await api.post("/cart/items", { MaSanPham: product.MaSanPham, SoLuong: quantity });
-      const variantLabel = [selectedRom, selectedColor].filter(Boolean).join(" · ");
-      toast.success(`Đã thêm vào giỏ hàng${variantLabel ? " · " + variantLabel : ""}`,
-        { id: `cart-add-${product.MaSanPham}`, duration: 3000 });
+      const result = await addToCart(product.MaSanPham, quantity);
+      if (result.success) {
+        const variantLabel = [selectedRom, selectedColor].filter(Boolean).join(" · ");
+        toast.success(`Đã thêm vào giỏ hàng${variantLabel ? " · " + variantLabel : ""}`,
+          { id: `cart-add-${product.MaSanPham}`, duration: 3000 });
+      } else {
+        toast.error(result.message || "Không thể thêm vào giỏ hàng.", { id: "cart-error" });
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Không thể thêm vào giỏ hàng.", { id: "cart-error" });
     } finally { setAddingToCart(false); }
@@ -316,8 +322,13 @@ const ProductDetailPage = () => {
     if (isOutOfStock) { toast.error("Sản phẩm đã hết hàng", { id: "out-of-stock" }); return; }
     try {
       setBuyingNow(true);
-      await api.post("/cart/items", { MaSanPham: product.MaSanPham, SoLuong: quantity });
-      navigate("/checkout");
+      const result = await addToCart(product.MaSanPham, quantity);
+      if (result.success) {
+        navigate("/checkout");
+      } else {
+        toast.error(result.message || "Không thể xử lý. Vui lòng thử lại.", { id: "buynow-error" });
+        setBuyingNow(false);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Không thể xử lý. Vui lòng thử lại.", { id: "buynow-error" });
       setBuyingNow(false);
@@ -474,12 +485,6 @@ const ProductDetailPage = () => {
               <p className="text-3xl sm:text-4xl font-black text-blue-600 leading-tight">
                 {formatVND(product.Gia)}
               </p>
-              {!isOutOfStock && quantity > 1 && (
-                <p className="text-sm text-slate-500 mt-2">
-                  Tổng ({quantity} sp):{" "}
-                  <span className="text-blue-600 font-bold">{formatVND(product.Gia * quantity)}</span>
-                </p>
-              )}
             </div>
 
             {/* Chọn Phiên bản (ROM) */}

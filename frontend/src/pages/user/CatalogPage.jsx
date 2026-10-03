@@ -21,6 +21,8 @@ import {
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
 const ROM_OPTIONS = ['128GB', '256GB', '512GB', '1TB'];
@@ -48,6 +50,8 @@ const ProductSkeleton = () => (
 /* ─── CatalogPage ────────────────────────────────────────────────────────── */
 const CatalogPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ── URL Params ── */
@@ -140,8 +144,37 @@ const CatalogPage = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-  const handleAddToCart = (product) => {
-    toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, { id: `cart-add-${product.MaSanPham}` });
+  const handleAddToCart = async (product) => {
+    if (!isAuthenticated) {
+      const intent = {
+        product_id: product.MaSanPham,
+        quantity: 1,
+        action_type: 'add_to_cart',
+        product_name: product.TenSanPham,
+        redirect_back: window.location.pathname + window.location.search,
+      };
+      sessionStorage.setItem('cart_action_intent', JSON.stringify(intent));
+      toast('Vui lòng đăng nhập để tiếp tục', { icon: '🔐', id: 'login-required', duration: 2500 });
+      navigate('/login');
+      return;
+    }
+    if (product.TonKho !== undefined && product.TonKho <= 0) {
+      toast.error('Sản phẩm đã hết hàng', { id: `out-of-stock-${product.MaSanPham}` });
+      return;
+    }
+    try {
+      const result = await addToCart(product.MaSanPham, 1);
+      if (result.success) {
+        toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
+          id: `cart-add-${product.MaSanPham}`,
+          duration: 3000,
+        });
+      } else {
+        toast.error(result.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
+    }
   };
 
   const formatVND = (price) =>

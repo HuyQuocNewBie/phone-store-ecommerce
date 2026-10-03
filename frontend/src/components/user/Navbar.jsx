@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import SearchDropdown from './SearchDropdown';
 
 const STORAGE_KEY = 'search_history';
@@ -9,6 +10,7 @@ const STORAGE_KEY = 'search_history';
 const Navbar = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { totalCartCount } = useCart();
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,9 +18,6 @@ const Navbar = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  // Cart Count State
-  const [cartCount, setCartCount] = useState(0);
 
   // UI State
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -39,23 +38,7 @@ const Navbar = () => {
     }
   }, []);
 
-  // 2. Tải số lượng giỏ hàng
-  useEffect(() => {
-    if (isAuthenticated) {
-      api.get('/cart')
-        .then((res) => {
-          if (res.data?.success) {
-            const count = res.data.data?.items?.length || res.data.data?.length || 0;
-            setCartCount(count);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setCartCount(0);
-    }
-  }, [isAuthenticated]);
-
-  // 3. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
+  // 2. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
   useEffect(() => {
     const trimmed = searchTerm.trim();
     if (!trimmed) {
@@ -248,9 +231,9 @@ const Navbar = () => {
               shopping_cart
             </span>
             <span className="font-body-sm text-body-sm font-semibold hidden sm:inline">Giỏ hàng</span>
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-tertiary-container text-on-tertiary font-body-sm text-body-sm flex items-center justify-center font-bold shadow-sm">
-                {cartCount}
+            {totalCartCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-tertiary-container text-on-tertiary font-body-sm text-body-sm flex items-center justify-center font-bold shadow-sm transition-all duration-300 animate-bounce-once">
+                {totalCartCount > 99 ? '99+' : totalCartCount}
               </span>
             )}
           </Link>

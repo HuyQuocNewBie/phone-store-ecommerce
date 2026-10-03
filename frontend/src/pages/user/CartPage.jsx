@@ -20,14 +20,15 @@ import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import DeleteConfirmModal from '../../components/user/DeleteConfirmModal';
 import api from '../../services/api';
+import { useCart } from '../../context/CartContext';
 
 const formatVND = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
 const CartPage = () => {
   const navigate = useNavigate();
+  const { cartItems, setCartItems, cartLoading, fetchCart, updateQuantity, removeFromCart } = useCart();
 
-  const [cartItems, setCartItems]             = useState([]);
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [isLoading, setIsLoading]             = useState(true);
   const [selectedIds, setSelectedIds]         = useState([]);
@@ -37,16 +38,12 @@ const CartPage = () => {
   const [modalOpen, setModalOpen]             = useState(false);
   const [modalTarget, setModalTarget]         = useState(null);
 
-  useEffect(() => { fetchCart(); fetchVouchers(); }, []);
-
-  const fetchCart = async () => {
-    try {
-      const res = await api.get('/cart');
-      if (res.data.success) {
-        setCartItems(res.data.data.map(item => ({ ...item, id: item.MaGioHang })));
-      }
-    } catch {} finally { setIsLoading(false); }
-  };
+  useEffect(() => {
+    // fetchCart() được CartContext tự gọi, chỉ cần fetch vouchers ở đây
+    fetchVouchers();
+    // Khi cartLoading hoàn tất (dữ liệu đã sẵn sàng), ẩn spinner
+    if (!cartLoading) setIsLoading(false);
+  }, [cartLoading]);
 
   const fetchVouchers = async () => {
     try {
@@ -72,11 +69,10 @@ const CartPage = () => {
     if (!item) return;
     const newQty = Math.max(1, Math.min(item.TonKho, item.SoLuong + delta));
     if (newQty === item.SoLuong) return;
-    try {
-      const res = await api.put('/cart/items', { MaGioHang: item.MaGioHang, SoLuong: newQty });
-      if (res.data.success)
-        setCartItems((prev) => prev.map((x) => (x.id === id ? { ...x, SoLuong: newQty } : x)));
-    } catch { toast.error('Không thể cập nhật số lượng'); }
+    const result = await updateQuantity(item.MaGioHang, newQty);
+    if (!result.success) {
+      toast.error(result.message || 'Không thể cập nhật số lượng');
+    }
   };
 
   const openDeleteModal = (itemId = null) => { setModalTarget(itemId); setModalOpen(true); };
@@ -84,16 +80,22 @@ const CartPage = () => {
   const handleConfirmDelete = async () => {
     try {
       if (modalTarget) {
-        await api.post('/cart/items/batch-delete', { cart_item_ids: [modalTarget] });
-        setCartItems((prev) => prev.filter((item) => item.id !== modalTarget));
-        setSelectedIds((prev) => prev.filter((x) => x !== modalTarget));
-        toast.success('Đã xóa sản phẩm khỏi giỏ hàng.');
+        const result = await removeFromCart(modalTarget);
+        if (result.success) {
+          setSelectedIds((prev) => prev.filter((x) => x !== modalTarget));
+          toast.success('Đã xóa sản phẩm khỏi giỏ hàng.');
+        } else {
+          toast.error(result.message || 'Xóa sản phẩm thất bại.');
+        }
       } else {
-        await api.post('/cart/items/batch-delete', { cart_item_ids: selectedIds });
-        const count = selectedIds.length;
-        setCartItems((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
-        setSelectedIds([]);
-        toast.success(`Đã xóa ${count} sản phẩm khỏi giỏ hàng.`);
+        const result = await removeFromCart(selectedIds);
+        if (result.success) {
+          const count = selectedIds.length;
+          setSelectedIds([]);
+          toast.success(`Đã xóa ${count} sản phẩm khỏi giỏ hàng.`);
+        } else {
+          toast.error(result.message || 'Xóa sản phẩm thất bại.');
+        }
       }
     } catch { toast.error('Xóa sản phẩm thất bại.'); }
     finally { setModalTarget(null); setModalOpen(false); }
