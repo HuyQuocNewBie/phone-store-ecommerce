@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import {
-  ShoppingCart, RefreshCw, Search, AlertCircle, CheckCircle2, Filter
+  ShoppingCart, RefreshCw, Search, AlertCircle,
+  CheckCircle2, Clock, Settings, Truck, XCircle, Package
 } from 'lucide-react';
 import api from '../../../services/api';
 import { formatOrderCode } from '../../../utils/formatters';
@@ -25,22 +26,42 @@ const formatDate = (dateStr) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
-// ── Danh sách Trạng thái Đơn hàng ──
+// ── 5 Trạng thái chuẩn (đồng bộ với User) ──
 const ORDER_STATUS_OPTIONS = [
   'Chờ xác nhận',
   'Đang xử lý',
   'Đang giao',
-  'Đã hoàn thành',
+  'Đã giao',
   'Đã hủy'
+];
+
+// ── 6 Tabs: Tất cả + 5 trạng thái chuẩn ──
+const ORDER_TABS = [
+  { id: 'ALL',        label: 'Tất cả',       icon: Package,      status: null },
+  { id: 'PENDING',    label: 'Chờ xác nhận', icon: Clock,        status: 'Chờ xác nhận' },
+  { id: 'PROCESSING', label: 'Đang xử lý',   icon: Settings,     status: 'Đang xử lý' },
+  { id: 'SHIPPING',   label: 'Đang giao',    icon: Truck,        status: 'Đang giao' },
+  { id: 'DELIVERED',  label: 'Đã giao',      icon: CheckCircle2, status: 'Đã giao' },
+  { id: 'CANCELLED',  label: 'Đã hủy',       icon: XCircle,      status: 'Đã hủy' },
 ];
 
 // ── Map Màu cho Trạng thái ──
 const STATUS_STYLE_MAP = {
   'Chờ xác nhận': 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-  'Đang xử lý': 'bg-sky-500/10 text-sky-400 border-sky-500/30',
-  'Đang giao': 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-  'Đã hoàn thành': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  'Đã hủy': 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+  'Đang xử lý':   'bg-sky-500/10 text-sky-400 border-sky-500/30',
+  'Đang giao':    'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  'Đã giao':      'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  'Đã hủy':       'bg-rose-500/10 text-rose-400 border-rose-500/30'
+};
+
+// ── Màu Tab khi active ──
+const TAB_ACTIVE_STYLE = {
+  ALL:        'text-white border-b-2 border-slate-300 bg-slate-700/40',
+  PENDING:    'text-purple-300 border-b-2 border-purple-400 bg-purple-500/10',
+  PROCESSING: 'text-sky-300 border-b-2 border-sky-400 bg-sky-500/10',
+  SHIPPING:   'text-amber-300 border-b-2 border-amber-400 bg-amber-500/10',
+  DELIVERED:  'text-emerald-300 border-b-2 border-emerald-400 bg-emerald-500/10',
+  CANCELLED:  'text-rose-300 border-b-2 border-rose-400 bg-rose-500/10',
 };
 
 const OrderListPage = () => {
@@ -48,7 +69,7 @@ const OrderListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [activeTab, setActiveTab] = useState('ALL');
   const [updatingId, setUpdatingId] = useState(null);
 
   // 1. Tải danh sách đơn hàng từ API
@@ -93,19 +114,39 @@ const OrderListPage = () => {
     }
   };
 
-  // Lọc đơn hàng
-  const filteredOrders = orders.filter((order) => {
-    const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
-    const searchLower = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      String(order.MaDonHang).includes(searchLower) ||
-      orderCode.toLowerCase().includes(searchLower) ||
-      (order.KhachHang || order.TenNguoiNhan || '').toLowerCase().includes(searchLower);
+  // 3. Đếm số đơn hàng theo từng tab
+  const tabCounts = useMemo(() => {
+    const counts = { ALL: orders.length, PENDING: 0, PROCESSING: 0, SHIPPING: 0, DELIVERED: 0, CANCELLED: 0 };
+    orders.forEach((o) => {
+      const st = o.TrangThaiDonHang;
+      if (st === 'Chờ xác nhận') counts.PENDING++;
+      else if (st === 'Đang xử lý') counts.PROCESSING++;
+      else if (st === 'Đang giao') counts.SHIPPING++;
+      else if (st === 'Đã giao') counts.DELIVERED++;
+      else if (st === 'Đã hủy') counts.CANCELLED++;
+    });
+    return counts;
+  }, [orders]);
 
-    const matchesStatus = statusFilter === 'ALL' || order.TrangThaiDonHang === statusFilter;
+  // 4. Lọc đơn hàng theo tab + search
+  const filteredOrders = useMemo(() => {
+    const activeTabObj = ORDER_TABS.find((t) => t.id === activeTab);
+    const tabStatus = activeTabObj?.status;
 
-    return matchesSearch && matchesStatus;
-  });
+    return orders.filter((order) => {
+      const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
+      const searchLower = searchTerm.toLowerCase().trim();
+      const matchesSearch =
+        !searchLower ||
+        String(order.MaDonHang).includes(searchLower) ||
+        orderCode.toLowerCase().includes(searchLower) ||
+        (order.KhachHang || order.TenNguoiNhan || '').toLowerCase().includes(searchLower);
+
+      const matchesTab = !tabStatus || order.TrangThaiDonHang === tabStatus;
+
+      return matchesSearch && matchesTab;
+    });
+  }, [orders, searchTerm, activeTab]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -121,43 +162,55 @@ const OrderListPage = () => {
         </button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-        {/* Search Input */}
-        <div className="sm:col-span-8 flex items-center gap-3 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3">
-          <Search className="w-5 h-5 text-slate-400 ml-1" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo mã đơn (SZ... / #123) hoặc tên khách hàng..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 bg-transparent border-none text-slate-200 text-sm focus:outline-none placeholder-slate-500"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 bg-slate-700/50 rounded-lg"
-            >
-              Xóa
-            </button>
-          )}
-        </div>
-
-        {/* Filter Status Dropdown */}
-        <div className="sm:col-span-4 flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-2xl px-3 py-2">
-          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full bg-transparent border-none text-slate-200 text-xs font-medium focus:outline-none cursor-pointer"
+      {/* ── Search Bar ── */}
+      <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3">
+        <Search className="w-5 h-5 text-slate-400 ml-1 shrink-0" />
+        <input
+          type="text"
+          placeholder="Tìm kiếm theo mã đơn (SZ... / #123) hoặc tên khách hàng..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 bg-transparent border-none text-slate-200 text-sm focus:outline-none placeholder-slate-500"
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 bg-slate-700/50 rounded-lg shrink-0"
           >
-            <option value="ALL" className="bg-slate-800 text-slate-200">Tất cả trạng thái</option>
-            {ORDER_STATUS_OPTIONS.map((st) => (
-              <option key={st} value={st} className="bg-slate-800 text-slate-200">
-                {st}
-              </option>
-            ))}
-          </select>
+            Xóa
+          </button>
+        )}
+      </div>
+
+      {/* ── 6 TABS ── */}
+      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="flex items-stretch overflow-x-auto">
+          {ORDER_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const count = tabCounts[tab.id] || 0;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 min-w-[110px] flex flex-col items-center justify-center gap-1.5 px-3 py-3.5 text-xs font-medium transition-all border-b-2 whitespace-nowrap ${
+                  isActive
+                    ? TAB_ACTIVE_STYLE[tab.id]
+                    : 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent hover:bg-slate-700/30'
+                }`}
+              >
+                <TabIcon className="w-4 h-4" />
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -201,7 +254,7 @@ const OrderListPage = () => {
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                      {searchTerm || statusFilter !== 'ALL' ? 'Không tìm thấy đơn hàng phù hợp' : 'Chưa có đơn hàng nào'}
+                      {searchTerm || activeTab !== 'ALL' ? 'Không tìm thấy đơn hàng phù hợp' : 'Chưa có đơn hàng nào'}
                     </td>
                   </tr>
                 ) : (
@@ -224,7 +277,7 @@ const OrderListPage = () => {
                           {formatVND(order.TongTien)}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {/* Dropdown Đổi Nhanh Trạng Thái Direct In-Table */}
+                          {/* Dropdown Đổi Nhanh Trạng Thái - chỉ 5 trạng thái chuẩn */}
                           <div className="relative inline-block w-44">
                             <select
                               value={order.TrangThaiDonHang || 'Chờ xác nhận'}

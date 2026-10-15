@@ -506,7 +506,13 @@ const createOrder = async (req, res, next) => {
 
 /**
  * 3. GET /api/v1/orders?tab=...
- * Phân loại theo tab: ALL (Trả về toàn bộ 4 trạng thái), PENDING ("Chờ xác nhận"), SHIPPING ("Đang giao"), DELIVERED ("Đã giao"), CANCELLED ("Đã hủy").
+ * Phân loại theo tab:
+ *   ALL        → Toàn bộ 5 trạng thái
+ *   PENDING    → "Chờ xác nhận"
+ *   PROCESSING → "Đang xử lý"
+ *   SHIPPING   → "Đang giao"
+ *   DELIVERED  → "Đã giao"
+ *   CANCELLED  → "Đã hủy"
  * Trả về danh sách đơn hàng cùng chi tiết sản phẩm (chitietdonhang).
  */
 const getUserOrders = async (req, res, next) => {
@@ -515,21 +521,24 @@ const getUserOrders = async (req, res, next) => {
     const rawTab = req.query.tab || 'ALL';
     const tabParam = String(rawTab).toUpperCase().trim();
 
+    // 5 trạng thái chuẩn
+    const VALID_STATUSES = ['Chờ xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
+
     let statusFilter = null;
-    let statusArray = null;
 
     if (tabParam === 'PENDING') {
       statusFilter = 'Chờ xác nhận';
+    } else if (tabParam === 'PROCESSING') {
+      statusFilter = 'Đang xử lý';
     } else if (tabParam === 'SHIPPING') {
       statusFilter = 'Đang giao';
     } else if (tabParam === 'DELIVERED') {
-      statusArray = ['Đã giao', 'Đã hoàn thành'];
+      statusFilter = 'Đã giao';
     } else if (tabParam === 'CANCELLED' || tabParam === 'CANCELED') {
       statusFilter = 'Đã hủy';
     } else if (tabParam !== 'ALL') {
       // Tìm theo chuỗi trạng thái tiếng Việt nếu được truyền trực tiếp
-      const validStatuses = ['Chờ xác nhận', 'Đang giao', 'Đã giao', 'Đã hoàn thành', 'Đã hủy'];
-      const matched = validStatuses.find((s) => s.toLowerCase() === String(rawTab).toLowerCase().trim());
+      const matched = VALID_STATUSES.find((s) => s.toLowerCase() === String(rawTab).toLowerCase().trim());
       if (matched) {
         statusFilter = matched;
       }
@@ -558,9 +567,6 @@ const getUserOrders = async (req, res, next) => {
     if (statusFilter) {
       sql += ` AND TrangThaiDonHang = ?`;
       queryParams.push(statusFilter);
-    } else if (statusArray && statusArray.length > 0) {
-      sql += ` AND TrangThaiDonHang IN (?)`;
-      queryParams.push(statusArray);
     }
 
     sql += ` ORDER BY NgayMuaHang DESC, MaDonHang DESC`;

@@ -42,7 +42,7 @@ const getAllOrders = async (req, res, next) => {
 
 /**
  * 2. PUT /api/v1/admin/orders/:id/status
- * Cập nhật nhanh TrangThaiDonHang của đơn hàng
+ * Cập nhật nhanh TrangThaiDonHang của đơn hàng (chỉ nhận 5 trạng thái chuẩn)
  */
 const updateOrderStatus = async (req, res, next) => {
   try {
@@ -57,12 +57,21 @@ const updateOrderStatus = async (req, res, next) => {
     }
 
     const { TrangThaiDonHang, trangThai } = req.body;
-    const statusToUpdate = TrangThaiDonHang || trangThai;
+    const statusToUpdate = String(TrangThaiDonHang || trangThai || '').trim();
 
-    if (!statusToUpdate || !String(statusToUpdate).trim()) {
+    if (!statusToUpdate) {
       return res.status(400).json({
         success: false,
         message: 'Trạng thái đơn hàng không được để trống'
+      });
+    }
+
+    // Validate chỉ nhận 5 trạng thái chuẩn
+    const VALID_STATUSES = ['Chờ xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
+    if (!VALID_STATUSES.includes(statusToUpdate)) {
+      return res.status(400).json({
+        success: false,
+        message: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${VALID_STATUSES.join(', ')}`
       });
     }
 
@@ -82,7 +91,7 @@ const updateOrderStatus = async (req, res, next) => {
     // Cập nhật trạng thái đơn hàng
     await pool.query(
       `UPDATE donhang SET TrangThaiDonHang = ? WHERE MaDonHang = ?`,
-      [String(statusToUpdate).trim(), orderId]
+      [statusToUpdate, orderId]
     );
 
     return res.status(200).json({
@@ -90,7 +99,7 @@ const updateOrderStatus = async (req, res, next) => {
       message: 'Cập nhật trạng thái đơn hàng thành công',
       data: {
         MaDonHang: orderId,
-        TrangThaiDonHang: String(statusToUpdate).trim()
+        TrangThaiDonHang: statusToUpdate
       }
     });
   } catch (error) {

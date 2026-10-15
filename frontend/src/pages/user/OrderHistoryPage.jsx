@@ -43,13 +43,14 @@ const formatDateTime = (dateStr) => {
   });
 };
 
-/* ─── 5 Tabs ─────────────────────────────────────────────────────────────── */
+/* ─── 6 Tabs ─────────────────────────────────────────────────────────────── */
 const ORDER_TABS = [
-  { id: 'ALL',       label: 'Tất cả' },
-  { id: 'PENDING',   label: 'Chờ xác nhận' },
-  { id: 'SHIPPING',  label: 'Đang giao' },
-  { id: 'DELIVERED', label: 'Đã giao' },
-  { id: 'CANCELLED', label: 'Đã hủy' },
+  { id: 'ALL',        label: 'Tất cả' },
+  { id: 'PENDING',    label: 'Chờ xác nhận' },
+  { id: 'PROCESSING', label: 'Đang xử lý' },
+  { id: 'SHIPPING',   label: 'Đang giao' },
+  { id: 'DELIVERED',  label: 'Đã giao' },
+  { id: 'CANCELLED',  label: 'Đã hủy' },
 ];
 
 /* ─── Status Info ────────────────────────────────────────────────────────── */
@@ -62,6 +63,13 @@ const getStatusInfo = (status) => {
         dotClass: 'bg-amber-400 animate-pulse',
         description: 'Đơn hàng đang chờ nhân viên xác nhận',
       };
+    case 'Đang xử lý':
+      return {
+        label: 'Đang xử lý', icon: Clock,
+        badgeClass: 'bg-sky-50 text-sky-600 border-sky-200',
+        dotClass: 'bg-sky-400 animate-pulse',
+        description: 'Đơn hàng đang được xử lý và chuẩn bị',
+      };
     case 'Đang giao':
       return {
         label: 'Đang giao', icon: Truck,
@@ -70,7 +78,6 @@ const getStatusInfo = (status) => {
         description: 'Đơn hàng đang trên đường giao đến bạn',
       };
     case 'Đã giao':
-    case 'Đã hoàn thành':
       return {
         label: 'Đã giao', icon: CheckCircle2,
         badgeClass: 'bg-emerald-50 text-emerald-600 border-emerald-200',
@@ -473,7 +480,7 @@ const EmptyOrderState = () => (
 const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail, onOpenCancel }) => {
   const statusInfo = getStatusInfo(order.TrangThaiDonHang);
   const StatusIcon = statusInfo.icon;
-  const isDelivered = order.TrangThaiDonHang === 'Đã giao' || order.TrangThaiDonHang === 'Đã hoàn thành';
+  const isDelivered = order.TrangThaiDonHang === 'Đã giao';
   const items = order.chitietdonhang || [];
 
   return (
@@ -652,12 +659,13 @@ const OrderHistoryPage = () => {
   };
 
   const tabCounts = useMemo(() => {
-    const counts = { ALL: allOrdersForCounts.length, PENDING: 0, SHIPPING: 0, DELIVERED: 0, CANCELLED: 0 };
+    const counts = { ALL: allOrdersForCounts.length, PENDING: 0, PROCESSING: 0, SHIPPING: 0, DELIVERED: 0, CANCELLED: 0 };
     allOrdersForCounts.forEach((o) => {
       const st = o.TrangThaiDonHang;
       if (st === 'Chờ xác nhận') counts.PENDING++;
+      else if (st === 'Đang xử lý') counts.PROCESSING++;
       else if (st === 'Đang giao') counts.SHIPPING++;
-      else if (st === 'Đã giao' || st === 'Đã hoàn thành') counts.DELIVERED++;
+      else if (st === 'Đã giao') counts.DELIVERED++;
       else if (st === 'Đã hủy') counts.CANCELLED++;
     });
     return counts;
