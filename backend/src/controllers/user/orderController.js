@@ -372,13 +372,23 @@ const createOrder = async (req, res, next) => {
 
     // 10. Trừ số lượng TonKho trong bảng `sanpham` và Thêm log vào `lichsutonkho` (LoaiBienDong = 'XuatBan')
     for (const item of orderItemsDetails) {
-      // Trừ TonKho
-      await connection.query(
-        `UPDATE sanpham SET TonKho = TonKho - ? WHERE MaSanPham = ?`,
-        [item.SoLuong, item.MaSanPham]
+      // BƯỚC C: Atomic UPDATE – chỉ trừ khi TonKho còn đủ (chống race condition)
+      const [updateResult] = await connection.query(
+        `UPDATE sanpham SET TonKho = TonKho - ? WHERE MaSanPham = ? AND TonKho >= ?`,
+        [item.SoLuong, item.MaSanPham, item.SoLuong]
       );
 
-      // Lấy tồn kho thực tế sau khi trừ
+      // Nếu affectedRows = 0 nghĩa là hàng vừa hết (race condition) -> Rollback ngay
+      if (updateResult.affectedRows === 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({
+          success: false,
+          message: `Sản phẩm "${item.TenSanPham}" đã hết hàng trong kho`
+        });
+      }
+
+      // BƯỚC D: Lấy tồn kho thực tế sau khi trừ để ghi log chính xác
       const [updatedProdRows] = await connection.query(
         `SELECT TonKho FROM sanpham WHERE MaSanPham = ?`,
         [item.MaSanPham]
@@ -386,7 +396,7 @@ const createOrder = async (req, res, next) => {
 
       const newTonKho = Number(updatedProdRows[0].TonKho);
 
-      // Nếu hết hàng thì cập nhật trạng thái
+      // Nếu hết hàng thì cập nhật trạng thái sản phẩm
       if (newTonKho <= 0) {
         await connection.query(
           `UPDATE sanpham SET TrangThai = 'HetHang' WHERE MaSanPham = ?`,
@@ -394,7 +404,7 @@ const createOrder = async (req, res, next) => {
         );
       }
 
-      // Ghi log vào `lichsutonkho`
+      // Ghi log biến động kho vào `lichsutonkho`
       await connection.query(
         `INSERT INTO lichsutonkho 
           (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
