@@ -250,6 +250,7 @@ const CheckoutPage = () => {
         shipping_address: fullAddressString,
         GhiChu:         formData.note.trim() || null,
         MaVoucher:      appliedVoucher?.MaCode || appliedVoucher?.code || null,
+        shippingFee:    shippingFee ?? 0,
         items: items.map(it => ({
           MaSanPham: it.MaSanPham,
           SoLuong:   it.SoLuong,

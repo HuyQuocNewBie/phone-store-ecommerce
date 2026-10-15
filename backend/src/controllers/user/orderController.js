@@ -134,6 +134,10 @@ const createOrder = async (req, res, next) => {
       province,
       district_id,
       district,
+      shippingFee,
+      shipping_fee,
+      PhiShip,
+      phi_ship,
       MaVoucher,
       voucher_code,
       cart_item_ids,
@@ -274,9 +278,33 @@ const createOrder = async (req, res, next) => {
       });
     }
 
-    // 2. Tính phí giao hàng (PhiShip)
-    const shippingCalc = computeShippingFee(finalProvince, finalDistrict, subtotal);
-    const phiShip = shippingCalc.shipping_fee;
+    // 2. Nhận và xác thực phí giao hàng (shippingFee / PhiShip) từ Frontend & Backend validation
+    const orderSubtotal = subtotal;
+    let validatedShippingFee = 0;
+
+    const rawShippingFee =
+      shippingFee !== undefined
+        ? shippingFee
+        : shipping_fee !== undefined
+        ? shipping_fee
+        : PhiShip !== undefined
+        ? PhiShip
+        : phi_ship;
+
+    if (rawShippingFee !== undefined && rawShippingFee !== null && !isNaN(Number(rawShippingFee))) {
+      validatedShippingFee = Math.max(0, Number(rawShippingFee));
+    } else {
+      // Fallback tính toán nếu frontend không truyền phí ship
+      const shippingCalc = computeShippingFee(finalProvince, finalDistrict, orderSubtotal);
+      validatedShippingFee = shippingCalc.shipping_fee;
+    }
+
+    // Bổ sung kiểm tra phía Backend: NẾU orderSubtotal >= 10.000.000đ -> Bắt buộc shippingFee = 0
+    if (orderSubtotal >= 10000000) {
+      validatedShippingFee = 0;
+    }
+
+    const phiShip = validatedShippingFee;
 
     // 3. Kiểm tra và áp dụng Voucher (nếu có)
     let soTienGiam = 0;
@@ -295,14 +323,14 @@ const createOrder = async (req, res, next) => {
 
       if (vouchers.length > 0) {
         const v = vouchers[0];
-        if (v.SoLuong > 0 && subtotal >= Number(v.GiaTriToiThieu)) {
+        if (v.SoLuong > 0 && orderSubtotal >= Number(v.GiaTriToiThieu)) {
           appliedVoucherId = v.MaVoucher;
           if (v.LoaiGiam === 'tien') {
             soTienGiam = Number(v.GiaTriGiam);
           } else if (v.LoaiGiam === 'phantram') {
-            soTienGiam = (subtotal * Number(v.GiaTriGiam)) / 100;
+            soTienGiam = (orderSubtotal * Number(v.GiaTriGiam)) / 100;
           }
-          if (soTienGiam > subtotal) soTienGiam = subtotal;
+          if (soTienGiam > orderSubtotal) soTienGiam = orderSubtotal;
 
           // Giảm số lượng Voucher
           await connection.query(
@@ -313,10 +341,13 @@ const createOrder = async (req, res, next) => {
       }
     }
 
-    // 4. Tính Tổng Tiền đơn hàng
-    const tongTien = Math.max(0, subtotal + phiShip - soTienGiam);
+    const voucherDiscount = soTienGiam;
+
+    // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
+    const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
     // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = "Chờ xác nhận"
+    // Lưu giá trị shippingFee vào cột `PhiShip` trong bảng `donhang`
     const [donHangResult] = await connection.query(
       `INSERT INTO donhang 
         (MaNguoiDung, NgayMuaHang, TrangThaiDonHang, MaVoucher, DiaChiGiaoHang, GhiChu, SoDienThoai, TenNguoiNhan, TongTien, PhiShip, SoTienGiam)
@@ -331,7 +362,7 @@ const createOrder = async (req, res, next) => {
         finalTenNguoiNhan,
         tongTien,
         phiShip,
-        soTienGiam
+        voucherDiscount
       ]
     );
 
@@ -464,9 +495,12 @@ const createOrder = async (req, res, next) => {
         DiaChiGiaoHang: finalDiaChiGiaoHang,
         GhiChu: finalGhiChu,
         items: orderItemsDetails,
-        subtotal,
+        subtotal: orderSubtotal,
+        orderSubtotal,
         PhiShip: phiShip,
-        SoTienGiam: soTienGiam,
+        shippingFee: phiShip,
+        SoTienGiam: voucherDiscount,
+        voucherDiscount,
         TongTien: tongTien
       }).catch((err) => console.error('Error sending order invoice email async:', err));
     }
@@ -481,8 +515,11 @@ const createOrder = async (req, res, next) => {
         TrangThaiDonHang: 'Chờ xác nhận',
         TongTien: tongTien,
         PhiShip: phiShip,
-        SoTienGiam: soTienGiam,
-        subtotal,
+        shippingFee: phiShip,
+        SoTienGiam: voucherDiscount,
+        voucherDiscount,
+        subtotal: orderSubtotal,
+        orderSubtotal,
         TenNguoiNhan: finalTenNguoiNhan,
         SoDienThoai: finalSoDienThoai,
         DiaChiGiaoHang: finalDiaChiGiaoHang,
