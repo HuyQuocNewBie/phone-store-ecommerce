@@ -325,9 +325,10 @@ const ProductDetailPage = () => {
       setAddingToCart(true);
       const result = await addToCart(product.MaSanPham, quantity);
       if (result.success) {
-        const variantLabel = [selectedRom, selectedColor].filter(Boolean).join(" · ");
-        toast.success(`Đã thêm vào giỏ hàng${variantLabel ? " · " + variantLabel : ""}`,
-          { id: `cart-add-${product.MaSanPham}`, duration: 3000 });
+        toast.success(`Đã thêm ${product.TenSanPham} vào giỏ hàng!`, {
+          id: `cart-add-${product.MaSanPham}`,
+          duration: 3000,
+        });
       } else {
         toast.error(result.message || "Không thể thêm vào giỏ hàng.", { id: "cart-error" });
       }

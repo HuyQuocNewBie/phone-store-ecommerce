@@ -119,7 +119,6 @@ const CartPage = () => {
 
   const selectedItems = cartItems.filter((item) => selectedIds.includes(item.id));
   const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.Gia) * Number(item.SoLuong), 0);
-  const SHIPPING_FEE = selectedItems.length === 0 ? null : (subtotal > 0 && subtotal < 5000000 ? 30000 : 0);
 
   // Tính tiền giảm dựa trên appliedVoucher và subtotal
   const discount = appliedVoucher
@@ -128,7 +127,7 @@ const CartPage = () => {
         : Number(appliedVoucher.GiaTriGiam))
     : 0;
   const actualDiscount = Math.min(discount, subtotal);
-  const total = Math.max(0, subtotal + (SHIPPING_FEE || 0) - actualDiscount);
+  const total = Math.max(0, subtotal - actualDiscount);
 
   // Tự động kiểm tra giá trị tối thiểu của voucher khi subtotal thay đổi
   useEffect(() => {
@@ -619,15 +618,6 @@ const CartPage = () => {
                       <span className="font-medium text-slate-700">{formatVND(subtotal)}</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-500">
-                      <span className="flex items-center gap-1.5">
-                        <Truck className="w-3.5 h-3.5 text-blue-500" />
-                        Phí vận chuyển
-                      </span>
-                      <span className={`font-medium ${SHIPPING_FEE === 0 ? 'text-emerald-600' : 'text-slate-700'}`}>
-                        {SHIPPING_FEE === null ? '-- đ' : SHIPPING_FEE === 0 ? 'Miễn phí' : formatVND(SHIPPING_FEE)}
-                      </span>
-                    </div>
 
                     {appliedVoucher && (
                       <div className="flex items-center justify-between text-emerald-600">
