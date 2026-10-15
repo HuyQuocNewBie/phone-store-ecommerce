@@ -1,5 +1,6 @@
 const { pool } = require('../../../config/db');
 const { sendOrderInvoiceEmail } = require('../../utils/mailer');
+const { formatOrderCode } = require('../../utils/formatters');
 
 /**
  * Helper kiểm tra xem tỉnh thành có thuộc TP.HCM hay không
@@ -414,7 +415,7 @@ const createOrder = async (req, res, next) => {
           -item.SoLuong,
           newTonKho,
           maDonHang,
-          `Xuất bán cho đơn hàng #${maDonHang}`
+          `Xuất bán cho đơn hàng ${formatOrderCode(maDonHang, new Date())}`
         ]
       );
     }
@@ -475,6 +476,8 @@ const createOrder = async (req, res, next) => {
       message: 'Tạo đơn hàng thành công',
       data: {
         MaDonHang: maDonHang,
+        CodeDonHang: formatOrderCode(maDonHang, new Date()),
+        NgayMuaHang: new Date(),
         TrangThaiDonHang: 'Chờ xác nhận',
         TongTien: tongTien,
         PhiShip: phiShip,
@@ -618,6 +621,7 @@ const getUserOrders = async (req, res, next) => {
 
     const formattedOrders = orders.map((order) => ({
       MaDonHang: order.MaDonHang,
+      CodeDonHang: formatOrderCode(order.MaDonHang, order.NgayMuaHang),
       MaNguoiDung: order.MaNguoiDung,
       NgayMuaHang: order.NgayMuaHang,
       TrangThaiDonHang: order.TrangThaiDonHang,

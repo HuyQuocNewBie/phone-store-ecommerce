@@ -4,6 +4,7 @@ import {
   ShoppingCart, RefreshCw, Search, AlertCircle, CheckCircle2, Filter
 } from 'lucide-react';
 import api from '../../../services/api';
+import { formatOrderCode } from '../../../utils/formatters';
 
 // ── Helper Format VNĐ ──
 const formatVND = (value) => {
@@ -94,9 +95,12 @@ const OrderListPage = () => {
 
   // Lọc đơn hàng
   const filteredOrders = orders.filter((order) => {
+    const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
+    const searchLower = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      String(order.MaDonHang).includes(searchTerm) ||
-      (order.KhachHang || order.TenNguoiNhan || '').toLowerCase().includes(searchTerm.toLowerCase());
+      String(order.MaDonHang).includes(searchLower) ||
+      orderCode.toLowerCase().includes(searchLower) ||
+      (order.KhachHang || order.TenNguoiNhan || '').toLowerCase().includes(searchLower);
 
     const matchesStatus = statusFilter === 'ALL' || order.TrangThaiDonHang === statusFilter;
 
@@ -124,7 +128,7 @@ const OrderListPage = () => {
           <Search className="w-5 h-5 text-slate-400 ml-1" />
           <input
             type="text"
-            placeholder="Tìm kiếm theo mã đơn (#123) hoặc tên khách hàng..."
+            placeholder="Tìm kiếm theo mã đơn (SZ... / #123) hoặc tên khách hàng..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 bg-transparent border-none text-slate-200 text-sm focus:outline-none placeholder-slate-500"
@@ -175,7 +179,7 @@ const OrderListPage = () => {
             <table className="w-full text-left text-slate-200">
               <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
                 <tr>
-                  <th className="px-6 py-4 w-32">Mã đơn</th>
+                  <th className="px-6 py-4 w-44">Mã đơn</th>
                   <th className="px-6 py-4 w-48">Ngày đặt</th>
                   <th className="px-6 py-4">Khách hàng</th>
                   <th className="px-6 py-4 text-right w-44">Tổng tiền</th>
@@ -207,8 +211,8 @@ const OrderListPage = () => {
 
                     return (
                       <tr key={order.MaDonHang} className="hover:bg-slate-700/20 transition-colors">
-                        <td className="px-6 py-4 font-bold text-sky-400">
-                          #{order.MaDonHang}
+                        <td className="px-6 py-4 font-bold text-sky-400 font-mono tracking-wider text-xs sm:text-sm">
+                          {formatOrderCode(order.MaDonHang, order.NgayMuaHang)}
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-300 font-medium">
                           {formatDate(order.NgayMuaHang)}

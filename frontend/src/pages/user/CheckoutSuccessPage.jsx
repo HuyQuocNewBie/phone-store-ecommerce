@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
+import { formatOrderCode } from '../../utils/formatters';
 
 const formatVND = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -34,8 +35,8 @@ const CheckoutSuccessPage = () => {
   const orderData = location.state?.orderData || null;
   const orderSummary = location.state?.orderSummary || null;
 
-  // Fallback data if accessed directly
-  const orderId = orderData?.MaDonHang || 'DH' + Math.floor(100000 + Math.random() * 900000);
+  // Chuẩn hóa mã đơn hàng chuẩn TMĐT (SZ + YYYYMMDD + Pad4)
+  const orderCode = orderData?.CodeDonHang || formatOrderCode(orderData?.MaDonHang, orderData?.NgayMuaHang);
   const totalAmount = orderData?.TongTien ?? orderSummary?.total ?? 0;
   const receiverName = orderSummary?.formData?.fullName || orderData?.TenNguoiNhan || 'Quý khách';
   const phone = orderSummary?.formData?.phone || orderData?.SoDienThoai || '';
@@ -120,8 +121,8 @@ const CheckoutSuccessPage = () => {
 
   // Sao chép mã đơn hàng
   const handleCopyOrderId = () => {
-    if (orderId) {
-      navigator.clipboard.writeText(String(orderId));
+    if (orderCode) {
+      navigator.clipboard.writeText(String(orderCode));
       setCopied(true);
       toast.success('Đã sao chép mã đơn hàng!');
       setTimeout(() => setCopied(false), 2000);
@@ -220,8 +221,8 @@ const CheckoutSuccessPage = () => {
               <div className="pt-2 inline-flex items-center justify-center">
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-2.5 shadow-sm">
                   <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Mã đơn hàng:</span>
-                  <span className="font-mono font-bold text-base text-blue-600">
-                    #{orderId}
+                  <span className="font-mono font-bold text-base text-blue-600 tracking-wide">
+                    {orderCode}
                   </span>
                   <button
                     type="button"

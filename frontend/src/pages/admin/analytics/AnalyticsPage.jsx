@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import api from '../../../services/api';
+import { formatOrderCode } from '../../../utils/formatters';
 
 // ── Helper format VNĐ ──
 const formatVND = (value) => {
@@ -372,8 +373,8 @@ const AnalyticsPage = () => {
               ) : (
                 ordersList.map((order) => (
                   <tr key={order.MaDonHang} className="hover:bg-slate-700/20 transition-colors">
-                    <td className="px-6 py-4 font-bold text-sky-400">
-                      #{order.MaDonHang}
+                    <td className="px-6 py-4 font-bold text-sky-400 font-mono tracking-wider text-xs sm:text-sm">
+                      {formatOrderCode(order.MaDonHang, order.NgayMuaHang)}
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-300 font-medium">
                       {formatDateDisplay(order.NgayMuaHang?.slice(0, 10))}

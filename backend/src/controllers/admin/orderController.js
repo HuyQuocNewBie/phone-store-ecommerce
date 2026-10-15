@@ -1,4 +1,5 @@
 const { pool } = require('../../../config/db');
+const { formatOrderCode } = require('../../utils/formatters');
 
 /**
  * 1. GET /api/v1/admin/orders
@@ -21,6 +22,7 @@ const getAllOrders = async (req, res, next) => {
 
     const orders = rows.map((row) => ({
       MaDonHang: row.MaDonHang,
+      CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
       NgayMuaHang: row.NgayMuaHang,
       TenNguoiNhan: row.TenNguoiNhan,
       KhachHang: row.TenNguoiNhan,

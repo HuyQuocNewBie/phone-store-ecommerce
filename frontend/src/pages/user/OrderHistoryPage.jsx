@@ -27,6 +27,7 @@ import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
+import { formatOrderCode } from '../../utils/formatters';
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 const formatVND = (price) =>
@@ -134,7 +135,7 @@ const ReviewModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
           <div>
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100 mb-1">
               <Star className="w-3.5 h-3.5 fill-amber-400" />
-              Đánh giá đơn hàng #{order.MaDonHang}
+              Đánh giá đơn hàng <span className="font-mono">{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</span>
             </span>
             <h3 className="text-lg font-bold text-slate-800">Chia sẻ cảm nhận của bạn</h3>
           </div>
@@ -246,7 +247,9 @@ const OrderDetailModal = ({ isOpen, onClose, order, onOpenCancel }) => {
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-3">
-              <h3 className="text-lg sm:text-xl font-bold text-slate-800">Chi tiết đơn #{order.MaDonHang}</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-800">
+                Chi tiết đơn <span className="font-mono text-blue-600">{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</span>
+              </h3>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusInfo.badgeClass}`}>
                 <span className={`w-2 h-2 rounded-full ${statusInfo.dotClass}`} />
                 <StatusIcon className="w-3.5 h-3.5" />
@@ -376,7 +379,7 @@ const CancelOrderConfirmModal = ({ isOpen, onClose, order, onConfirm, isCancelli
           <div className="flex-1">
             <h3 className="text-lg font-bold text-slate-900">Xác nhận hủy đơn hàng</h3>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Bạn có chắc chắn muốn hủy đơn hàng <strong className="text-slate-800">#{order.MaDonHang}</strong> không?
+              Bạn có chắc chắn muốn hủy đơn hàng <strong className="text-slate-800 font-mono">{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</strong> không?
             </p>
           </div>
           <button
@@ -392,7 +395,7 @@ const CancelOrderConfirmModal = ({ isOpen, onClose, order, onConfirm, isCancelli
         <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs sm:text-sm space-y-2">
           <div className="flex justify-between text-slate-600">
             <span>Mã đơn hàng:</span>
-            <span className="font-semibold text-slate-900">#{order.MaDonHang}</span>
+            <span className="font-semibold text-slate-900 font-mono">{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</span>
           </div>
           <div className="flex justify-between text-slate-600">
             <span>Ngày đặt:</span>
@@ -485,7 +488,7 @@ const OrderCard = ({ order, onReorder, isReordering, onOpenReview, onOpenDetail,
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm sm:text-base font-bold text-slate-800">
-                Mã đơn: <span className="text-blue-600">#{order.MaDonHang}</span>
+                Mã đơn: <span className="text-blue-600 font-mono tracking-wide">{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</span>
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
@@ -664,7 +667,8 @@ const OrderHistoryPage = () => {
     if (!searchQuery.trim()) return orders;
     const q = searchQuery.toLowerCase().trim();
     return orders.filter((order) => {
-      if (String(order.MaDonHang).includes(q)) return true;
+      const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang).toLowerCase();
+      if (String(order.MaDonHang).includes(q) || orderCode.includes(q)) return true;
       return !!order.chitietdonhang?.some((it) => it.TenSanPham?.toLowerCase().includes(q));
     });
   }, [orders, searchQuery]);

@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const { formatOrderCode } = require('./formatters');
 
 dotenv.config();
 
@@ -96,6 +97,7 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
     TongTien = 0
   } = orderData;
 
+  const orderSN = formatOrderCode(MaDonHang, NgayMuaHang);
   const orderDateStr = NgayMuaHang ? new Date(NgayMuaHang).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
 
   const itemsTableRows = items.map((item, index) => `
@@ -125,7 +127,7 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
         <div style="padding: 24px;">
           <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
             <h3 style="margin: 0; color: #065f46; font-size: 16px;">Xác nhận đơn hàng thành công!</h3>
-            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">#${MaDonHang}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Chờ xác nhận</span></p>
+            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">${orderSN}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Chờ xác nhận</span></p>
           </div>
 
           <!-- Customer Info -->
@@ -197,24 +199,24 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
     </div>
   `;
 
-  console.log(`[INVOICE DEBUG] Order invoice email prepared for order #${MaDonHang} -> ${toEmail}`);
+  console.log(`[INVOICE DEBUG] Order invoice email prepared for order ${orderSN} -> ${toEmail}`);
 
   if (transporter) {
     try {
       await transporter.sendMail({
         from: `"SmartZone Store" <${smtpUser}>`,
         to: toEmail,
-        subject: `[SmartZone] Hóa đơn xác nhận đơn hàng #${MaDonHang}`,
+        subject: `[SmartZone] Hóa đơn xác nhận đơn hàng ${orderSN}`,
         html
       });
-      console.log(`Invoice email for order #${MaDonHang} sent successfully to ${toEmail}`);
+      console.log(`Invoice email for order ${orderSN} sent successfully to ${toEmail}`);
       return true;
     } catch (error) {
       console.error(`Failed to send order invoice email to ${toEmail}:`, error.message);
       return false;
     }
   } else {
-    console.log(`[MAIL CONFIG MISSING] SMTP credentials not set in .env. Logged invoice for order #${MaDonHang}`);
+    console.log(`[MAIL CONFIG MISSING] SMTP credentials not set in .env. Logged invoice for order ${orderSN}`);
     return true;
   }
 };
