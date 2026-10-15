@@ -73,11 +73,8 @@ const CheckoutPage = () => {
   // 3. Phương thức thanh toán (Mặc định COD)
   const [paymentMethod, setPaymentMethod] = useState('COD');
 
-  // 4. Phí vận chuyển
-  const [shippingFee, setShippingFee] = useState(0);
-  const [calculatingShipping, setCalculatingShipping] = useState(false);
-  const [shippingRule, setShippingRule] = useState('Thời gian giao dự kiến: 1 - 3 ngày làm việc');
-  const [isFreeship, setIsFreeship] = useState(false);
+  // 4. Phí vận chuyển (null = chưa xác định, hiện "-- đ")
+  const [shippingFee, setShippingFee] = useState(null);
 
   // 5. Anti-spam / Submitting state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -133,27 +130,32 @@ const CheckoutPage = () => {
     return Math.min(val, subtotal);
   }, [appliedVoucher, subtotal]);
 
-  // Tính phí vận chuyển đơn giản
+  // Tính phí vận chuyển theo địa chỉ
   useEffect(() => {
-    setCalculatingShipping(true);
-    const timer = setTimeout(() => {
-      if (subtotal >= 10000000) {
-        setShippingFee(0);
-        setIsFreeship(true);
-        setShippingRule('Freeship cho đơn hàng ≥ 10.000.000đ');
+    if (subtotal >= 10000000) {
+      // Freeship cho đơn từ 10 triệu
+      setShippingFee(0);
+    } else {
+      const addr = formData.address.trim().toLowerCase();
+      if (addr === '') {
+        // Chưa nhập địa chỉ → chưa xác định
+        setShippingFee(null);
+      } else if (
+        addr.includes('hcm') ||
+        addr.includes('hồ chí minh') ||
+        addr.includes('tphcm') ||
+        addr.includes('tp.hcm')
+      ) {
+        setShippingFee(20000);
       } else {
-        setShippingFee(30000);
-        setIsFreeship(false);
-        setShippingRule('Giao hàng tiêu chuẩn 1 - 3 ngày');
+        setShippingFee(35000);
       }
-      setCalculatingShipping(false);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [subtotal]);
+    }
+  }, [subtotal, formData.address]);
 
-  // Tổng thanh toán
+  // Tổng thanh toán (shippingFee null → coi là 0 để tránh NaN)
   const totalAmount = useMemo(() => {
-    return Math.max(0, subtotal + shippingFee - discountAmount);
+    return Math.max(0, subtotal + (shippingFee ?? 0) - discountAmount);
   }, [subtotal, shippingFee, discountAmount]);
 
   /* ── Voucher handlers ──────────────────────────────────── */
@@ -541,22 +543,24 @@ const CheckoutPage = () => {
                     <div>
                       <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <span>Giao hàng tiêu chuẩn</span>
-                        {calculatingShipping ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                        ) : (isFreeship || shippingFee === 0) ? (
+                        {shippingFee === 0 && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
                             Freeship
                           </span>
-                        ) : null}
+                        )}
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {calculatingShipping ? 'Đang tính phí vận chuyển...' : shippingRule}
+                        {shippingFee === null
+                          ? 'Nhập địa chỉ để tính phí vận chuyển'
+                          : shippingFee === 0
+                          ? 'Freeship cho đơn hàng ≥ 10.000.000đ'
+                          : 'Giao hàng tiêu chuẩn 1 - 3 ngày làm việc'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    {calculatingShipping ? (
-                      <span className="text-xs text-slate-400">Đang tính...</span>
+                    {shippingFee === null ? (
+                      <span className="text-sm font-bold text-slate-400">-- đ</span>
                     ) : shippingFee === 0 ? (
                       <span className="text-sm font-bold text-emerald-600">Miễn phí</span>
                     ) : (
@@ -781,12 +785,19 @@ const CheckoutPage = () => {
                   </div>
 
                   <div className="flex justify-between text-slate-600 items-center">
-                    <span className="flex items-center gap-1.5">
-                      Phí vận chuyển:
-                      {calculatingShipping && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
-                    </span>
-                    <span className={shippingFee === 0 ? 'text-emerald-600 font-semibold' : 'text-slate-900 font-semibold'}>
-                      {shippingFee === 0 ? 'Miễn phí' : formatVND(shippingFee)}
+                    <span>Phí vận chuyển:</span>
+                    <span className={
+                      shippingFee === null
+                        ? 'text-slate-400 font-semibold'
+                        : shippingFee === 0
+                        ? 'text-emerald-600 font-semibold'
+                        : 'text-slate-900 font-semibold'
+                    }>
+                      {shippingFee === null
+                        ? '-- đ'
+                        : shippingFee === 0
+                        ? 'Miễn phí'
+                        : formatVND(shippingFee)}
                     </span>
                   </div>
 
@@ -815,10 +826,18 @@ const CheckoutPage = () => {
                   <button
                     id="submit-order-btn"
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting ||
+                      !formData.fullName.trim() ||
+                      !formData.phone.trim() ||
+                      !formData.address.trim()
+                    }
                     className={`w-full py-4 px-6 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-lg ${
-                      isSubmitting
-                        ? 'bg-blue-400 text-white cursor-not-allowed opacity-90 shadow-none'
+                      isSubmitting ||
+                      !formData.fullName.trim() ||
+                      !formData.phone.trim() ||
+                      !formData.address.trim()
+                        ? 'bg-blue-300 text-white cursor-not-allowed opacity-70 shadow-none'
                         : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-500/25 hover:shadow-blue-500/40'
                     }`}
                   >
