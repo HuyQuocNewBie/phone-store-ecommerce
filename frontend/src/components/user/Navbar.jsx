@@ -24,6 +24,10 @@ const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
+  // Categories State
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
   const searchContainerRef = useRef(null);
   const userMenuRef = useRef(null);
 
@@ -38,6 +42,32 @@ const Navbar = () => {
     } catch (e) {
       console.error('Lỗi khi đọc search history:', e);
     }
+  }, []);
+
+  // 1b. Fetch danh mục sản phẩm từ API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const res = await api.get('/categories');
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setCategories(res.data.data);
+        }
+      } catch (err) {
+        // Fallback: thử endpoint cũ
+        try {
+          const res2 = await api.get('/products/categories');
+          if (res2.data?.success && Array.isArray(res2.data.data)) {
+            setCategories(res2.data.data);
+          }
+        } catch {
+          console.error('Lỗi khi tải danh mục sản phẩm:', err);
+        }
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+    fetchCategories();
   }, []);
 
   // 2. Debounce 350ms khi gõ từ khóa -> gọi API /search/suggest
@@ -65,15 +95,37 @@ const Navbar = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 3. Khoá scroll body khi drawer mở
+  // 3. Khoá scroll body khi drawer mở (hoạt động cả iOS Safari)
   useEffect(() => {
     if (isMobileDrawerOpen) {
-      document.body.style.overflow = 'hidden';
+      // Lưu vị trí scroll hiện tại
+      const scrollY = window.scrollY;
+      const body = document.body;
+      body.style.position = 'fixed';
+      body.style.top = `-${scrollY}px`;
+      body.style.left = '0';
+      body.style.right = '0';
+      body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = '';
+      // Khôi phục scroll về đúng vị trí cũ
+      const body = document.body;
+      const scrollY = Math.abs(parseInt(body.style.top || '0', 10));
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.overflow = '';
+      window.scrollTo(0, scrollY);
     }
     return () => {
-      document.body.style.overflow = '';
+      const body = document.body;
+      const scrollY = Math.abs(parseInt(body.style.top || '0', 10));
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.overflow = '';
+      if (scrollY) window.scrollTo(0, scrollY);
     };
   }, [isMobileDrawerOpen]);
 
@@ -473,7 +525,7 @@ const Navbar = () => {
 
         {/* Drawer Panel */}
         <div
-          className={`fixed inset-y-0 right-0 w-[82vw] max-w-[340px] bg-white z-[9999] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-[-4px_0_30px_rgba(0,0,0,0.15)] ${
+          className={`fixed inset-y-0 right-0 w-[82vw] max-w-[340px] bg-white z-[9999] flex flex-col transition-transform duration-500 ease-in-out md:hidden shadow-[-4px_0_30px_rgba(0,0,0,0.15)] ${
             isMobileDrawerOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
           role="dialog"
@@ -627,37 +679,74 @@ const Navbar = () => {
             )}
           </nav>
 
-          {/* ── DANH MỤC SẢN PHẨM ── */}
+          {/* ── DANH MỤC SẢN PHẨM (Động từ API) ── */}
           <div className="px-3 py-1">
             <p className="px-2 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Danh mục sản phẩm
             </p>
 
-            {[
-              { label: 'iPhone (Apple)', icon: 'phone_iphone', query: 'iPhone', color: 'text-slate-600' },
-              { label: 'Samsung Galaxy', icon: 'smartphone', query: 'Samsung', color: 'text-blue-500' },
-              { label: 'Xiaomi / POCO', icon: 'smartphone', query: 'Xiaomi', color: 'text-orange-500' },
-              { label: 'OPPO / Reno', icon: 'smartphone', query: 'OPPO', color: 'text-green-500' },
-              { label: 'Vivo / Y-Series', icon: 'smartphone', query: 'Vivo', color: 'text-purple-500' },
-              { label: 'Tất cả điện thoại', icon: 'apps', query: '', color: 'text-blue-600' },
-            ].map(({ label, icon, query, color }) => (
+            {categoriesLoading ? (
+              /* Skeleton loading */
+              <div className="space-y-1 px-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+                    <div className="w-5 h-5 rounded bg-slate-200 animate-pulse shrink-0" />
+                    <div className="h-3.5 bg-slate-200 animate-pulse rounded flex-1" />
+                  </div>
+                ))}
+              </div>
+            ) : categories.length > 0 ? (
+              <>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.MaLoaiSanPham}
+                    type="button"
+                    onClick={() => {
+                      setIsMobileDrawerOpen(false);
+                      navigate(`/products?category=${cat.MaLoaiSanPham}`);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-[13px] font-medium text-slate-700 group"
+                  >
+                    <span className="material-symbols-outlined text-blue-500 text-[20px] leading-none group-hover:scale-110 transition-transform">
+                      smartphone
+                    </span>
+                    <span className="truncate">{cat.TenLoaiSanPham}</span>
+                    <span className="material-symbols-outlined text-[14px] leading-none text-slate-300 ml-auto shrink-0">chevron_right</span>
+                  </button>
+                ))}
+                {/* Xem tất cả */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
+                    navigate('/products');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-[13px] font-semibold text-blue-600 group mt-0.5"
+                >
+                  <span className="material-symbols-outlined text-[20px] leading-none group-hover:scale-110 transition-transform">
+                    apps
+                  </span>
+                  <span>Tất cả sản phẩm</span>
+                  <span className="material-symbols-outlined text-[14px] leading-none text-blue-300 ml-auto shrink-0">chevron_right</span>
+                </button>
+              </>
+            ) : (
+              /* Fallback nếu không có dữ liệu */
               <button
-                key={label}
                 type="button"
-                onClick={() =>
-                  query
-                    ? handleDrawerNavigate(`/products?search=${encodeURIComponent(query)}`)
-                    : handleDrawerNavigate('/products')
-                }
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-[13px] font-medium text-slate-700 group"
+                onClick={() => {
+                  setIsMobileDrawerOpen(false);
+                  navigate('/products');
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 transition-colors text-[13px] font-semibold text-blue-600 group"
               >
-                <span className={`material-symbols-outlined text-[20px] leading-none ${color} group-hover:scale-110 transition-transform`}>
-                  {icon}
+                <span className="material-symbols-outlined text-[20px] leading-none group-hover:scale-110 transition-transform">
+                  apps
                 </span>
-                <span>{label}</span>
-                <span className="material-symbols-outlined text-[14px] leading-none text-slate-300 ml-auto">chevron_right</span>
+                <span>Xem tất cả sản phẩm</span>
+                <span className="material-symbols-outlined text-[14px] leading-none text-blue-300 ml-auto shrink-0">chevron_right</span>
               </button>
-            ))}
+            )}
           </div>
 
           {/* ── HỖ TRỢ KHÁCH HÀNG ── */}
