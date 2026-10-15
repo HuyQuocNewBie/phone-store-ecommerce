@@ -217,29 +217,109 @@ const CartPage = () => {
     );
   }
 
-  if (isEmpty) {
+  if (cartItems.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
+      <div className="min-h-screen bg-surface text-on-surface flex flex-col font-sans">
         <Navbar />
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-20">
-          <div className="w-24 h-24 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-6">
-            <ShoppingCart className="w-10 h-10 text-blue-400" />
+        <main className="flex-1 w-full bg-surface py-unit-xl md:py-unit-2xl">
+          <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col gap-unit-2xl">
+            {/* 1. Thanh Tiến Trình / Stepper */}
+            <div className="w-full max-w-3xl mx-auto">
+              <div className="relative flex items-center justify-between">
+                {/* Connecting Progress Bar */}
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-surface-container-high rounded-full -z-0">
+                  <div className="h-full w-0 bg-primary rounded-full transition-all duration-500" />
+                </div>
+                {/* Step 1: Active */}
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md ring-4 ring-primary-fixed/40">
+                    <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                  </div>
+                  <div className="text-center mt-unit-2xs">
+                    <span className="font-body-md text-body-md font-bold text-primary block leading-tight">1. Giỏ hàng</span>
+                    <span className="font-label-spec text-label-spec uppercase tracking-wider text-outline block">(0 sản phẩm)</span>
+                  </div>
+                </div>
+                {/* Step 2: Pending */}
+                <div className="relative z-10 flex flex-col items-center opacity-65">
+                  <div className="w-12 h-12 rounded-full bg-surface-container-lowest text-outline flex items-center justify-center shadow-sm">
+                    <span className="material-symbols-outlined text-xl">payment</span>
+                  </div>
+                  <div className="text-center mt-unit-2xs">
+                    <span className="font-body-md text-body-md font-medium text-on-surface-variant block leading-tight">2. Thanh toán</span>
+                    <span className="font-label-spec text-label-spec uppercase tracking-wider text-outline block">Địa chỉ &amp; Phương thức</span>
+                  </div>
+                </div>
+                {/* Step 3: Pending */}
+                <div className="relative z-10 flex flex-col items-center opacity-65">
+                  <div className="w-12 h-12 rounded-full bg-surface-container-lowest text-outline flex items-center justify-center shadow-sm">
+                    <span className="material-symbols-outlined text-xl">verified</span>
+                  </div>
+                  <div className="text-center mt-unit-2xs">
+                    <span className="font-body-md text-body-md font-medium text-on-surface-variant block leading-tight">3. Hoàn tất</span>
+                    <span className="font-label-spec text-label-spec uppercase tracking-wider text-outline block">Xác nhận đơn</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Empty State Hero Card */}
+            <div className="relative w-full rounded-2xl bg-surface-container-lowest p-unit-xl md:p-unit-3xl shadow-sm flex flex-col items-center text-center overflow-hidden">
+              {/* Decorative Ambient Gradient Glow behind graphic */}
+              <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary-fixed/30 rounded-full blur-3xl pointer-events-none -z-0" />
+              <div className="absolute -bottom-24 right-1/4 w-72 h-72 bg-secondary-fixed/30 rounded-full blur-2xl pointer-events-none -z-0" />
+
+              {/* Sophisticated Vector Empty Cart Illustration */}
+              <div className="relative z-10 w-44 h-44 mb-unit-lg flex items-center justify-center">
+                <svg className="w-full h-full" fill="none" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+                  {/* Subtle Glow Floor */}
+                  <ellipse className="text-surface-container-high" cx="80" cy="140" fill="currentColor" rx="55" ry="10" />
+                  {/* Outer Floating Particle Rings */}
+                  <circle className="text-secondary" cx="34" cy="45" fill="currentColor" opacity="0.6" r="4" />
+                  <circle className="text-primary-container" cx="128" cy="48" fill="currentColor" opacity="0.5" r="3" />
+                  <circle className="text-tertiary-container" cx="138" cy="100" fill="currentColor" opacity="0.4" r="5" />
+                  <path className="text-primary-fixed-dim" d="M42 98L44 94L48 96L46 100Z" fill="currentColor" />
+                  {/* Tech Floating Sparkle Icon */}
+                  <path className="text-secondary-container animate-pulse" d="M118 30L121 38L129 41L121 44L118 52L115 44L107 41L115 38L118 30Z" fill="currentColor" />
+                  {/* Main Shopping Bag/Basket Body */}
+                  <rect className="text-surface-container-low" fill="currentColor" height="66" rx="16" width="88" x="36" y="58" />
+                  <path className="text-surface-container" d="M46 64C46 59.5817 49.5817 56 54 56H106C110.418 56 114 59.5817 114 64V76H46V64Z" fill="currentColor" />
+                  {/* Inner Precision Grid Lines */}
+                  <line className="text-outline-variant" stroke="currentColor" strokeDasharray="4 4" strokeLinecap="round" strokeWidth="2" x1="56" x2="104" y1="84" y2="84" />
+                  <line className="text-outline-variant" stroke="currentColor" strokeDasharray="4 4" strokeLinecap="round" strokeWidth="2" x1="56" x2="88" y1="98" y2="98" />
+                  {/* Bag Handles with Modern Arch */}
+                  <path className="text-primary" d="M58 60V42C58 29.8497 67.8497 20 80 20C92.1503 20 102 29.8497 102 42V60" stroke="currentColor" strokeLinecap="round" strokeWidth="6" />
+                  <circle className="text-on-primary-container" cx="58" cy="60" fill="currentColor" r="4" />
+                  <circle className="text-on-primary-container" cx="102" cy="60" fill="currentColor" r="4" />
+                  {/* Modern Sleek Badge: Question Mark / Empty Notification */}
+                  <circle className="text-primary" cx="98" cy="106" fill="currentColor" r="18" />
+                  <circle className="text-surface-container-lowest" cx="98" cy="106" fill="currentColor" r="14" />
+                  <text className="text-primary" fill="currentColor" fontFamily="'Plus Jakarta Sans', sans-serif" fontSize="16" fontWeight="800" textAnchor="middle" x="98" y="112">?</text>
+                </svg>
+              </div>
+
+              {/* 3. Core Informational Text */}
+              <h1 className="relative z-10 font-headline-md md:font-headline-lg text-headline-md md:text-headline-lg text-on-surface font-extrabold tracking-tight mb-unit-xs">
+                Giỏ hàng của bạn đang trống
+              </h1>
+              <p className="relative z-10 font-body-lg text-body-lg text-on-surface-variant max-w-xl mx-auto mb-unit-xl">
+                Chưa có thiết bị nào được lưu vào danh sách. Hàng ngàn mẫu smartphone chính hãng, flagship đỉnh cao và phụ kiện cao cấp đang sẵn sàng trao tay bạn!
+              </p>
+
+              {/* 4. Action CTA */}
+              <div className="relative z-10 flex items-center justify-center w-full max-w-md">
+                <button
+                  id="empty-cart-cta-btn"
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-unit-xs px-unit-xl py-unit-sm bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-md text-body-md font-bold shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-xl">bolt</span>
+                  <span>Khám Phá Smartphone Mới</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-3 tracking-tight">
-            Giỏ hàng trống
-          </h1>
-          <p className="text-slate-500 text-sm sm:text-base mb-8 text-center max-w-xs leading-relaxed">
-            Hãy khám phá và chọn ngay sản phẩm bạn thích!
-          </p>
-          <button
-            id="empty-cart-cta-btn"
-            type="button"
-            onClick={() => navigate('/products')}
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all hover:shadow-blue-500/30 active:scale-[0.97]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Tiếp tục mua sắm</span>
-          </button>
         </main>
         <Footer />
       </div>
