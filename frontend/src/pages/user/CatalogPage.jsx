@@ -1,28 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import {
-  Filter,
-  SlidersHorizontal,
-  X,
-  ChevronRight,
-  RotateCcw,
-  Search,
-  ShoppingCart,
-  PackageCheck,
-  ChevronLeft,
-  Check,
-  Sparkles,
-  ArrowUpDown,
-  Tag,
-  Cpu,
-  Eye,
-} from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
+import ProductCard from '../../components/user/ProductCard';
 import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
 const ROM_OPTIONS = ['128GB', '256GB', '512GB', '1TB'];
@@ -30,296 +12,473 @@ const MIN_PRICE_LIMIT = 0;
 const MAX_PRICE_LIMIT = 50000000;
 const PRICE_STEP = 500000;
 
-const FALLBACK_CATEGORIES = [
-  { MaLoaiSanPham: 1, TenLoaiSanPham: 'Điện thoại' },
-  { MaLoaiSanPham: 2, TenLoaiSanPham: 'Laptop' },
-  { MaLoaiSanPham: 3, TenLoaiSanPham: 'Máy tính bảng' },
-  { MaLoaiSanPham: 4, TenLoaiSanPham: 'Phụ kiện' },
+const PRICE_QUICK_RANGES = [
+  { label: 'Dưới 5 triệu', min: 0, max: 5000000 },
+  { label: '5 - 10 triệu', min: 5000000, max: 10000000 },
+  { label: '10 - 15 triệu', min: 10000000, max: 15000000 },
+  { label: '15 - 20 triệu', min: 15000000, max: 20000000 },
+  { label: 'Trên 20 triệu', min: 20000000, max: MAX_PRICE_LIMIT, span2: true },
 ];
 
-/* ─── Skeleton ───────────────────────────────────────────────────────────── */
+/* ─── Skeleton Loader ─────────────────────────────────────────────────────── */
 const ProductSkeleton = () => (
-  <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 animate-pulse shadow-sm">
-    <div className="aspect-square rounded-xl bg-slate-100" />
-    <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
-    <div className="h-4 bg-slate-100 rounded-lg w-1/2" />
-    <div className="h-10 bg-slate-100 rounded-xl" />
+  <div className="group flex flex-col justify-between p-unit-md rounded-xl bg-surface-container-lowest shadow-sm animate-pulse space-y-3 border border-surface-container/50">
+    <div className="w-full aspect-square bg-surface-container-low rounded-lg" />
+    <div className="space-y-2 mt-unit-xs">
+      <div className="h-4 bg-surface-container-low rounded w-3/4" />
+      <div className="h-3 bg-surface-container-low rounded w-1/2" />
+    </div>
+    <div className="h-5 bg-surface-container-low rounded w-2/5 mt-unit-xs" />
+    <div className="flex gap-unit-xs pt-unit-xs">
+      <div className="h-9 bg-surface-container-low rounded-lg flex-1" />
+      <div className="h-9 bg-surface-container-low rounded-lg flex-1" />
+    </div>
   </div>
 );
 
-/* ─── CatalogPage ────────────────────────────────────────────────────────── */
+/* ─── Formatters ──────────────────────────────────────────────────────────── */
+const formatVNDNumber = (val) => new Intl.NumberFormat('vi-VN').format(val || 0);
+const formatShortPrice = (val) => {
+  if (!val || val === 0) return '0đ';
+  if (val >= 1000000) {
+    const tr = val / 1000000;
+    return Number.isInteger(tr) ? `${tr}Tr` : `${tr.toFixed(1)}Tr`;
+  }
+  return `${Math.round(val / 1000)}K`;
+};
+
+/* ─── CatalogPage Component ───────────────────────────────────────────────── */
 const CatalogPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const { addToCart } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  /* ── URL Params ── */
-  const categoryParam   = searchParams.get('category') || searchParams.get('category_id') || '';
-  const romParam        = searchParams.get('rom') || '';
-  const priceMinParam   = searchParams.get('price_min') ? Number(searchParams.get('price_min')) : MIN_PRICE_LIMIT;
-  const priceMaxParam   = searchParams.get('price_max') ? Number(searchParams.get('price_max')) : MAX_PRICE_LIMIT;
-  const sortParam       = searchParams.get('sort') || searchParams.get('sort_by') || '';
-  const pageParam       = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const searchKeyword   = searchParams.get('search') || searchParams.get('q') || '';
-  const selectedRoms    = romParam ? romParam.split(',').map((r) => r.trim()).filter(Boolean) : [];
+  /* ── 1. Query Params từ URL ── */
+  const categoryParam = searchParams.get('category') || searchParams.get('category_id') || '';
+  const brandParam    = searchParams.get('brand') || searchParams.get('manufacturer') || searchParams.get('manufacturer_id') || '';
+  const priceMinParam = searchParams.get('price_min') ? Number(searchParams.get('price_min')) : MIN_PRICE_LIMIT;
+  const priceMaxParam = searchParams.get('price_max') ? Number(searchParams.get('price_max')) : MAX_PRICE_LIMIT;
+  const romParam      = searchParams.get('rom') || '';
+  const sortParam     = searchParams.get('sort_by') || searchParams.get('sort') || '';
+  const pageParam     = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const searchKeyword = searchParams.get('search') || searchParams.get('q') || '';
 
-  /* ── Slider Local State ── */
-  const [sliderMin, setSliderMin] = useState(priceMinParam);
-  const [sliderMax, setSliderMax] = useState(priceMaxParam);
-  useEffect(() => { setSliderMin(priceMinParam); setSliderMax(priceMaxParam); }, [priceMinParam, priceMaxParam]);
+  const selectedBrands = useMemo(
+    () => (brandParam ? brandParam.split(',').map((b) => b.trim()).filter(Boolean) : []),
+    [brandParam]
+  );
 
-  /* ── Data State ── */
-  const [categories, setCategories] = useState([]);
+  const selectedRoms = useMemo(
+    () => (romParam ? romParam.split(',').map((r) => r.trim()).filter(Boolean) : []),
+    [romParam]
+  );
+
+  /* ── 2. Local State ── */
+  const [manufacturers, setManufacturers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [pagination, setPagination] = useState({ total: 0, page: pageParam, limit: 12, totalPages: 1 });
+  const [pagination, setPagination] = useState({ total: 0, page: pageParam, limit: 9, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  /* ── Fetch Categories ── */
+  // Price slider state
+  const [sliderMin, setSliderMin] = useState(priceMinParam);
+  const [sliderMax, setSliderMax] = useState(priceMaxParam);
+
   useEffect(() => {
-    api.get('/products/categories')
+    setSliderMin(priceMinParam);
+    setSliderMax(priceMaxParam);
+  }, [priceMinParam, priceMaxParam]);
+
+  /* ── 3. Fetch Hãng Sản Xuất từ API ── */
+  useEffect(() => {
+    api.get('/manufacturers')
       .then((res) => {
-        if (res.data?.success && res.data.data?.length > 0) setCategories(res.data.data);
-        else setCategories(FALLBACK_CATEGORIES);
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setManufacturers(res.data.data);
+        }
       })
-      .catch(() => setCategories(FALLBACK_CATEGORIES));
+      .catch((err) => {
+        console.error('Lỗi lấy danh sách nhà sản xuất:', err);
+      });
   }, []);
 
-  /* ── Fetch Products ── */
+  /* ── 4. Fetch Sản Phẩm Đồng Bộ URL Params ── */
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { page: pageParam, limit: 12 };
-      if (categoryParam) params.category_id = categoryParam;
-      if (romParam) params.rom = romParam;
+      const params = {
+        page: pageParam,
+        limit: 9,
+      };
+      if (categoryParam) params.category = categoryParam;
+      if (brandParam) params.brand = brandParam;
       if (priceMinParam > MIN_PRICE_LIMIT) params.price_min = priceMinParam;
       if (priceMaxParam < MAX_PRICE_LIMIT) params.price_max = priceMaxParam;
+      if (romParam) params.rom = romParam;
       if (sortParam) params.sort_by = sortParam;
       if (searchKeyword) params.search = searchKeyword;
+
       const res = await api.get('/products', { params });
       if (res.data?.success) {
         setProducts(res.data.data || []);
-        if (res.data.pagination) setPagination(res.data.pagination);
-      } else setProducts([]);
-    } catch { setProducts([]); }
-    finally { setLoading(false); }
-  }, [categoryParam, romParam, priceMinParam, priceMaxParam, sortParam, pageParam, searchKeyword]);
+        if (res.data.pagination) {
+          setPagination(res.data.pagination);
+        }
+      } else {
+        setProducts([]);
+      }
+    } catch (err) {
+      console.error('Lỗi tải sản phẩm:', err);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [pageParam, categoryParam, brandParam, priceMinParam, priceMaxParam, romParam, sortParam, searchKeyword]);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
-  /* ── Update URL Params ── */
+  /* ── 5. Cập Nhật URL Search Params ── */
   const updateQueryParams = (newParams) => {
     const params = new URLSearchParams(searchParams);
     Object.keys(newParams).forEach((key) => {
       const val = newParams[key];
-      if (val === null || val === undefined || val === '' || val === 0) params.delete(key);
-      else params.set(key, val);
+      if (val === null || val === undefined || val === '' || val === 0) {
+        params.delete(key);
+      } else {
+        params.set(key, val);
+      }
     });
-    if (!('page' in newParams)) params.set('page', '1');
+
+    // Reset về trang 1 nếu không truyền page mới
+    if (!('page' in newParams)) {
+      params.set('page', '1');
+    }
     setSearchParams(params);
   };
 
-  const handleSelectCategory = (catId) => updateQueryParams({ category: categoryParam === String(catId) ? '' : String(catId) });
+  /* ── 6. Filter Handlers ── */
+  // Toggle Brand
+  const handleToggleBrand = (brandName) => {
+    const updated = selectedBrands.includes(brandName)
+      ? selectedBrands.filter((b) => b !== brandName)
+      : [...selectedBrands, brandName];
+    updateQueryParams({ brand: updated.length > 0 ? updated.join(',') : '' });
+  };
+
+  // Toggle ROM
   const handleToggleRom = (romValue) => {
-    const updatedRoms = selectedRoms.includes(romValue)
+    const updated = selectedRoms.includes(romValue)
       ? selectedRoms.filter((r) => r !== romValue)
       : [...selectedRoms, romValue];
-    updateQueryParams({ rom: updatedRoms.length > 0 ? updatedRoms.join(',') : '' });
+    updateQueryParams({ rom: updated.length > 0 ? updated.join(',') : '' });
   };
-  const handleApplyPriceFilter = (minVal, maxVal) => updateQueryParams({
-    price_min: minVal > MIN_PRICE_LIMIT ? minVal : '',
-    price_max: maxVal < MAX_PRICE_LIMIT ? maxVal : ''
-  });
-  const handleSelectSort = (sortValue) => updateQueryParams({ sort: sortValue });
+
+  // Quick Price Range
+  const handleSelectPriceRange = (range) => {
+    const isCurrentlyActive = priceMinParam === range.min && priceMaxParam === range.max;
+    if (isCurrentlyActive) {
+      updateQueryParams({ price_min: '', price_max: '' });
+      setSliderMin(MIN_PRICE_LIMIT);
+      setSliderMax(MAX_PRICE_LIMIT);
+    } else {
+      updateQueryParams({
+        price_min: range.min > MIN_PRICE_LIMIT ? range.min : '',
+        price_max: range.max < MAX_PRICE_LIMIT ? range.max : '',
+      });
+      setSliderMin(range.min);
+      setSliderMax(range.max);
+    }
+  };
+
+  // Dual Slider Range Apply
+  const handleApplyPriceFilter = (minVal, maxVal) => {
+    updateQueryParams({
+      price_min: minVal > MIN_PRICE_LIMIT ? minVal : '',
+      price_max: maxVal < MAX_PRICE_LIMIT ? maxVal : '',
+    });
+  };
+
+  // Toggle Sorting (price_asc / price_desc)
+  const handleToggleSort = (targetSort) => {
+    if (sortParam === targetSort) {
+      updateQueryParams({ sort_by: '' });
+    } else {
+      updateQueryParams({ sort_by: targetSort });
+    }
+  };
+
+  // Reset Tất Cả Bộ Lọc
   const handleResetFilters = () => {
     setSearchParams({});
     setSliderMin(MIN_PRICE_LIMIT);
     setSliderMax(MAX_PRICE_LIMIT);
-    toast.success('Đã làm mới tất cả bộ lọc!', { id: 'reset-filter' });
+    toast.success('Đã làm mới tất cả bộ lọc!', { id: 'reset-catalog-filters' });
   };
+
+  // Pagination Change
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
       updateQueryParams({ page: newPage });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-  const handleAddToCart = async (product) => {
-    if (!isAuthenticated) {
-      const intent = {
-        product_id: product.MaSanPham,
-        quantity: 1,
-        action_type: 'add_to_cart',
-        product_name: product.TenSanPham,
-        redirect_back: window.location.pathname + window.location.search,
-      };
-      sessionStorage.setItem('cart_action_intent', JSON.stringify(intent));
-      toast('Vui lòng đăng nhập để tiếp tục', { icon: '🔐', id: 'login-required', duration: 2500 });
-      navigate('/login');
-      return;
-    }
-    if (product.TonKho !== undefined && product.TonKho <= 0) {
-      toast.error('Sản phẩm đã hết hàng', { id: `out-of-stock-${product.MaSanPham}` });
-      return;
-    }
-    try {
-      const result = await addToCart(product.MaSanPham, 1);
-      if (result.success) {
-        toast.success(`Đã thêm "${product.TenSanPham}" vào giỏ hàng!`, {
-          id: `cart-add-${product.MaSanPham}`,
-          duration: 3000,
-        });
-      } else {
-        toast.error(result.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
-    }
-  };
 
-  const formatVND = (price) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
-
+  /* ── 7. Active Filters Count ── */
   const activeFiltersCount = [
-    categoryParam ? 1 : 0,
+    selectedBrands.length,
     selectedRoms.length,
     priceMinParam > MIN_PRICE_LIMIT || priceMaxParam < MAX_PRICE_LIMIT ? 1 : 0,
-    searchKeyword ? 1 : 0
+    categoryParam ? 1 : 0,
+    searchKeyword ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const minPercent = Math.round(((sliderMin - MIN_PRICE_LIMIT) / (MAX_PRICE_LIMIT - MIN_PRICE_LIMIT)) * 100);
   const maxPercent = Math.round(((sliderMax - MIN_PRICE_LIMIT) / (MAX_PRICE_LIMIT - MIN_PRICE_LIMIT)) * 100);
 
-  /* ── Sidebar Filter Content (shared desktop + mobile) ── */
+  /* ── 8. Render Khung Sidebar Bộ Lọc (Chỉ giữ đúng 4 khối) ── */
   const renderSidebarFilters = () => (
-    <div className="space-y-7">
-      {/* Active filter count */}
-      {activeFiltersCount > 0 && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 border border-blue-100">
-          <span className="text-xs font-medium text-blue-600">
-            Đang áp dụng <strong>{activeFiltersCount}</strong> bộ lọc
+    <div className="flex flex-col gap-unit-md">
+      {/* ── KHỐI 1: Bộ Lọc Đã Chọn ── */}
+      <div className="p-unit-md rounded-xl bg-surface-container-lowest shadow-sm border border-surface-container/60">
+        <div className="flex items-center justify-between mb-unit-xs">
+          <span className="font-title-card text-title-card text-on-surface flex items-center gap-unit-2xs font-semibold">
+            <span className="material-symbols-outlined text-primary text-lg">filter_alt</span>
+            Bộ lọc đã chọn
           </span>
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-600 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Xóa tất cả</span>
-          </button>
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={handleResetFilters}
+              className="font-body-sm text-body-sm text-error hover:underline font-semibold cursor-pointer"
+              type="button"
+            >
+              Xóa tất cả
+            </button>
+          )}
         </div>
-      )}
 
-      {/* ── 1. Danh Mục ── */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-          <Tag className="w-3.5 h-3.5 text-blue-500" />
-          Danh Mục Sản Phẩm
-        </h3>
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => handleSelectCategory('')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
-              !categoryParam
-                ? 'bg-blue-50 text-blue-600 border border-blue-100 font-semibold'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            <span>Tất cả sản phẩm</span>
-            {!categoryParam && <Check className="w-4 h-4 text-blue-500" />}
-          </button>
-          {categories.map((cat) => {
-            const isSelected = categoryParam === String(cat.MaLoaiSanPham);
+        {activeFiltersCount > 0 ? (
+          <div className="flex flex-wrap gap-unit-xs pt-unit-2xs">
+            {/* Tag Hãng */}
+            {selectedBrands.map((brandName) => (
+              <span
+                key={brandName}
+                className="inline-flex items-center gap-1 px-unit-xs py-1 rounded-full bg-surface-container-high text-primary font-body-sm text-body-sm font-semibold"
+              >
+                {brandName}
+                <button
+                  type="button"
+                  onClick={() => handleToggleBrand(brandName)}
+                  className="material-symbols-outlined text-sm hover:text-error cursor-pointer leading-none"
+                >
+                  close
+                </button>
+              </span>
+            ))}
+
+            {/* Tag Mức Giá */}
+            {(priceMinParam > MIN_PRICE_LIMIT || priceMaxParam < MAX_PRICE_LIMIT) && (
+              <span className="inline-flex items-center gap-1 px-unit-xs py-1 rounded-full bg-surface-container-high text-primary font-body-sm text-body-sm font-semibold">
+                {priceMinParam > MIN_PRICE_LIMIT && priceMaxParam < MAX_PRICE_LIMIT
+                  ? `${formatShortPrice(priceMinParam)} - ${formatShortPrice(priceMaxParam)}`
+                  : priceMinParam > MIN_PRICE_LIMIT
+                  ? `Từ ${formatShortPrice(priceMinParam)}`
+                  : `Dưới ${formatShortPrice(priceMaxParam)}`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateQueryParams({ price_min: '', price_max: '' });
+                    setSliderMin(MIN_PRICE_LIMIT);
+                    setSliderMax(MAX_PRICE_LIMIT);
+                  }}
+                  className="material-symbols-outlined text-sm hover:text-error cursor-pointer leading-none"
+                >
+                  close
+                </button>
+              </span>
+            )}
+
+            {/* Tag ROM */}
+            {selectedRoms.map((rom) => (
+              <span
+                key={rom}
+                className="inline-flex items-center gap-1 px-unit-xs py-1 rounded-full bg-surface-container-high text-primary font-body-sm text-body-sm font-semibold"
+              >
+                {rom}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRom(rom)}
+                  className="material-symbols-outlined text-sm hover:text-error cursor-pointer leading-none"
+                >
+                  close
+                </button>
+              </span>
+            ))}
+
+            {/* Tag Từ khóa tìm kiếm nếu có */}
+            {searchKeyword && (
+              <span className="inline-flex items-center gap-1 px-unit-xs py-1 rounded-full bg-surface-container-high text-primary font-body-sm text-body-sm font-semibold">
+                "{searchKeyword}"
+                <button
+                  type="button"
+                  onClick={() => updateQueryParams({ search: '' })}
+                  className="material-symbols-outlined text-sm hover:text-error cursor-pointer leading-none"
+                >
+                  close
+                </button>
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="font-body-sm text-body-sm text-on-surface-variant italic pt-unit-2xs">
+            Chưa có bộ lọc nào được áp dụng
+          </p>
+        )}
+      </div>
+
+      {/* ── KHỐI 2: Hãng Sản Xuất (Fetch Động API manufacturers) ── */}
+      <div className="p-unit-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-unit-sm border border-surface-container/60">
+        <span className="font-title-card text-title-card text-on-surface font-semibold">
+          Hãng sản xuất
+        </span>
+        <div className="flex flex-col gap-unit-xs font-body-md text-body-md text-on-surface max-h-72 overflow-y-auto pr-1">
+          {manufacturers.length === 0 ? (
+            <div className="py-2 text-center text-on-surface-variant font-body-sm text-body-sm">
+              Đang tải danh sách hãng...
+            </div>
+          ) : (
+            manufacturers.map((m) => {
+              const isChecked = selectedBrands.includes(m.TenNhaSanXuat);
+              return (
+                <label
+                  key={m.MaNhaSanXuat}
+                  className={`flex items-center justify-between p-unit-2xs rounded-lg hover:bg-surface-container cursor-pointer transition-colors ${
+                    isChecked ? 'bg-surface-container-low font-semibold text-primary' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-unit-xs">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleBrand(m.TenNhaSanXuat)}
+                      className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                    />
+                    <span>{m.TenNhaSanXuat}</span>
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ── KHỐI 3: Mức Giá (VNĐ) (Quick Buttons + Range Slider) ── */}
+      <div className="p-unit-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-unit-sm border border-surface-container/60">
+        <span className="font-title-card text-title-card text-on-surface font-semibold">
+          Mức giá (VNĐ)
+        </span>
+        <div className="grid grid-cols-2 gap-unit-xs font-body-sm text-body-sm">
+          {PRICE_QUICK_RANGES.map((pr) => {
+            const isSelected = priceMinParam === pr.min && priceMaxParam === pr.max;
             return (
               <button
-                key={cat.MaLoaiSanPham}
+                key={pr.label}
                 type="button"
-                onClick={() => handleSelectCategory(cat.MaLoaiSanPham)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                onClick={() => handleSelectPriceRange(pr)}
+                className={`p-unit-2xs rounded-lg transition-colors font-medium text-left ${
+                  pr.span2 ? 'col-span-2 text-center' : ''
+                } ${
                   isSelected
-                    ? 'bg-blue-50 text-blue-600 border border-blue-100 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                    ? 'bg-primary text-on-primary font-semibold shadow-sm'
+                    : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
                 }`}
               >
-                <span>{cat.TenLoaiSanPham}</span>
-                {isSelected && <Check className="w-4 h-4 text-blue-500" />}
+                {pr.label}
               </button>
             );
           })}
         </div>
-      </div>
 
-      <hr className="border-slate-100" />
+        {/* Dual Range Slider & Input Display */}
+        <div className="pt-unit-xs flex flex-col gap-unit-2xs">
+          <div className="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+            <span>Khoảng giá tùy chỉnh</span>
+            <span className="font-semibold text-primary">
+              {formatShortPrice(sliderMin)} - {formatShortPrice(sliderMax)}
+            </span>
+          </div>
 
-      {/* ── 2. Khoảng Giá ── */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
-          Khoảng Giá (VNĐ)
-        </h3>
-
-        <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-          <span className="font-bold text-blue-600">{formatVND(sliderMin)}</span>
-          <span className="text-slate-300">—</span>
-          <span className="font-bold text-blue-700">{formatVND(sliderMax)}</span>
-        </div>
-
-        {/* Dual Range Slider */}
-        <div className="relative pt-4 pb-2 px-1">
-          <div className="relative w-full h-1.5 bg-slate-200 rounded-full">
-            <div
-              className="absolute h-1.5 bg-blue-500 rounded-full"
-              style={{ left: `${minPercent}%`, width: `${maxPercent - minPercent}%` }}
+          <div className="relative pt-3 pb-3">
+            <div className="relative w-full h-1.5 bg-surface-container-high rounded-lg">
+              <div
+                className="absolute h-1.5 bg-primary rounded-lg"
+                style={{ left: `${minPercent}%`, width: `${Math.max(0, maxPercent - minPercent)}%` }}
+              />
+            </div>
+            <input
+              type="range"
+              min={MIN_PRICE_LIMIT}
+              max={MAX_PRICE_LIMIT}
+              step={PRICE_STEP}
+              value={sliderMin}
+              onChange={(e) => setSliderMin(Math.min(Number(e.target.value), sliderMax - PRICE_STEP))}
+              onMouseUp={() => handleApplyPriceFilter(sliderMin, sliderMax)}
+              onTouchEnd={() => handleApplyPriceFilter(sliderMin, sliderMax)}
+              className="absolute top-3 left-0 w-full appearance-none bg-transparent pointer-events-none cursor-pointer range-slider-thumb accent-primary"
+            />
+            <input
+              type="range"
+              min={MIN_PRICE_LIMIT}
+              max={MAX_PRICE_LIMIT}
+              step={PRICE_STEP}
+              value={sliderMax}
+              onChange={(e) => setSliderMax(Math.max(Number(e.target.value), sliderMin + PRICE_STEP))}
+              onMouseUp={() => handleApplyPriceFilter(sliderMin, sliderMax)}
+              onTouchEnd={() => handleApplyPriceFilter(sliderMin, sliderMax)}
+              className="absolute top-3 left-0 w-full appearance-none bg-transparent pointer-events-none cursor-pointer range-slider-thumb accent-primary"
             />
           </div>
-          <input
-            type="range" min={MIN_PRICE_LIMIT} max={MAX_PRICE_LIMIT} step={PRICE_STEP} value={sliderMin}
-            onChange={(e) => setSliderMin(Math.min(Number(e.target.value), sliderMax - PRICE_STEP))}
-            onMouseUp={() => handleApplyPriceFilter(sliderMin, sliderMax)}
-            onTouchEnd={() => handleApplyPriceFilter(sliderMin, sliderMax)}
-            className="absolute top-4 left-0 w-full appearance-none bg-transparent pointer-events-none cursor-pointer range-slider-thumb"
-          />
-          <input
-            type="range" min={MIN_PRICE_LIMIT} max={MAX_PRICE_LIMIT} step={PRICE_STEP} value={sliderMax}
-            onChange={(e) => setSliderMax(Math.max(Number(e.target.value), sliderMin + PRICE_STEP))}
-            onMouseUp={() => handleApplyPriceFilter(sliderMin, sliderMax)}
-            onTouchEnd={() => handleApplyPriceFilter(sliderMin, sliderMax)}
-            className="absolute top-4 left-0 w-full appearance-none bg-transparent pointer-events-none cursor-pointer range-slider-thumb"
-          />
-        </div>
 
-        <div className="flex justify-between text-[10px] text-slate-400">
-          <span>0đ</span>
-          <span>50 Triệu+</span>
+          <div className="flex items-center gap-unit-xs pt-unit-2xs">
+            <input
+              type="text"
+              readOnly
+              value={formatVNDNumber(sliderMin)}
+              className="w-full px-unit-xs py-1 rounded-lg bg-surface-container text-body-sm font-body-sm text-on-surface text-center font-mono focus:outline-none"
+            />
+            <span className="text-outline">-</span>
+            <input
+              type="text"
+              readOnly
+              value={formatVNDNumber(sliderMax)}
+              className="w-full px-unit-xs py-1 rounded-lg bg-surface-container text-body-sm font-body-sm text-on-surface text-center font-mono focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
-      <hr className="border-slate-100" />
-
-      {/* ── 3. ROM ── */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-          <Cpu className="w-3.5 h-3.5 text-blue-500" />
-          Bộ Nhớ Trong (ROM)
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
+      {/* ── KHỐI 4: Bộ Nhớ Trong (ROM) ── */}
+      <div className="p-unit-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-unit-sm border border-surface-container/60">
+        <span className="font-title-card text-title-card text-on-surface font-semibold">
+          Bộ nhớ trong (ROM)
+        </span>
+        <div className="grid grid-cols-2 gap-unit-xs font-body-sm text-body-sm">
           {ROM_OPTIONS.map((rom) => {
             const isChecked = selectedRoms.includes(rom);
             return (
               <label
                 key={rom}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
+                className={`flex items-center gap-unit-xs p-unit-2xs rounded-lg cursor-pointer transition-colors ${
                   isChecked
-                    ? 'bg-blue-50 border-blue-200 text-blue-600 font-semibold'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-blue-200 hover:text-slate-800'
+                    ? 'bg-surface-container font-semibold text-primary'
+                    : 'hover:bg-surface-container'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => handleToggleRom(rom)}
-                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-white"
+                  className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
                 />
                 <span>{rom}</span>
               </label>
@@ -331,322 +490,238 @@ const CatalogPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="w-full pt-4 md:pt-6 bg-surface min-h-screen flex-1">
+        <div className="flex flex-col w-full">
+          {/* Breadcrumb Navigation */}
+          <section className="max-w-container-max mx-auto px-gutter-desktop w-full pt-unit-md pb-unit-sm">
+            <nav className="flex items-center gap-unit-xs text-on-surface-variant font-body-sm text-body-sm flex-wrap">
+              <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                <span className="material-symbols-outlined text-base">home</span>Trang chủ
+              </Link>
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="hover:text-primary transition-colors cursor-pointer">Điện thoại thông minh</span>
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="text-on-surface font-semibold">Tất cả sản phẩm</span>
+              <span className="ml-unit-2xs px-unit-xs py-0.5 rounded-full bg-surface-container-high text-primary font-bold text-body-sm">
+                {pagination.total} sản phẩm
+              </span>
+            </nav>
+          </section>
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-slate-400">
-          <Link to="/" className="hover:text-blue-600 transition-colors font-medium">Trang chủ</Link>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className="text-slate-700 font-semibold">Danh mục sản phẩm</span>
-          {searchKeyword && (
-            <>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-              <span className="text-blue-600 italic">"{searchKeyword}"</span>
-            </>
-          )}
-        </nav>
-
-        {/* Page Banner */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 border border-blue-500/20 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-white/20 text-white border border-white/25">
-              <Sparkles className="w-3.5 h-3.5" />
-              SmartZone Catalog
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              {searchKeyword ? `Kết quả: "${searchKeyword}"` : 'Tất Cả Sản Phẩm'}
-            </h1>
-            <p className="text-xs text-blue-100">Khám phá hệ sinh thái smartphone chính hãng với mức giá hấp dẫn nhất</p>
-          </div>
-          {activeFiltersCount > 0 && (
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/25 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-2 shrink-0 backdrop-blur-sm"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Xóa bộ lọc
-            </button>
-          )}
-        </div>
-
-        {/* Main Layout: Sidebar + Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-
-          {/* ── Sidebar Desktop ── */}
-          <aside className="hidden lg:block lg:col-span-3 bg-white border border-slate-100 rounded-2xl p-6 sticky top-20 shadow-sm">
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-blue-500" />
-                <h2 className="text-sm font-bold text-slate-800">Bộ Lọc</h2>
-              </div>
-              {activeFiltersCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </div>
-            {renderSidebarFilters()}
-          </aside>
-
-          {/* ── Content Area ── */}
-          <div className="lg:col-span-9 space-y-5">
-
-            {/* Top Toolbar */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {/* Mobile filter button */}
-                <button
-                  type="button"
-                  onClick={() => setMobileFilterOpen(true)}
-                  className="lg:hidden px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2"
-                >
-                  <Filter className="w-4 h-4" />
-                  Bộ lọc {activeFiltersCount > 0 && `(${activeFiltersCount})`}
-                </button>
-
-                <p className="text-xs text-slate-500">
-                  Hiển thị <strong className="text-slate-800">{products.length}</strong> / <strong className="text-slate-800">{pagination.total}</strong> sản phẩm
+          {/* Banner Quảng Cáo Đầu Trang */}
+          <section className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-lg">
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary via-primary-container to-secondary text-on-primary p-unit-lg shadow-md flex flex-col md:flex-row items-center justify-between gap-unit-md">
+              <div className="relative z-10 max-w-2xl">
+                <div className="inline-flex items-center gap-unit-2xs px-unit-xs py-0.5 rounded-full bg-on-primary/15 text-on-primary font-label-spec text-label-spec uppercase tracking-wider mb-unit-xs backdrop-blur-sm">
+                  <span className="material-symbols-outlined text-sm leading-none">verified_user</span>
+                  100% Phân Phối Chính Thức
+                </div>
+                <h1 className="font-headline-md text-headline-md tracking-tight font-extrabold mb-unit-2xs text-white">
+                  Thế Giới Smartphone Chính Hãng - Giá Tốt Nhất - Trả Góp 0%
+                </h1>
+                <p className="font-body-md text-body-md text-on-primary-container opacity-90">
+                  Đặc quyền bảo hành 1 đổi 1 trong 30 ngày, miễn phí vận chuyển hỏa tốc 1h và thu cũ đổi mới trợ giá tới 2.000.000đ.
                 </p>
               </div>
 
-              {/* Sort */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="sort-select" className="hidden sm:flex items-center gap-1 text-xs text-slate-500 font-medium">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-500" />
-                  Sắp xếp:
-                </label>
-                <select
-                  id="sort-select"
-                  value={sortParam}
-                  onChange={(e) => handleSelectSort(e.target.value)}
-                  className="border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all cursor-pointer"
-                >
-                  <option value="">Mặc định (Mới nhất)</option>
-                  <option value="price_asc">Giá từ thấp đến cao</option>
-                  <option value="price_desc">Giá từ cao đến thấp</option>
-                </select>
+              <div className="relative z-10 flex items-center gap-unit-sm shrink-0 flex-wrap sm:flex-nowrap">
+                <div className="flex flex-col items-center justify-center px-unit-md py-unit-xs rounded-xl bg-on-primary/10 backdrop-blur-md">
+                  <span className="material-symbols-outlined text-2xl text-secondary-container">bolt</span>
+                  <span className="font-label-spec text-label-spec font-bold mt-1 text-white">Giao hỏa tốc 1H</span>
+                </div>
+                <div className="flex flex-col items-center justify-center px-unit-md py-unit-xs rounded-xl bg-on-primary/10 backdrop-blur-md">
+                  <span className="material-symbols-outlined text-2xl text-tertiary-fixed-dim">percent</span>
+                  <span className="font-label-spec text-label-spec font-bold mt-1 text-white">Lãi suất 0%</span>
+                </div>
+                <div className="flex flex-col items-center justify-center px-unit-md py-unit-xs rounded-xl bg-on-primary/10 backdrop-blur-md">
+                  <span className="material-symbols-outlined text-2xl text-secondary-fixed">sync_alt</span>
+                  <span className="font-label-spec text-label-spec font-bold mt-1 text-white">Thu cũ trợ giá</span>
+                </div>
               </div>
+
+              <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute left-1/3 -top-12 w-48 h-48 bg-secondary-container/20 rounded-full blur-xl pointer-events-none" />
             </div>
+          </section>
 
-            {/* Active Filter Tags */}
-            {activeFiltersCount > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] text-slate-400 font-medium">Đang lọc:</span>
+          {/* Catalog Content Area */}
+          <div className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-3xl">
+            <div className="flex flex-col lg:flex-row gap-gutter-desktop items-start">
+              {/* Left Filter Sidebar (Desktop) */}
+              <aside className="hidden lg:flex w-[280px] shrink-0 flex-col gap-unit-md sticky top-24">
+                {renderSidebarFilters()}
+              </aside>
 
-                {categoryParam && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                    <span>Loại: {categories.find((c) => String(c.MaLoaiSanPham) === categoryParam)?.TenLoaiSanPham || categoryParam}</span>
-                    <button type="button" onClick={() => handleSelectCategory(categoryParam)} className="hover:text-blue-800">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-
-                {selectedRoms.map((rom) => (
-                  <span key={rom} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-600 border border-violet-100">
-                    <span>ROM: {rom}</span>
-                    <button type="button" onClick={() => handleToggleRom(rom)} className="hover:text-violet-800">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-
-                {(priceMinParam > MIN_PRICE_LIMIT || priceMaxParam < MAX_PRICE_LIMIT) && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600 border border-indigo-100">
-                    <span>Giá: {formatVND(priceMinParam)} — {formatVND(priceMaxParam)}</span>
-                    <button type="button" onClick={() => handleApplyPriceFilter(MIN_PRICE_LIMIT, MAX_PRICE_LIMIT)} className="hover:text-indigo-800">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-
-                {searchKeyword && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-600 border border-amber-100">
-                    <span>Từ khóa: "{searchKeyword}"</span>
-                    <button type="button" onClick={() => updateQueryParams({ search: '' })} className="hover:text-amber-800">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Product Grid */}
-            {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4">
-                {[...Array(9)].map((_, i) => <ProductSkeleton key={i} />)}
-              </div>
-            ) : products.length === 0 ? (
-              <div className="py-20 text-center bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
-                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                  <Search className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-700">Không tìm thấy sản phẩm phù hợp</h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                    Thử điều chỉnh hoặc xóa các tiêu chí bộ lọc để tìm kiếm thêm sản phẩm.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm active:scale-[0.97]"
-                >
-                  Xóa tất cả bộ lọc
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4">
-                {products.map((item) => (
-                  <div
-                    key={item.MaSanPham}
-                    className="group bg-white border border-slate-100 rounded-2xl p-4 flex flex-col shadow-sm
-                               transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_-8px_rgba(37,99,235,0.12)] hover:border-blue-100"
-                  >
-                    {/* Badges */}
-                    {item.DungLuong && (
-                      <div className="mb-2 self-start">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                          {item.DungLuong}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Thumbnail */}
-                    <div
-                      className="aspect-square rounded-xl bg-slate-50 overflow-hidden flex items-center justify-center p-3 mb-3 cursor-pointer"
-                      onClick={() => navigate(`/products/${item.MaSanPham}`)}
-                    >
-                      {item.Anh ? (
-                        <img
-                          src={item.Anh}
-                          alt={item.TenSanPham}
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }}
-                        />
-                      ) : (
-                        <PackageCheck className="w-10 h-10 text-slate-300" />
-                      )}
-                    </div>
-
-                    {/* Product Details */}
-                    <div className="flex flex-col gap-2 flex-1">
-                      <h3
-                        onClick={() => navigate(`/products/${item.MaSanPham}`)}
-                        className="text-xs sm:text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors cursor-pointer line-clamp-2 leading-snug"
-                      >
-                        {item.TenSanPham}
-                      </h3>
-
-                      <p className="font-bold text-blue-600 text-sm sm:text-base">{formatVND(item.Gia)}</p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAddToCart(item)}
-                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        <span className="hidden xs:inline sm:inline">Thêm giỏ</span>
-                        <span className="inline xs:hidden sm:hidden">+</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/products/${item.MaSanPham}`)}
-                        className="p-2 border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 rounded-xl transition-all"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-              <div className="pt-4 flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  disabled={pagination.page <= 1}
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold transition-all flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Trước
-                </button>
-
-                {[...Array(pagination.totalPages)].map((_, idx) => {
-                  const pNum = idx + 1;
-                  const isCurrent = pNum === pagination.page;
-                  return (
+              {/* Main Product Area */}
+              <div className="flex-1 w-full flex flex-col gap-unit-lg">
+                {/* Sorting Toolbar (Chỉ giữ 2 tùy chọn sắp xếp: Giá tăng dần & Giá giảm dần) */}
+                <div className="p-unit-sm rounded-xl bg-surface-container-lowest shadow-sm flex flex-wrap items-center justify-between gap-unit-sm border border-surface-container/60">
+                  <div className="flex items-center gap-unit-xs flex-wrap">
+                    {/* Nút mở bộ lọc mobile */}
                     <button
-                      key={pNum}
                       type="button"
-                      onClick={() => handlePageChange(pNum)}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                        isCurrent
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25'
-                          : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-600'
+                      onClick={() => setMobileFilterOpen(true)}
+                      className="lg:hidden flex items-center gap-1 px-unit-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-primary font-body-sm text-body-sm font-semibold transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">filter_list</span>
+                      <span>Bộ lọc {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
+                    </button>
+
+                    <span className="font-body-md text-body-md font-semibold text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base">sort</span>Sắp xếp theo:
+                    </span>
+
+                    {/* Nút Giá tăng dần */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort('price_asc')}
+                      className={`px-unit-sm py-1.5 rounded-lg font-body-md text-body-md transition-colors flex items-center gap-1 cursor-pointer ${
+                        sortParam === 'price_asc'
+                          ? 'bg-primary text-on-primary font-bold shadow-sm'
+                          : 'bg-surface-container-low hover:bg-surface-container text-on-surface'
                       }`}
                     >
-                      {pNum}
+                      <span>Giá tăng dần</span>
+                      <span className="material-symbols-outlined text-sm leading-none">arrow_upward</span>
                     </button>
-                  );
-                })}
 
-                <button
-                  type="button"
-                  disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold transition-all flex items-center gap-1"
-                >
-                  Sau
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                    {/* Nút Giá giảm dần */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort('price_desc')}
+                      className={`px-unit-sm py-1.5 rounded-lg font-body-md text-body-md transition-colors flex items-center gap-1 cursor-pointer ${
+                        sortParam === 'price_desc'
+                          ? 'bg-primary text-on-primary font-bold shadow-sm'
+                          : 'bg-surface-container-low hover:bg-surface-container text-on-surface'
+                      }`}
+                    >
+                      <span>Giá giảm dần</span>
+                      <span className="material-symbols-outlined text-sm leading-none">arrow_downward</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-unit-xs text-on-surface-variant font-body-sm text-body-sm">
+                    <span>
+                      Hiển thị <strong>{products.length}</strong> / {pagination.total} sản phẩm
+                    </span>
+                  </div>
+                </div>
+
+                {/* Danh Sách Sản Phẩm */}
+                {loading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-unit-md w-full">
+                    {[...Array(9)].map((_, i) => (
+                      <ProductSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="py-20 text-center bg-surface-container-lowest rounded-xl shadow-sm space-y-4 p-unit-xl border border-surface-container/60">
+                    <span className="material-symbols-outlined text-5xl text-outline">search_off</span>
+                    <h3 className="font-title-card text-title-card text-on-surface font-semibold">
+                      Không tìm thấy sản phẩm phù hợp
+                    </h3>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant max-w-sm mx-auto">
+                      Thử điều chỉnh hoặc xóa các tiêu chí bộ lọc để tìm kiếm thêm sản phẩm.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="px-unit-lg py-unit-xs bg-primary text-on-primary rounded-xl font-body-md text-body-md font-semibold hover:bg-primary-container transition-all shadow-sm active:scale-95"
+                    >
+                      Xóa tất cả bộ lọc
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-unit-md w-full">
+                    {products.map((product) => (
+                      <ProductCard key={product.MaSanPham} product={product} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Phân Trang (Pagination) */}
+                {pagination.totalPages > 1 && (
+                  <div className="flex flex-col items-center gap-unit-md pt-unit-md">
+                    <nav className="flex items-center gap-unit-2xs font-body-md text-body-md text-on-surface flex-wrap justify-center">
+                      <button
+                        type="button"
+                        disabled={pagination.page <= 1}
+                        onClick={() => handlePageChange(pagination.page - 1)}
+                        className="w-10 h-10 rounded-xl bg-surface-container-lowest hover:bg-surface-container flex items-center justify-center text-outline disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-surface-container"
+                        aria-label="Trang trước"
+                      >
+                        <span className="material-symbols-outlined">chevron_left</span>
+                      </button>
+
+                      {[...Array(pagination.totalPages)].map((_, idx) => {
+                        const pageNum = idx + 1;
+                        const isCurrent = pageNum === pagination.page;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center transition-all ${
+                              isCurrent
+                                ? 'bg-primary text-on-primary shadow-sm'
+                                : 'bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-surface-container'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        disabled={pagination.page >= pagination.totalPages}
+                        onClick={() => handlePageChange(pagination.page + 1)}
+                        className="w-10 h-10 rounded-xl bg-surface-container-lowest hover:bg-surface-container flex items-center justify-center text-primary font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-surface-container"
+                        aria-label="Trang tiếp"
+                      >
+                        <span className="material-symbols-outlined">chevron_right</span>
+                      </button>
+                    </nav>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </main>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Filter Drawer */}
       {mobileFilterOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex justify-end">
           <div
             onClick={() => setMobileFilterOpen(false)}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
           />
-          <div className="relative w-full max-w-xs bg-white h-full overflow-y-auto p-6 space-y-6 z-10 shadow-2xl border-l border-slate-100">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-blue-500" />
-                <h2 className="text-sm font-bold text-slate-800">Bộ Lọc Sản Phẩm</h2>
-              </div>
+          <div className="relative w-full max-w-sm bg-surface h-full overflow-y-auto p-unit-md space-y-unit-md z-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-unit-xs border-b border-surface-container">
+              <span className="font-title-card text-title-card font-bold text-on-surface flex items-center gap-unit-2xs">
+                <span className="material-symbols-outlined text-primary">filter_alt</span>
+                Bộ Lọc Sản Phẩm
+              </span>
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded-lg hover:bg-surface-container text-on-surface transition-colors"
               >
-                <X className="w-4 h-4" />
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
             {renderSidebarFilters()}
 
-            <div className="pt-4 border-t border-slate-100">
+            <div className="pt-unit-xs">
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-sm transition-all active:scale-[0.97]"
+                className="w-full py-unit-xs bg-primary text-on-primary rounded-xl font-bold shadow-sm hover:bg-primary-container transition-all"
               >
                 Xem {pagination.total} sản phẩm
               </button>

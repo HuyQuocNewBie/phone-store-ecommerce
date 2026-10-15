@@ -38,7 +38,7 @@ const getProducts = async (req, res, next) => {
     const limit = Math.max(1, parseInt(req.query.limit, 10) || 12);
     const offset = (page - 1) * limit;
 
-    const { category_id, price_min, price_max, rom, sort_by, search, q } = req.query;
+    const { category_id, category, brand, manufacturer_id, price_min, price_max, rom, sort_by, search, q } = req.query;
 
     const whereClauses = ["TrangThai = 'DangBan'"];
     const queryParams = [];
@@ -50,12 +50,44 @@ const getProducts = async (req, res, next) => {
       queryParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
 
-    // Lọc theo loại sản phẩm (MaLoaiSanPham)
-    if (category_id !== undefined && category_id !== '') {
-      const parsedCategoryId = parseInt(category_id, 10);
+    // Lọc theo loại sản phẩm (MaLoaiSanPham / category_id / category)
+    const targetCategory = category_id !== undefined && category_id !== '' ? category_id : category;
+    if (targetCategory !== undefined && targetCategory !== '') {
+      const parsedCategoryId = parseInt(targetCategory, 10);
       if (!isNaN(parsedCategoryId)) {
         whereClauses.push('MaLoaiSanPham = ?');
         queryParams.push(parsedCategoryId);
+      }
+    }
+
+    // Lọc theo hãng sản xuất (brand / manufacturer_id)
+    const targetBrand = brand !== undefined && brand !== '' ? brand : manufacturer_id;
+    if (targetBrand !== undefined && String(targetBrand).trim() !== '') {
+      const brandList = Array.isArray(targetBrand)
+        ? targetBrand
+        : String(targetBrand).split(',').map((b) => b.trim()).filter(Boolean);
+
+      if (brandList.length > 0) {
+        const numericBrands = brandList.map((b) => parseInt(b, 10)).filter((b) => !isNaN(b));
+        const stringBrands = brandList.filter((b) => isNaN(parseInt(b, 10)));
+
+        const brandConditions = [];
+        if (numericBrands.length > 0) {
+          brandConditions.push(`MaNhaSanXuat IN (${numericBrands.map(() => '?').join(',')})`);
+          numericBrands.forEach((id) => queryParams.push(id));
+        }
+        if (stringBrands.length > 0) {
+          brandConditions.push(`EXISTS (
+            SELECT 1 FROM nhasanxuat nsx 
+            WHERE nsx.MaNhaSanXuat = sanpham.MaNhaSanXuat 
+              AND (${stringBrands.map(() => 'nsx.TenNhaSanXuat LIKE ?').join(' OR ')})
+          )`);
+          stringBrands.forEach((name) => queryParams.push(`%${name}%`));
+        }
+
+        if (brandConditions.length > 0) {
+          whereClauses.push(`(${brandConditions.join(' OR ')})`);
+        }
       }
     }
 

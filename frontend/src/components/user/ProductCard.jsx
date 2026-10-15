@@ -1,16 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ShoppingCart, PackageCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
 /**
  * ProductCard – Stitch AI Design
- * Props:
- *   - product / item: { MaSanPham, TenSanPham, Anh, Gia, DungLuong, TonKho }
- *   - onAddToCart: (product) => void
- *   - onBuyNow: (product) => void
+ * 5 Thành phần:
+ *   1. Hình ảnh sản phẩm (Anh)
+ *   2. Tên sản phẩm (TenSanPham)
+ *   3. Giá bán sản phẩm (Gia)
+ *   4. Nút "Thêm giỏ" (addToCart)
+ *   5. Nút "Mua ngay" (addToCart + navigate '/checkout')
  */
 const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
         quantity: 1,
         action_type: 'buy_now',
         product_name: p.TenSanPham,
-        redirect_back: window.location.pathname + window.location.search,
+        redirect_back: '/checkout',
       };
       sessionStorage.setItem('cart_action_intent', JSON.stringify(intent));
       toast('Vui lòng đăng nhập để tiếp tục', { icon: '🔐', id: 'login-required', duration: 2500 });
@@ -76,7 +77,7 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
     try {
       const result = await addToCart(p.MaSanPham, 1);
       if (result.success) {
-        navigate('/cart');
+        navigate('/checkout');
       } else {
         toast.error(result.message || 'Không thể thêm vào giỏ hàng.', { id: 'cart-error' });
       }
@@ -85,12 +86,14 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
     }
   };
 
-  const handleCartClick = () => {
+  const handleCartClick = (e) => {
+    e.stopPropagation();
     if (onAddToCart) onAddToCart(data);
     else defaultAddToCart(data);
   };
 
-  const handleBuyClick = () => {
+  const handleBuyClick = (e) => {
+    e.stopPropagation();
     if (onBuyNow) onBuyNow(data);
     else defaultBuyNow(data);
   };
@@ -99,70 +102,70 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-unit-md shadow-sm hover:shadow-xl transition-all duration-200 flex flex-col justify-between group">
-      <div>
-        {/* Khung ảnh sản phẩm */}
+    <div className="group flex flex-col justify-between p-unit-md rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-xl transition-all duration-300 relative border border-surface-container/60">
+      <div className="flex flex-col">
+        {/* 1. Hình ảnh sản phẩm */}
         <div
           onClick={() => navigate(`/products/${data.MaSanPham}`)}
-          className="w-full h-48 bg-surface-container-low rounded-lg mb-unit-sm flex items-center justify-center p-unit-sm overflow-hidden cursor-pointer relative"
+          className="w-full aspect-square flex items-center justify-center p-unit-xs relative overflow-hidden bg-surface-container-low rounded-lg mb-unit-xs cursor-pointer"
         >
           {data.Anh ? (
             <img
               src={data.Anh}
               alt={data.TenSanPham}
-              className="h-full object-contain group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80';
               }}
             />
           ) : (
-            <PackageCheck className="w-12 h-12 text-outline" />
+            <span className="material-symbols-outlined text-4xl text-outline">smartphone</span>
           )}
           {isOutOfStock && (
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-lg flex items-center justify-center">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hết hàng</span>
+            <div className="absolute inset-0 bg-white/75 backdrop-blur-[2px] rounded-lg flex items-center justify-center">
+              <span className="text-xs font-bold text-error uppercase tracking-wider px-2 py-1 bg-error-container/20 rounded">
+                Hết hàng
+              </span>
             </div>
           )}
         </div>
 
-        {/* Tên sản phẩm */}
+        {/* 2. Tên sản phẩm */}
         <h3
           onClick={() => navigate(`/products/${data.MaSanPham}`)}
-          className="font-title-card text-title-card text-on-surface mb-unit-2xs group-hover:text-primary transition-colors cursor-pointer line-clamp-2"
+          className="font-title-card text-title-card font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer line-clamp-2 mt-unit-xs"
           title={data.TenSanPham}
         >
           {data.TenSanPham}
         </h3>
       </div>
 
-      {/* Giá & Nút hành động */}
-      <div className="mt-unit-xs">
-        <div className="flex items-baseline justify-between mb-unit-sm">
-          <span className="font-price-hero text-price-hero text-primary font-extrabold">
+      {/* 3. Giá bán & Nút hành động */}
+      <div className="mt-unit-xs pt-unit-xs">
+        <div className="flex items-baseline mb-unit-xs">
+          <span className="font-price-regular text-price-regular font-extrabold text-tertiary-container">
             {formatVND(data.Gia)}
           </span>
-          {data.DungLuong && (
-            <span className="px-unit-xs py-unit-2xs bg-surface-container-high text-primary rounded font-label-spec text-label-spec">
-              {data.DungLuong}
-            </span>
-          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-unit-xs">
+        {/* 4. Nút Thêm giỏ & 5. Nút Mua ngay */}
+        <div className="flex items-center gap-unit-xs pt-unit-2xs">
           <button
             type="button"
             disabled={isOutOfStock}
             onClick={handleCartClick}
-            className="py-unit-xs bg-surface-container-high text-primary font-body-md text-body-md rounded-lg hover:bg-primary hover:text-on-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-1 active:scale-95"
+            className="flex-1 py-2 px-unit-xs rounded-lg bg-surface-container hover:bg-primary-fixed text-primary font-body-sm text-body-sm font-semibold transition-colors flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Thêm vào giỏ"
           >
-            {isOutOfStock ? 'Hết hàng' : 'Thêm giỏ'}
+            <span className="material-symbols-outlined text-lg leading-none">add_shopping_cart</span>
+            <span className="hidden sm:inline">Thêm giỏ</span>
           </button>
           <button
             type="button"
             disabled={isOutOfStock}
             onClick={handleBuyClick}
-            className="py-unit-xs bg-tertiary-container text-on-tertiary font-body-md text-body-md rounded-lg font-semibold hover:bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 active:scale-95"
+            className="flex-1 py-2 px-unit-xs rounded-lg bg-tertiary-container hover:bg-tertiary text-on-tertiary font-body-sm text-body-sm font-bold shadow-sm transition-all flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Mua ngay
           </button>
