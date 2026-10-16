@@ -216,6 +216,19 @@ const CartPage = () => {
         <Navbar />
         <main className="flex-1 w-full bg-surface py-unit-xl md:py-unit-2xl">
           <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col gap-unit-2xl">
+
+            {/* ── Breadcrumb: Trang chủ > Giỏ hàng ── */}
+            <div className="pb-unit-sm">
+              <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+                <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-base leading-none">home</span>
+                  Trang chủ
+                </Link>
+                <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+                <span className="text-on-surface font-semibold">Giỏ hàng</span>
+              </nav>
+            </div>
+
             {/* 1. Thanh Tiến Trình / Stepper */}
             <div className="w-full max-w-3xl mx-auto">
               <div className="relative flex items-center justify-between">
@@ -338,6 +351,19 @@ const CartPage = () => {
 
       <main className="flex-1 w-full bg-surface py-unit-lg md:py-unit-xl pb-unit-4xl">
         <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col">
+
+          {/* ── Breadcrumb: Trang chủ > Giỏ hàng ── */}
+          <div className="pb-unit-sm">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+              <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                <span className="material-symbols-outlined text-base leading-none">home</span>
+                Trang chủ
+              </Link>
+              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+              <span className="text-on-surface font-semibold">Giỏ hàng</span>
+            </nav>
+          </div>
+
           {/* 1. Thanh Tiến Trình / Stepper Tiến trình mua sắm */}
           <div className="bg-surface-container-lowest rounded-xl shadow-sm p-unit-md mb-unit-lg">
             <div className="max-w-3xl mx-auto flex items-center justify-between relative">

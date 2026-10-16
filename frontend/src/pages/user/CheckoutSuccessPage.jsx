@@ -174,6 +174,20 @@ const CheckoutSuccessPage = () => {
       <main className="flex-1 py-10 pb-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
 
+          {/* ── Breadcrumb: Trang chủ > Đặt hàng thành công ── */}
+          <div className="max-w-container-max mx-auto w-full pb-unit-sm">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+              <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                <span className="material-symbols-outlined text-base leading-none">home</span>
+                Trang chủ
+              </Link>
+              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+              <Link to="/cart" className="hover:text-primary transition-colors">Giỏ hàng</Link>
+              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+              <span className="text-on-surface font-semibold">Đặt hàng thành công</span>
+            </nav>
+          </div>
+
           {/* ── CARD THÔNG BÁO ĐẶT HÀNG THÀNH CÔNG ── */}
           <div className="bg-white border border-slate-100 shadow-[0_10px_35px_-8px_rgba(0,0,0,0.07)] rounded-3xl p-6 sm:p-10 space-y-8 relative overflow-hidden">
             

@@ -495,21 +495,22 @@ const CatalogPage = () => {
 
       <main className="w-full pt-4 md:pt-6 bg-surface min-h-screen flex-1">
         <div className="flex flex-col w-full">
-          {/* Breadcrumb Navigation */}
-          <section className="max-w-container-max mx-auto px-gutter-desktop w-full pt-unit-md pb-unit-sm">
-            <nav className="flex items-center gap-unit-xs text-on-surface-variant font-body-sm text-body-sm flex-wrap">
+          {/* ── Breadcrumb Navigation ── */}
+          <div className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-sm">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm flex-wrap">
               <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
-                <span className="material-symbols-outlined text-base">home</span>Trang chủ
+                <span className="material-symbols-outlined text-base leading-none">home</span>
+                Trang chủ
               </Link>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
               <span className="hover:text-primary transition-colors cursor-pointer">Điện thoại thông minh</span>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
               <span className="text-on-surface font-semibold">Tất cả sản phẩm</span>
               <span className="ml-unit-2xs px-unit-xs py-0.5 rounded-full bg-surface-container-high text-primary font-bold text-body-sm">
                 {pagination.total} sản phẩm
               </span>
             </nav>
-          </section>
+          </div>
 
           {/* Banner Quảng Cáo Đầu Trang */}
           <section className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-lg">

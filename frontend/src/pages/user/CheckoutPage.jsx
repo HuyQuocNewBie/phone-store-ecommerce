@@ -360,19 +360,19 @@ const CheckoutPage = () => {
         <div className="flex flex-col w-full">
           <div className="w-full max-w-container-max mx-auto px-gutter-desktop">
 
-            {/* ── Breadcrumb & Top Security Indicator ── */}
-            <div className="flex items-center justify-between pb-unit-lg">
-              <div className="flex items-center gap-unit-xs font-body-sm text-body-sm text-outline">
-                <Link to="/" className="hover:text-primary transition-colors">
+            {/* ── Breadcrumb & Security Badge (cùng hàng) ── */}
+            <div className="flex items-center justify-between mb-unit-xl">
+              <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+                <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+                  <span className="material-symbols-outlined text-base leading-none">home</span>
                   Trang chủ
                 </Link>
-                <span className="material-symbols-outlined text-xs">chevron_right</span>
-                <Link to="/cart" className="hover:text-primary transition-colors">
-                  Giỏ hàng
-                </Link>
-                <span className="material-symbols-outlined text-xs">chevron_right</span>
+                <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+                <Link to="/cart" className="hover:text-primary transition-colors">Giỏ hàng</Link>
+                <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
                 <span className="text-on-surface font-semibold">Thanh toán</span>
-              </div>
+              </nav>
+
               <div className="inline-flex items-center gap-unit-xs px-unit-sm py-unit-2xs rounded-full bg-secondary-fixed text-secondary font-label-spec text-label-spec uppercase tracking-wider shadow-sm">
                 <span className="material-symbols-outlined text-sm">lock</span>
                 Bảo mật giao dịch đa tầng 256-bit

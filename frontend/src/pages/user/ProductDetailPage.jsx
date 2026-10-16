@@ -411,14 +411,19 @@ const ProductDetailPage = () => {
 
       <main className="flex-1 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
-          <Link to="/" className="hover:text-blue-600 transition-colors font-medium">Trang chủ</Link>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-          <Link to="/products" className="hover:text-blue-600 transition-colors font-medium">Sản phẩm</Link>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-          <span className="text-slate-700 font-semibold truncate max-w-[200px] sm:max-w-xs">{product.TenSanPham}</span>
-        </nav>
+        {/* ── Breadcrumb: Trang chủ > Sản phẩm > Tên SP ── */}
+        <div className="max-w-container-max mx-auto w-full pb-unit-sm">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+            <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+              <span className="material-symbols-outlined text-base leading-none">home</span>
+              Trang chủ
+            </Link>
+            <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+            <Link to="/products" className="hover:text-primary transition-colors">Sản phẩm</Link>
+            <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+            <span className="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs">{product.TenSanPham}</span>
+          </nav>
+        </div>
 
         {/* ═══════════════════════════════════════
             DIV 1 - THÔNG TIN CHÍNH
