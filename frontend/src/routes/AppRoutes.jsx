@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
 import UserProtectedRoute from '../components/user/UserProtectedRoute';
 import AdminLayout from '../layouts/AdminLayout';
-import LoginPage from '../pages/LoginPage';
+import LoginPage from '../pages/user/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import DashboardPage from '../pages/admin/dashboard/DashboardPage';
 import ProductListPage from '../pages/admin/products/ProductListPage';
