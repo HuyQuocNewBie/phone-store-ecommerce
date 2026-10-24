@@ -556,15 +556,10 @@ const RegisterPage = () => {
                     {/* 1. Tên tài khoản (TaiKhoan) */}
                     <div className="flex flex-col gap-unit-2xs">
                       <label
-                        className="font-body-md text-body-md font-semibold text-on-surface flex items-center justify-between"
+                        className="font-body-md text-body-md font-semibold text-on-surface"
                         htmlFor="reg-taikhoan"
                       >
-                        <span>
-                          Tên tài khoản <span className="text-error">*</span>
-                        </span>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant font-normal">
-                          Dùng để đăng nhập hệ thống
-                        </span>
+                        Tên tài khoản <span className="text-error">*</span>
                       </label>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-unit-md text-outline pointer-events-none">
@@ -583,7 +578,7 @@ const RegisterPage = () => {
                           onChange={handleChange}
                           onBlur={handleBlur}
                           disabled={isSubmitting}
-                          placeholder="Ví dụ: nguyenvana, minhtri99..."
+                          placeholder="nguyenvana, minhtri99..."
                         />
                       </div>
                       {touched.TaiKhoan && clientErrors.TaiKhoan && (
@@ -597,15 +592,10 @@ const RegisterPage = () => {
                     {/* 2. Địa chỉ Email (Email) */}
                     <div className="flex flex-col gap-unit-2xs">
                       <label
-                        className="font-body-md text-body-md font-semibold text-on-surface flex items-center justify-between"
+                        className="font-body-md text-body-md font-semibold text-on-surface"
                         htmlFor="reg-email"
                       >
-                        <span>
-                          Địa chỉ Email <span className="text-error">*</span>
-                        </span>
-                        <span className="font-body-sm text-body-sm text-on-surface-variant font-normal">
-                          Dùng để nhận mã OTP xác thực
-                        </span>
+                        Địa chỉ Email <span className="text-error">*</span>
                       </label>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-unit-md text-outline pointer-events-none">
