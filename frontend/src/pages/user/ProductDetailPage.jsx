@@ -210,7 +210,6 @@ const ProductDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [zoomActive, setZoomActive] = useState(false);
-  const [selectedRom, setSelectedRom] = useState("");
   const [selectedStorage, setSelectedStorage] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -228,15 +227,9 @@ const ProductDetailPage = () => {
       if (res.data?.success) {
         const data = res.data.data;
         setProduct(data);
-        // Luôn parse từ chuỗi để tránh trường hợp danhSachDungLuong chứa chuỗi gốc
-        if (data.DungLuong) {
-          const parsed = data.DungLuong.split(',').map(item => item.trim()).filter(Boolean);
-          if (parsed.length > 0) setSelectedStorage(parsed[0]);
-        }
-        if (data.MauSac) {
-          const parsed = data.MauSac.split(',').map(item => item.trim()).filter(Boolean);
-          if (parsed.length > 0) setSelectedColor(parsed[0]);
-        }
+        // Reset lựa chọn phân loại khi tải sản phẩm mới để người dùng tự chọn
+        setSelectedStorage("");
+        setSelectedColor("");
       } else {
         setError("Không tìm thấy sản phẩm");
       }
@@ -307,8 +300,12 @@ const ProductDetailPage = () => {
   const saveIntentAndRedirectToLogin = (actionType) => {
     const intent = {
       product_id: product.MaSanPham,
-      variant: { DungLuong: selectedRom, MauSac: selectedColor },
+      MaSanPham: product.MaSanPham,
+      variant: { DungLuong: selectedStorage, MauSac: selectedColor },
+      DungLuong: selectedStorage,
+      MauSac: selectedColor,
       quantity,
+      SoLuong: quantity,
       action_type: actionType,
       product_name: product.TenSanPham,
       redirect_back: `/products/${id}`,
@@ -319,11 +316,25 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!isAuthenticated) { saveIntentAndRedirectToLogin("add_to_cart"); return; }
     if (isOutOfStock) { toast.error("Sản phẩm đã hết hàng", { id: "out-of-stock" }); return; }
+
+    const hasStorage = storageList.length > 0;
+    const hasColor = colorList.length > 0;
+    if ((hasStorage && !selectedStorage) || (hasColor && !selectedColor)) {
+      toast.error("Vui lòng chọn Dung lượng và Màu sắc sản phẩm", { id: "variant-required" });
+      return;
+    }
+
+    if (!isAuthenticated) { saveIntentAndRedirectToLogin("add_to_cart"); return; }
     try {
       setAddingToCart(true);
-      const result = await addToCart(product.MaSanPham, quantity);
+      const payload = {
+        MaSanPham: product.MaSanPham,
+        SoLuong: quantity,
+        DungLuong: selectedStorage,
+        MauSac: selectedColor,
+      };
+      const result = await addToCart(payload);
       if (result.success) {
         toast.success(`Đã thêm ${product.TenSanPham} vào giỏ hàng!`, {
           id: `cart-add-${product.MaSanPham}`,
@@ -338,11 +349,25 @@ const ProductDetailPage = () => {
   };
 
   const handleBuyNow = async () => {
-    if (!isAuthenticated) { saveIntentAndRedirectToLogin("buy_now"); return; }
     if (isOutOfStock) { toast.error("Sản phẩm đã hết hàng", { id: "out-of-stock" }); return; }
+
+    const hasStorage = storageList.length > 0;
+    const hasColor = colorList.length > 0;
+    if ((hasStorage && !selectedStorage) || (hasColor && !selectedColor)) {
+      toast.error("Vui lòng chọn Dung lượng và Màu sắc sản phẩm", { id: "variant-required" });
+      return;
+    }
+
+    if (!isAuthenticated) { saveIntentAndRedirectToLogin("buy_now"); return; }
     try {
       setBuyingNow(true);
-      const result = await addToCart(product.MaSanPham, quantity);
+      const payload = {
+        MaSanPham: product.MaSanPham,
+        SoLuong: quantity,
+        DungLuong: selectedStorage,
+        MauSac: selectedColor,
+      };
+      const result = await addToCart(payload);
       if (result.success) {
         navigate("/checkout");
       } else {

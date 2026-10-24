@@ -38,13 +38,31 @@ export const CartProvider = ({ children }) => {
 
   /**
    * Thêm sản phẩm vào giỏ hàng
-   * @param {number} maSanPham - Mã sản phẩm
-   * @param {number} soLuong   - Số lượng muốn thêm
+   * @param {number|object} maSanPhamOrPayload - Mã sản phẩm hoặc payload object
+   * @param {number} [soLuong=1]   - Số lượng muốn thêm
+   * @param {string|null} [dungLuong=null] - Dung lượng sản phẩm
+   * @param {string|null} [mauSac=null]    - Màu sắc sản phẩm
    * @returns {{ success: boolean, message?: string }}
    */
-  const addToCart = useCallback(async (maSanPham, soLuong = 1) => {
+  const addToCart = useCallback(async (maSanPhamOrPayload, soLuong = 1, dungLuong = null, mauSac = null) => {
     try {
-      const res = await api.post('/cart/items', { MaSanPham: maSanPham, SoLuong: soLuong });
+      let payload;
+      if (typeof maSanPhamOrPayload === 'object' && maSanPhamOrPayload !== null) {
+        payload = {
+          MaSanPham: maSanPhamOrPayload.MaSanPham || maSanPhamOrPayload.product_id,
+          SoLuong: maSanPhamOrPayload.SoLuong ?? maSanPhamOrPayload.quantity ?? 1,
+          DungLuong: maSanPhamOrPayload.DungLuong || null,
+          MauSac: maSanPhamOrPayload.MauSac || null,
+        };
+      } else {
+        payload = {
+          MaSanPham: maSanPhamOrPayload,
+          SoLuong: soLuong,
+          DungLuong: dungLuong || null,
+          MauSac: mauSac || null,
+        };
+      }
+      const res = await api.post('/cart/items', payload);
       if (res.data?.success) {
         // Refetch để đồng bộ state chính xác (gộp số lượng nếu đã tồn tại)
         await fetchCart();

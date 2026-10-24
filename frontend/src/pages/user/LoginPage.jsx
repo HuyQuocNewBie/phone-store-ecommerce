@@ -126,8 +126,10 @@ const LoginPage = () => {
           sessionStorage.removeItem('cart_action_intent');
 
           await api.post('/cart/items', {
-            MaSanPham: intent.product_id,
-            SoLuong: intent.quantity || 1,
+            MaSanPham: intent.product_id || intent.MaSanPham,
+            SoLuong: intent.quantity || intent.SoLuong || 1,
+            DungLuong: intent.DungLuong || intent.variant?.DungLuong || null,
+            MauSac: intent.MauSac || intent.variant?.MauSac || null,
           });
 
           if (intent.action_type === 'buy_now') {
