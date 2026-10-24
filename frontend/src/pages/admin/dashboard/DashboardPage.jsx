@@ -2,12 +2,11 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   ShoppingCart, TrendingUp, DollarSign, BarChart3,
   AlertCircle, RefreshCw, Package, ArrowUpRight,
-  ArrowDownRight, Minus,
+  ArrowDownRight,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
-  Legend, ReferenceLine,
 } from 'recharts';
 import api from '../../../services/api';
 
@@ -27,21 +26,21 @@ const formatShort = (value) => {
 
 // ─── Status Colors ────────────────────────────────────────────────────────────
 const STATUS_MAP = {
-  'Đã hoàn thành': { color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
-  'Đang xử lý':    { color: '#0ea5e9', bg: 'rgba(14,165,233,0.15)' },
-  'Đang giao':     { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-  'Đã hủy':        { color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-  'Chờ xác nhận':  { color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  'Đã hoàn thành': { color: '#059669', bg: 'rgba(5,150,105,0.12)' },
+  'Đang xử lý':    { color: '#0284c7', bg: 'rgba(2,132,199,0.12)' },
+  'Đang giao':     { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  'Đã hủy':        { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  'Chờ xác nhận':  { color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
 };
-const FALLBACK_COLORS = ['#0ea5e9', '#a78bfa', '#10b981', '#f59e0b', '#ef4444'];
+const FALLBACK_COLORS = ['#0284c7', '#7c3aed', '#059669', '#d97706', '#dc2626'];
 
 // ─── Skeleton Components ──────────────────────────────────────────────────────
 const SkeletonBox = ({ className = '' }) => (
-  <div className={`animate-pulse bg-slate-700/40 rounded-xl ${className}`} />
+  <div className={`animate-pulse bg-slate-200 rounded-xl ${className}`} />
 );
 
 const StatCardSkeleton = () => (
-  <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 space-y-4">
+  <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
     <div className="flex items-start justify-between">
       <SkeletonBox className="w-12 h-12 rounded-xl" />
       <SkeletonBox className="w-16 h-5 rounded-full" />
@@ -53,13 +52,13 @@ const StatCardSkeleton = () => (
 
 // ─── Error Alert ──────────────────────────────────────────────────────────────
 const ErrorAlert = ({ message, onRetry }) => (
-  <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 text-sm">
+  <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
     <AlertCircle className="w-4 h-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {onRetry && (
       <button
         onClick={onRetry}
-        className="flex items-center gap-1.5 text-xs font-medium text-red-300 hover:text-red-100 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
+        className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded-lg hover:bg-red-100"
       >
         <RefreshCw className="w-3 h-3" /> Thử lại
       </button>
@@ -72,11 +71,11 @@ const CustomLineTooltip = ({ active, payload, label, timeFrame }) => {
   if (!active || !payload?.length) return null;
   const titleText = timeFrame === 'year' ? `Năm ${label}` : `Tháng ${label}`;
   return (
-    <div className="bg-slate-800 border border-slate-600/60 rounded-xl p-3 shadow-xl text-xs">
-      <p className="text-slate-400 mb-1.5 font-medium">{titleText}</p>
+    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg text-xs">
+      <p className="text-slate-500 mb-1.5 font-medium">{titleText}</p>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
-        <span className="text-slate-200 font-semibold">{formatVND(payload[0]?.value)}</span>
+        <span className="w-2 h-2 rounded-full bg-sky-500 inline-block" />
+        <span className="text-slate-800 font-semibold">{formatVND(payload[0]?.value)}</span>
       </div>
     </div>
   );
@@ -88,32 +87,12 @@ const CustomPieTooltip = ({ active, payload }) => {
   const d = payload[0];
   const color = STATUS_MAP[d.name]?.color || FALLBACK_COLORS[0];
   return (
-    <div className="bg-slate-800 border border-slate-600/60 rounded-xl p-3 shadow-xl text-xs">
+    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg text-xs">
       <p className="font-medium mb-1" style={{ color }}>{d.name}</p>
-      <p className="text-slate-200 font-semibold">{d.value?.toLocaleString('vi-VN')} đơn</p>
+      <p className="text-slate-700 font-semibold">{d.value?.toLocaleString('vi-VN')} đơn</p>
     </div>
   );
 };
-
-// ─── Custom Legend for PieChart ───────────────────────────────────────────────
-const CustomPieLegend = ({ payload }) => (
-  <ul className="flex flex-col gap-2 mt-2">
-    {payload?.map((entry, i) => {
-      const color = STATUS_MAP[entry.value]?.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
-      return (
-        <li key={entry.value} className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-2 text-slate-400">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-            {entry.value}
-          </span>
-          <span className="font-semibold text-slate-200 ml-4">
-            {entry.payload?.soLuong?.toLocaleString('vi-VN')}
-          </span>
-        </li>
-      );
-    })}
-  </ul>
-);
 
 // ─── Main Dashboard Page ──────────────────────────────────────────────────────
 const DashboardPage = () => {
@@ -205,11 +184,11 @@ const DashboardPage = () => {
           value: formatVND(cards.doanhThuThang),
           raw: cards.doanhThuThang,
           icon: DollarSign,
-          gradient: 'from-sky-600/30 via-sky-500/10 to-transparent',
-          border: 'border-sky-500/30',
-          iconBg: 'bg-sky-500/20',
-          iconColor: 'text-sky-400',
-          badge: 'text-sky-300 bg-sky-500/15',
+          gradient: 'from-sky-50 to-white',
+          border: 'border-sky-200',
+          iconBg: 'bg-sky-100',
+          iconColor: 'text-sky-600',
+          badge: 'text-sky-700 bg-sky-50 border border-sky-200',
           badgeText: 'Tháng ' + (new Date().getMonth() + 1),
         },
         {
@@ -218,11 +197,11 @@ const DashboardPage = () => {
           value: formatVND(cards.doanhThuNam),
           raw: cards.doanhThuNam,
           icon: TrendingUp,
-          gradient: 'from-violet-600/30 via-violet-500/10 to-transparent',
-          border: 'border-violet-500/30',
-          iconBg: 'bg-violet-500/20',
-          iconColor: 'text-violet-400',
-          badge: 'text-violet-300 bg-violet-500/15',
+          gradient: 'from-violet-50 to-white',
+          border: 'border-violet-200',
+          iconBg: 'bg-violet-100',
+          iconColor: 'text-violet-600',
+          badge: 'text-violet-700 bg-violet-50 border border-violet-200',
           badgeText: String(new Date().getFullYear()),
         },
         {
@@ -231,11 +210,11 @@ const DashboardPage = () => {
           value: formatVND(cards.loiNhuanThang),
           raw: cards.loiNhuanThang,
           icon: BarChart3,
-          gradient: 'from-emerald-600/30 via-emerald-500/10 to-transparent',
-          border: 'border-emerald-500/30',
-          iconBg: 'bg-emerald-500/20',
-          iconColor: 'text-emerald-400',
-          badge: 'text-emerald-300 bg-emerald-500/15',
+          gradient: 'from-emerald-50 to-white',
+          border: 'border-emerald-200',
+          iconBg: 'bg-emerald-100',
+          iconColor: 'text-emerald-600',
+          badge: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
           badgeText: cards.loiNhuanThang >= 0 ? 'Dương' : 'Âm',
           trendIcon: cards.loiNhuanThang >= 0
             ? <ArrowUpRight className="w-3 h-3" />
@@ -247,11 +226,11 @@ const DashboardPage = () => {
           value: cards.tongDonHang?.toLocaleString('vi-VN'),
           raw: cards.tongDonHang,
           icon: ShoppingCart,
-          gradient: 'from-amber-600/30 via-amber-500/10 to-transparent',
-          border: 'border-amber-500/30',
-          iconBg: 'bg-amber-500/20',
-          iconColor: 'text-amber-400',
-          badge: 'text-amber-300 bg-amber-500/15',
+          gradient: 'from-amber-50 to-white',
+          border: 'border-amber-200',
+          iconBg: 'bg-amber-100',
+          iconColor: 'text-amber-600',
+          badge: 'text-amber-700 bg-amber-50 border border-amber-200',
           badgeText: 'Tất cả',
         },
       ]
@@ -268,10 +247,10 @@ const DashboardPage = () => {
 
   // ── Rank badge style ──────────────────────────────────────────────────────────
   const rankStyle = (index) => {
-    if (index === 0) return 'bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40';
-    if (index === 1) return 'bg-slate-400/20 text-slate-300 ring-1 ring-slate-400/40';
-    if (index === 2) return 'bg-orange-700/20 text-orange-400 ring-1 ring-orange-600/40';
-    return 'bg-slate-700/40 text-slate-500';
+    if (index === 0) return 'bg-amber-100 text-amber-700 ring-1 ring-amber-300';
+    if (index === 1) return 'bg-slate-100 text-slate-600 ring-1 ring-slate-300';
+    if (index === 2) return 'bg-orange-100 text-orange-600 ring-1 ring-orange-300';
+    return 'bg-slate-100 text-slate-500';
   };
 
   return (
@@ -281,9 +260,9 @@ const DashboardPage = () => {
       <div className="flex justify-end">
         <button
           onClick={() => { fetchCards(); fetchRevenueChart(); fetchOrderStatus(); fetchTopProducts(); }}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60
-                     text-slate-400 hover:text-slate-200 hover:border-slate-600 text-xs font-medium
-                     transition-all duration-200 hover:bg-slate-700/60 active:scale-95"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200
+                     text-slate-500 hover:text-slate-800 hover:border-slate-300 text-xs font-medium
+                     transition-all duration-200 hover:bg-slate-50 active:scale-95 shadow-sm"
           title="Làm mới dữ liệu"
         >
           <RefreshCw className="w-3.5 h-3.5" />
@@ -302,13 +281,13 @@ const DashboardPage = () => {
               <div
                 key={card.id}
                 className={`relative overflow-hidden bg-gradient-to-br ${card.gradient}
-                            bg-slate-800/60 border ${card.border} rounded-2xl p-5
-                            transition-all duration-300 hover:scale-[1.02] hover:shadow-lg
-                            hover:shadow-black/20 group cursor-default`}
+                            border ${card.border} rounded-2xl p-5 shadow-sm
+                            transition-all duration-300 hover:scale-[1.02] hover:shadow-md
+                            group cursor-default`}
               >
                 {/* Decorative glow blob */}
                 <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full ${card.iconBg}
-                                 blur-2xl opacity-60 group-hover:opacity-90 transition-opacity`} />
+                                 blur-2xl opacity-50 group-hover:opacity-80 transition-opacity`} />
 
                 <div className="relative">
                   {/* Icon + Badge */}
@@ -324,7 +303,7 @@ const DashboardPage = () => {
                   </div>
 
                   {/* Value */}
-                  <p className="text-2xl font-bold text-slate-100 leading-tight tracking-tight truncate">
+                  <p className="text-2xl font-bold text-slate-900 leading-tight tracking-tight truncate">
                     {card.value}
                   </p>
 
@@ -339,32 +318,32 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* LineChart — Doanh thu */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">Doanh thu</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h2 className="text-sm font-semibold text-slate-800">Doanh thu</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
                 {timeFrame === 'month'
                   ? `Biểu đồ doanh thu 12 tháng năm ${new Date().getFullYear()}`
                   : 'Biểu đồ doanh thu theo các năm'}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Dropdown Control styled Slate Dark Mode */}
+              {/* Dropdown Control */}
               <select
                 value={timeFrame}
                 onChange={(e) => setTimeFrame(e.target.value)}
-                className="bg-slate-900 border border-slate-700/80 text-slate-200 text-xs rounded-xl px-3 py-1.5
-                           focus:outline-none focus:ring-2 focus:ring-sky-500/50 hover:border-slate-600
-                           transition-colors duration-150 cursor-pointer font-medium"
+                className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-1.5
+                           focus:outline-none focus:ring-2 focus:ring-sky-400/40 hover:border-slate-300
+                           transition-colors duration-150 cursor-pointer font-medium shadow-sm"
               >
-                <option value="month" className="bg-slate-800 text-slate-200">Theo tháng</option>
-                <option value="year" className="bg-slate-800 text-slate-200">Theo năm</option>
+                <option value="month">Theo tháng</option>
+                <option value="year">Theo năm</option>
               </select>
 
-              <div className="flex items-center gap-2 text-xs text-sky-400 bg-sky-500/10
-                              border border-sky-500/20 px-2.5 py-1 rounded-full font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+              <div className="flex items-center gap-2 text-xs text-sky-600 bg-sky-50
+                              border border-sky-200 px-2.5 py-1 rounded-full font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                 Live
               </div>
             </div>
@@ -375,7 +354,7 @@ const DashboardPage = () => {
           ) : errorRevenue ? (
             <ErrorAlert message={errorRevenue} onRetry={fetchRevenueChart} />
           ) : activeRevenueChart.length === 0 ? (
-            <div className="h-56 flex flex-col items-center justify-center text-slate-600 gap-2">
+            <div className="h-56 flex flex-col items-center justify-center text-slate-400 gap-2">
               <BarChart3 className="w-8 h-8 opacity-40" />
               <p className="text-sm">Chưa có dữ liệu doanh thu</p>
             </div>
@@ -388,25 +367,24 @@ const DashboardPage = () => {
                     <stop offset="100%" stopColor="#818cf8" />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis
                   dataKey={timeFrame === 'month' ? 'thang' : 'nam'}
                   tickFormatter={(v) => (timeFrame === 'month' ? `T${v}` : `${v}`)}
-                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   dy={6}
                 />
                 <YAxis
-                  tick={{ fill: '#64748b', fontSize: 11 }}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => formatShort(v)}
                   domain={[0, Math.ceil(maxRevenue * 1.2)]}
                   width={52}
                 />
-                <Tooltip content={<CustomLineTooltip timeFrame={timeFrame} />} cursor={{ stroke: '#334155', strokeWidth: 1 }} />
-                <ReferenceLine y={0} stroke="#334155" />
+                <Tooltip content={<CustomLineTooltip timeFrame={timeFrame} />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }} />
                 <Line
                   key={timeFrame}
                   type="monotone"
@@ -414,7 +392,7 @@ const DashboardPage = () => {
                   stroke="url(#lineGrad)"
                   strokeWidth={2.5}
                   dot={{ fill: '#0ea5e9', r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: '#38bdf8', strokeWidth: 2, stroke: '#1e293b' }}
+                  activeDot={{ r: 6, fill: '#38bdf8', strokeWidth: 2, stroke: '#e0f2fe' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -423,10 +401,10 @@ const DashboardPage = () => {
 
 
         {/* PieChart — Trạng thái đơn hàng */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <div className="mb-5">
-            <h2 className="text-sm font-semibold text-slate-100">Trạng thái đơn hàng</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-sm font-semibold text-slate-800">Trạng thái đơn hàng</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
               Tổng {totalOrders.toLocaleString('vi-VN')} đơn
             </p>
           </div>
@@ -436,7 +414,7 @@ const DashboardPage = () => {
           ) : errorStatus ? (
             <ErrorAlert message={errorStatus} onRetry={fetchOrderStatus} />
           ) : orderStatus.length === 0 ? (
-            <div className="h-56 flex flex-col items-center justify-center text-slate-600 gap-2">
+            <div className="h-56 flex flex-col items-center justify-center text-slate-400 gap-2">
               <ShoppingCart className="w-8 h-8 opacity-40" />
               <p className="text-sm">Chưa có dữ liệu đơn hàng</p>
             </div>
@@ -473,13 +451,13 @@ const DashboardPage = () => {
                   const pct = totalOrders > 0 ? ((entry.soLuong / totalOrders) * 100).toFixed(1) : '0';
                   return (
                     <div key={entry.trangThai} className="flex items-center justify-between text-xs">
-                      <span className="flex items-center gap-2 text-slate-400 min-w-0">
+                      <span className="flex items-center gap-2 text-slate-500 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                         <span className="truncate">{entry.trangThai}</span>
                       </span>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span className="font-semibold text-slate-200">{entry.soLuong.toLocaleString('vi-VN')}</span>
-                        <span className="text-slate-600 w-10 text-right">{pct}%</span>
+                        <span className="font-semibold text-slate-700">{entry.soLuong.toLocaleString('vi-VN')}</span>
+                        <span className="text-slate-400 w-10 text-right">{pct}%</span>
                       </div>
                     </div>
                   );
@@ -491,14 +469,14 @@ const DashboardPage = () => {
       </div>
 
       {/* ── Top 5 Sản phẩm bán chạy ── */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
               🔥 Top 5 Sản phẩm bán chạy nhất
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Xếp hạng theo số lượng đã bán</p>
+            <p className="text-xs text-slate-400 mt-0.5">Xếp hạng theo số lượng đã bán</p>
           </div>
         </div>
 
@@ -522,7 +500,7 @@ const DashboardPage = () => {
             <ErrorAlert message={errorTopProducts} onRetry={fetchTopProducts} />
           </div>
         ) : topProducts.length === 0 ? (
-          <div className="h-40 flex flex-col items-center justify-center text-slate-600 gap-2">
+          <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2">
             <Package className="w-8 h-8 opacity-40" />
             <p className="text-sm">Chưa có dữ liệu sản phẩm bán chạy</p>
           </div>
@@ -531,8 +509,8 @@ const DashboardPage = () => {
             <div className="min-w-[600px]">
             {/* Table Header */}
             <div className="hidden md:grid grid-cols-[2rem_2.5rem_1fr_auto_auto] items-center
-                            gap-4 px-5 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider
-                            border-b border-slate-700/30">
+                            gap-4 px-5 py-2.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider
+                            border-b border-slate-100">
               <span>#</span>
               <span />
               <span>Sản phẩm</span>
@@ -541,7 +519,7 @@ const DashboardPage = () => {
             </div>
 
             {/* Table Rows */}
-            <div className="divide-y divide-slate-700/30">
+            <div className="divide-y divide-slate-100">
               {topProducts.map((product, index) => {
                 const maxSold = topProducts[0]?.SoLuongDaBan || 1;
                 const barPct  = Math.round((product.SoLuongDaBan / maxSold) * 100);
@@ -550,7 +528,7 @@ const DashboardPage = () => {
                   <div
                     key={product.MaSanPham}
                     className="grid grid-cols-[2rem_2.5rem_1fr_auto_auto] items-center
-                               gap-4 px-5 py-3.5 hover:bg-slate-700/20 transition-colors duration-150
+                               gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors duration-150
                                group"
                   >
                     {/* Rank Badge */}
@@ -564,25 +542,25 @@ const DashboardPage = () => {
                       <img
                         src={product.Anh}
                         alt={product.TenSanPham}
-                        className="w-10 h-10 rounded-xl object-cover bg-slate-700 shrink-0
-                                   ring-1 ring-slate-700/60 group-hover:ring-slate-600/60 transition"
+                        className="w-10 h-10 rounded-xl object-cover bg-slate-100 shrink-0
+                                   ring-1 ring-slate-200 group-hover:ring-slate-300 transition"
                         onError={(e) => { e.target.style.display = 'none'; }}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center
-                                      justify-center shrink-0 ring-1 ring-slate-700/60">
-                        <Package className="w-4 h-4 text-slate-500" />
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center
+                                      justify-center shrink-0 ring-1 ring-slate-200">
+                        <Package className="w-4 h-4 text-slate-400" />
                       </div>
                     )}
 
                     {/* Name + Progress bar */}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-200 truncate
-                                    group-hover:text-white transition-colors">
+                      <p className="text-sm font-medium text-slate-700 truncate
+                                    group-hover:text-slate-900 transition-colors">
                         {product.TenSanPham}
                       </p>
                       {/* Progress bar */}
-                      <div className="mt-1.5 h-1 bg-slate-700/60 rounded-full overflow-hidden w-full max-w-xs">
+                      <div className="mt-1.5 h-1.5 bg-slate-100 rounded-full overflow-hidden w-full max-w-xs">
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{
@@ -592,7 +570,7 @@ const DashboardPage = () => {
                               : index === 1
                               ? 'linear-gradient(90deg, #94a3b8, #cbd5e1)'
                               : index === 2
-                              ? 'linear-gradient(90deg, #c2410c, #f97316)'
+                              ? 'linear-gradient(90deg, #ea580c, #f97316)'
                               : 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
                           }}
                         />
@@ -601,18 +579,18 @@ const DashboardPage = () => {
 
                     {/* Price */}
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-slate-200">
+                      <p className="text-sm font-semibold text-slate-700">
                         {formatVND(product.Gia)}
                       </p>
-                      <p className="text-[10px] text-slate-600 mt-0.5">Giá bán</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Giá bán</p>
                     </div>
 
                     {/* Sold count */}
                     <div className="text-right w-24 shrink-0">
-                      <p className="text-base font-bold text-slate-100">
+                      <p className="text-base font-bold text-slate-800">
                         {product.SoLuongDaBan?.toLocaleString('vi-VN')}
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">đã bán</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">đã bán</p>
                     </div>
                   </div>
                 );

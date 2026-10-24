@@ -226,11 +226,11 @@ const CreateImportPage = () => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto max-w-7xl mx-auto w-full">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/inventory')}
-            className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-700 hover:border-slate-600 transition-all shadow-sm"
+            className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
             title="Quay lại danh sách tồn kho"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -238,8 +238,8 @@ const CreateImportPage = () => {
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-100">Lập Phiếu Nhập Kho Mới</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <h1 className="text-xl font-bold text-slate-900">Lập Phiếu Nhập Kho Mới</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-600 border border-sky-200">
                 Nhập kho
               </span>
             </div>
@@ -254,7 +254,7 @@ const CreateImportPage = () => {
             type="button"
             onClick={() => navigate('/admin/inventory')}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700/80 text-xs font-semibold transition-all disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-50 text-xs font-semibold transition-all disabled:opacity-50 shadow-sm"
           >
             Hủy bỏ
           </button>
@@ -262,7 +262,7 @@ const CreateImportPage = () => {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || loadingData}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white font-semibold text-xs shadow-md shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <>
@@ -281,14 +281,14 @@ const CreateImportPage = () => {
 
       {/* ── Global Form Error Alert ── */}
       {formError && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-medium flex items-center justify-between gap-3 animate-fadeIn">
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-xs font-medium flex items-center justify-between gap-3 animate-fadeIn">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
             <span>{formError}</span>
           </div>
           <button
             onClick={() => setFormError(null)}
-            className="text-xs text-rose-400 hover:text-rose-200 underline"
+            className="text-xs text-rose-500 hover:text-rose-700 underline"
           >
             Đóng
           </button>
@@ -297,11 +297,11 @@ const CreateImportPage = () => {
 
       {/* ── Duplicate Warning Banner ── */}
       {duplicateProductIds.size > 0 && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs font-medium flex items-center gap-3 animate-fadeIn">
-          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-xs font-medium flex items-center gap-3 animate-fadeIn">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
           <div>
-            <p className="font-semibold text-amber-200">Cảnh báo trùng sản phẩm:</p>
-            <p className="text-amber-300/90 mt-0.5">
+            <p className="font-semibold text-amber-800">Cảnh báo trùng sản phẩm:</p>
+            <p className="text-amber-600 mt-0.5">
               Phát hiện sản phẩm được chọn trùng lặp ở nhiều dòng. Vui lòng kiểm tra và gộp số lượng trước khi xác nhận.
             </p>
           </div>
@@ -311,29 +311,29 @@ const CreateImportPage = () => {
       {/* ── Loading Skeleton ── */}
       {loadingData ? (
         <div className="space-y-6">
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 h-36 animate-pulse" />
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 h-72 animate-pulse" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 h-36 animate-pulse" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 h-72 animate-pulse" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* ── Card 1: Thông tin chung ── */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 space-y-4 shadow-xl backdrop-blur-sm">
-            <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-sky-400" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-sky-500" />
               Thông tin chung phiếu nhập
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Dropdown Nhà sản xuất */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">
                   Nhà sản xuất / Nhà cung cấp <span className="text-slate-400 font-normal">(Tùy chọn)</span>
                 </label>
                 <div className="relative">
                   <select
                     value={selectedManufacturer}
                     onChange={(e) => setSelectedManufacturer(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all appearance-none cursor-pointer"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 transition-all appearance-none cursor-pointer shadow-sm"
                   >
                     <option value="">-- Chọn Nhà sản xuất --</option>
                     {manufacturers.map((nsx) => (
@@ -350,7 +350,7 @@ const CreateImportPage = () => {
 
               {/* Ghi chú nhập kho */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">
                   Ghi chú nhập kho
                 </label>
                 <div className="relative">
@@ -359,20 +359,20 @@ const CreateImportPage = () => {
                     placeholder="Ví dụ: Nhập lô hàng iPhone 15 đợt 1 tháng 9/2026..."
                     value={ghiChu}
                     onChange={(e) => setGhiChu(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all placeholder-slate-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 transition-all placeholder-slate-400 shadow-sm"
                   />
-                  <FileText className="w-4 h-4 absolute right-3.5 top-3.5 text-slate-500" />
+                  <FileText className="w-4 h-4 absolute right-3.5 top-3.5 text-slate-400" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* ── Card 2: Bảng chi tiết sản phẩm nhập ── */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 space-y-4 shadow-xl backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                  <Boxes className="w-4 h-4 text-violet-400" />
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <Boxes className="w-4 h-4 text-violet-500" />
                   Danh sách sản phẩm nhập kho
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
@@ -383,7 +383,7 @@ const CreateImportPage = () => {
               <button
                 type="button"
                 onClick={handleAddRow}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 hover:border-sky-500/40 text-xs font-semibold transition-all active:scale-95"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-50 text-sky-600 border border-sky-200 hover:bg-sky-100 hover:border-sky-300 text-xs font-semibold transition-all active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 Thêm dòng sản phẩm
@@ -391,9 +391,9 @@ const CreateImportPage = () => {
             </div>
 
             {/* Desktop Table View */}
-            <div className="w-full overflow-x-auto rounded-xl border border-slate-700/60 bg-slate-900/60">
-              <table className="w-full text-left text-slate-200 border-collapse">
-                <thead className="bg-slate-900/90 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/60">
+            <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50">
+              <table className="w-full text-left text-slate-700 border-collapse">
+                <thead className="bg-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3.5 w-12 text-center">#</th>
                     <th className="px-4 py-3.5 min-w-[280px]">Sản phẩm nhập</th>
@@ -404,7 +404,7 @@ const CreateImportPage = () => {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-700/40 text-sm">
+                <tbody className="divide-y divide-slate-200 text-sm">
                   {importItems.map((item, index) => {
                     const selectedProd = productMap.get(String(item.MaSanPham));
                     const isDuplicate = duplicateProductIds.has(String(item.MaSanPham));
@@ -415,8 +415,8 @@ const CreateImportPage = () => {
                     return (
                       <tr
                         key={index}
-                        className={`transition-colors hover:bg-slate-800/40 ${
-                          isDuplicate ? 'bg-amber-500/5' : ''
+                        className={`transition-colors hover:bg-white ${
+                          isDuplicate ? 'bg-amber-50' : 'bg-white'
                         }`}
                       >
                         {/* STT */}
@@ -430,10 +430,10 @@ const CreateImportPage = () => {
                             <select
                               value={item.MaSanPham}
                               onChange={(e) => handleItemChange(index, 'MaSanPham', e.target.value)}
-                              className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none transition-all ${
+                              className={`w-full bg-white border rounded-xl px-3 py-2 text-slate-700 text-xs focus:outline-none transition-all shadow-sm ${
                                 isDuplicate
-                                  ? 'border-amber-500/80 text-amber-200 focus:border-amber-400'
-                                  : 'border-slate-700 focus:border-sky-500'
+                                  ? 'border-amber-400 text-amber-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20'
+                                  : 'border-slate-200 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20'
                               }`}
                             >
                               <option value="">-- Chọn sản phẩm --</option>
@@ -446,9 +446,9 @@ const CreateImportPage = () => {
 
                             {selectedProd && (
                               <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                                <span>Tồn hiện tại: <strong className="text-slate-200">{selectedProd.TonKho}</strong></span>
+                                <span>Tồn hiện tại: <strong className="text-slate-600">{selectedProd.TonKho}</strong></span>
                                 {isDuplicate && (
-                                  <span className="text-amber-400 font-semibold flex items-center gap-1">
+                                  <span className="text-amber-600 font-semibold flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3" /> Bị trùng
                                   </span>
                                 )}
@@ -464,7 +464,7 @@ const CreateImportPage = () => {
                             min="1"
                             value={item.SoLuongNhap}
                             onChange={(e) => handleItemChange(index, 'SoLuongNhap', e.target.value)}
-                            className="w-full text-center bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 font-medium text-xs focus:outline-none focus:border-sky-500"
+                            className="w-full text-center bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium text-xs focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 shadow-sm"
                             placeholder="Số lượng"
                           />
                         </td>
@@ -477,13 +477,13 @@ const CreateImportPage = () => {
                             step="1000"
                             value={item.DonGiaNhap}
                             onChange={(e) => handleItemChange(index, 'DonGiaNhap', e.target.value)}
-                            className="w-full text-right bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 font-medium text-xs focus:outline-none focus:border-sky-500"
+                            className="w-full text-right bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium text-xs focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 shadow-sm"
                             placeholder="0"
                           />
                         </td>
 
                         {/* Thành tiền tự động */}
-                        <td className="px-4 py-3.5 text-right font-semibold text-emerald-400">
+                        <td className="px-4 py-3.5 text-right font-semibold text-emerald-600">
                           {formatVND(rowSubtotal)}
                         </td>
 
@@ -493,7 +493,7 @@ const CreateImportPage = () => {
                             type="button"
                             onClick={() => handleRemoveRow(index)}
                             disabled={importItems.length === 1}
-                            className="p-2 min-w-[38px] min-h-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg disabled:opacity-20 disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                            className="p-2 min-w-[38px] min-h-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg disabled:opacity-20 disabled:hover:text-slate-400 transition-colors cursor-pointer"
                             title={importItems.length === 1 ? 'Phải giữ lại ít nhất 1 dòng' : 'Xóa dòng này'}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -507,16 +507,16 @@ const CreateImportPage = () => {
             </div>
 
             {/* ── Summary & Grand Total Banner ── */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-slate-900/90 border border-slate-700/60 rounded-2xl shadow-inner">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-slate-50 border border-slate-200 rounded-2xl">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-600">
                   <Calculator className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="text-xs uppercase font-bold text-slate-400 tracking-wider">
                     Tổng số lượng mặt hàng
                   </div>
-                  <div className="text-sm font-semibold text-slate-200 mt-0.5">
+                  <div className="text-sm font-semibold text-slate-700 mt-0.5">
                     {importItems.length} loại sản phẩm ({importItems.reduce((acc, cur) => acc + (Number(cur.SoLuongNhap) || 0), 0)} đơn vị)
                   </div>
                 </div>
@@ -526,7 +526,7 @@ const CreateImportPage = () => {
                 <div className="text-xs uppercase font-bold text-slate-400 tracking-wider">
                   Tổng tiền phiếu nhập kho
                 </div>
-                <div className="text-2xl font-extrabold text-emerald-400 tracking-tight mt-0.5">
+                <div className="text-2xl font-extrabold text-emerald-600 tracking-tight mt-0.5">
                   {formatVND(grandTotal)}
                 </div>
               </div>
@@ -539,14 +539,14 @@ const CreateImportPage = () => {
               type="button"
               onClick={() => navigate('/admin/inventory')}
               disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-800 text-xs font-semibold transition-all disabled:opacity-50 shadow-sm"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={isSubmitting || loadingData}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 hover:from-sky-400 hover:to-violet-500 text-white font-semibold text-xs shadow-md shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
             >
               {isSubmitting ? (
                 <>
