@@ -3,7 +3,7 @@ const { pool } = require('../../../config/db');
 /**
  * 1. GET /api/v1/cart
  * Lấy danh sách sản phẩm trong giỏ của người dùng từ bảng giohang
- * (Kèm TenSanPham, Gia, Anh, DungLuong, MauSac, TonKho).
+ * (Kèm TenSanPham, Gia, Anh, DungLuong, MauSac từ giohang, TonKho).
  */
 const getCart = async (req, res, next) => {
   try {
@@ -15,11 +15,11 @@ const getCart = async (req, res, next) => {
         g.MaNguoiDung,
         g.MaSanPham,
         g.SoLuong,
+        g.DungLuong,
+        g.MauSac,
         s.TenSanPham,
         s.Gia,
         s.Anh,
-        s.DungLuong,
-        s.MauSac,
         s.TonKho,
         s.TrangThai
       FROM giohang g
@@ -38,8 +38,8 @@ const getCart = async (req, res, next) => {
       TenSanPham: item.TenSanPham,
       Gia: Number(item.Gia),
       Anh: item.Anh,
-      DungLuong: item.DungLuong,
-      MauSac: item.MauSac,
+      DungLuong: item.DungLuong || null,
+      MauSac: item.MauSac || null,
       TonKho: Number(item.TonKho),
       TrangThai: item.TrangThai
     }));
@@ -56,14 +56,16 @@ const getCart = async (req, res, next) => {
 
 /**
  * 2. POST /api/v1/cart/items
- * Thêm sản phẩm vào giỏ hàng. Nếu đã tồn tại thì cộng dồn SoLuong (không vượt TonKho).
- * Body parameters: { MaSanPham, SoLuong } (hoặc { product_id, quantity })
+ * Thêm sản phẩm vào giỏ hàng. Nếu đã tồn tại (cùng MaSanPham + DungLuong + MauSac) thì cộng dồn SoLuong.
+ * Body parameters: { MaSanPham, SoLuong, DungLuong, MauSac } (hoặc { product_id, quantity })
  */
 const addToCart = async (req, res, next) => {
   try {
     const { MaNguoiDung } = req.user;
     const rawMaSanPham = req.body.MaSanPham || req.body.product_id;
     const rawSoLuong = req.body.SoLuong ?? req.body.quantity ?? 1;
+    const DungLuong = req.body.DungLuong || null;
+    const MauSac = req.body.MauSac || null;
 
     const MaSanPham = parseInt(rawMaSanPham, 10);
     const addSoLuong = parseInt(rawSoLuong, 10);
@@ -112,14 +114,28 @@ const addToCart = async (req, res, next) => {
       });
     }
 
-    // 2. Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
-    const [cartRows] = await pool.query(
-      'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?',
-      [MaNguoiDung, MaSanPham]
-    );
+    // 2. Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa (khớp cả DungLuong + MauSac)
+    let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?';
+    const cartCheckParams = [MaNguoiDung, MaSanPham];
+
+    if (DungLuong !== null) {
+      cartCheckSql += ' AND DungLuong = ?';
+      cartCheckParams.push(DungLuong);
+    } else {
+      cartCheckSql += ' AND (DungLuong IS NULL OR DungLuong = "")';
+    }
+
+    if (MauSac !== null) {
+      cartCheckSql += ' AND MauSac = ?';
+      cartCheckParams.push(MauSac);
+    } else {
+      cartCheckSql += ' AND (MauSac IS NULL OR MauSac = "")';
+    }
+
+    const [cartRows] = await pool.query(cartCheckSql, cartCheckParams);
 
     if (cartRows.length > 0) {
-      // Đã có trong giỏ -> Cộng dồn số lượng
+      // Đã có trong giỏ (cùng variant) -> Cộng dồn số lượng
       const currentQty = Number(cartRows[0].SoLuong);
       const newQty = currentQty + addSoLuong;
 
@@ -142,11 +158,13 @@ const addToCart = async (req, res, next) => {
           MaGioHang: cartRows[0].MaGioHang,
           MaSanPham,
           SoLuong: newQty,
+          DungLuong,
+          MauSac,
           TonKho: tonKho
         }
       });
     } else {
-      // Chưa có trong giỏ -> Thêm mới dòng sản phẩm
+      // Chưa có trong giỏ (hoặc variant khác) -> Thêm mới dòng sản phẩm
       if (addSoLuong > tonKho) {
         return res.status(400).json({
           success: false,
@@ -155,8 +173,8 @@ const addToCart = async (req, res, next) => {
       }
 
       const [insertResult] = await pool.query(
-        'INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong) VALUES (?, ?, ?)',
-        [MaNguoiDung, MaSanPham, addSoLuong]
+        'INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?)',
+        [MaNguoiDung, MaSanPham, addSoLuong, DungLuong, MauSac]
       );
 
       return res.status(201).json({
@@ -166,6 +184,8 @@ const addToCart = async (req, res, next) => {
           MaGioHang: insertResult.insertId,
           MaSanPham,
           SoLuong: addSoLuong,
+          DungLuong,
+          MauSac,
           TonKho: tonKho
         }
       });

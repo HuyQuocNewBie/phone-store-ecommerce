@@ -166,31 +166,37 @@ const createOrder = async (req, res, next) => {
       // Hỗ trợ Mua ngay hoặc truyền trực tiếp danh sách items
       itemsToProcess = rawItems.map((item) => ({
         MaSanPham: parseInt(item.MaSanPham || item.product_id, 10),
-        SoLuong: parseInt(item.SoLuong || item.quantity, 10)
+        SoLuong: parseInt(item.SoLuong || item.quantity, 10),
+        DungLuong: item.DungLuong || null,
+        MauSac: item.MauSac || null
       }));
     } else if (Array.isArray(cart_item_ids) && cart_item_ids.length > 0) {
       // Lấy danh sách sản phẩm từ bảng giohang theo cart_item_ids
       const validCartIds = cart_item_ids.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
       if (validCartIds.length > 0) {
         const [cartRows] = await connection.query(
-          `SELECT MaGioHang, MaSanPham, SoLuong FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
+          `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
           [validCartIds, MaNguoiDung]
         );
         itemsToProcess = cartRows.map((r) => ({
           MaSanPham: r.MaSanPham,
           SoLuong: r.SoLuong,
+          DungLuong: r.DungLuong || null,
+          MauSac: r.MauSac || null,
           MaGioHang: r.MaGioHang
         }));
       }
     } else {
       // Nếu không truyền items lẫn cart_item_ids, tự động lấy toàn bộ sản phẩm trong giỏ hàng của user
       const [cartRows] = await connection.query(
-        `SELECT MaGioHang, MaSanPham, SoLuong FROM giohang WHERE MaNguoiDung = ?`,
+        `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ?`,
         [MaNguoiDung]
       );
       itemsToProcess = cartRows.map((r) => ({
         MaSanPham: r.MaSanPham,
         SoLuong: r.SoLuong,
+        DungLuong: r.DungLuong || null,
+        MauSac: r.MauSac || null,
         MaGioHang: r.MaGioHang
       }));
     }
@@ -269,8 +275,8 @@ const createOrder = async (req, res, next) => {
       orderItemsDetails.push({
         MaSanPham: item.MaSanPham,
         TenSanPham: product.TenSanPham,
-        DungLuong: product.DungLuong,
-        MauSac: product.MauSac,
+        DungLuong: item.DungLuong !== undefined ? item.DungLuong : (product.DungLuong || null),
+        MauSac: item.MauSac !== undefined ? item.MauSac : (product.MauSac || null),
         SoLuong: item.SoLuong,
         DonGia: dbGia,
         TongGia: itemSubtotal,
@@ -368,11 +374,11 @@ const createOrder = async (req, res, next) => {
 
     const maDonHang = donHangResult.insertId;
 
-    // 6. Thêm bản ghi vào `chitietdonhang`
+    // 6. Thêm bản ghi vào `chitietdonhang` (bao gồm DungLuong và MauSac được copy từ giỏ hàng)
     for (const item of orderItemsDetails) {
       await connection.query(
-        `INSERT INTO chitietdonhang (MaDonHang, MaSanPham, SoLuong, DonGia) VALUES (?, ?, ?, ?)`,
-        [maDonHang, item.MaSanPham, item.SoLuong, item.DonGia]
+        `INSERT INTO chitietdonhang (MaDonHang, MaSanPham, SoLuong, DonGia, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?, ?)`,
+        [maDonHang, item.MaSanPham, item.SoLuong, item.DonGia, item.DungLuong, item.MauSac]
       );
     }
 
@@ -627,11 +633,11 @@ const getUserOrders = async (req, res, next) => {
          ct.MaSanPham,
          ct.SoLuong,
          ct.DonGia,
+         ct.DungLuong,
+         ct.MauSac,
          (ct.SoLuong * ct.DonGia) AS TongGia,
          sp.TenSanPham,
          sp.Anh,
-         sp.DungLuong,
-         sp.MauSac,
          sp.TrangThai AS TrangThaiSanPham,
          sp.TonKho
        FROM chitietdonhang ct
