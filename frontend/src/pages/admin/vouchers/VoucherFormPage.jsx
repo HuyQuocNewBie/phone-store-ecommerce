@@ -14,7 +14,6 @@ import {
   X,
   Layers,
   Sparkles,
-  ShieldAlert,
   Clock,
   Hash
 } from 'lucide-react';
@@ -54,7 +53,7 @@ const formatDateDisplay = (dateStr) => {
 
 /**
  * VoucherFormPage
- * Trang riêng biệt Thêm mới / Chỉnh sửa Mã giảm giá (Voucher)
+ * Trang riêng biệt Thêm mới / Chỉnh sửa Mã giảm giá (Voucher) - Light Theme
  */
 const VoucherFormPage = () => {
   const navigate = useNavigate();
@@ -146,55 +145,54 @@ const VoucherFormPage = () => {
     fetchVoucherDetail();
   }, [id, isEditMode]);
 
-  // Handler back button
-  const handleBackNavigation = () => {
-    if (isDirty && !isSubmitting) {
-      setShowExitConfirm(true);
-    } else {
-      navigate('/admin/vouchers');
-    }
-  };
-
-  // Validate form fields directly
+  // Validate form
   const validateForm = () => {
     const newErrors = {};
 
-    // 1. Mã Code
-    const trimmedCode = code.trim();
+    // 1. Validate Code
+    const trimmedCode = code.trim().toUpperCase();
     if (!trimmedCode) {
-      newErrors.code = 'Mã giảm giá (Code) không được để trống';
-    } else if (/\s/.test(trimmedCode)) {
-      newErrors.code = 'Mã giảm giá không được chứa khoảng trắng';
+      newErrors.code = 'Mã giảm giá không được để trống';
+    } else if (trimmedCode.length < 3) {
+      newErrors.code = 'Mã code phải có ít nhất 3 ký tự';
+    } else if (!/^[A-Z0-9_-]+$/.test(trimmedCode)) {
+      newErrors.code = 'Mã code chỉ được chứa chữ cái, chữ số, dấu gạch nối (-) hoặc (_)';
     }
 
-    // 2. Giá trị giảm
+    // 2. Validate GiaTriGiam
     const numGiaTriGiam = Number(giaTriGiam);
-    if (!giaTriGiam || isNaN(numGiaTriGiam) || numGiaTriGiam <= 0) {
-      newErrors.giaTriGiam = 'Giá trị giảm phải là số lớn hơn 0 (VNĐ)';
+    if (!giaTriGiam || isNaN(numGiaTriGiam)) {
+      newErrors.giaTriGiam = 'Vui lòng nhập giá trị giảm hợp lệ';
+    } else if (numGiaTriGiam <= 0) {
+      newErrors.giaTriGiam = 'Giá trị giảm phải lớn hơn 0 ₫';
     }
 
-    // 3. Đơn hàng tối thiểu
+    // 3. Validate GiaTriToiThieu
     const numGiaTriToiThieu = Number(giaTriToiThieu);
-    if (!giaTriToiThieu || isNaN(numGiaTriToiThieu) || numGiaTriToiThieu <= 0) {
-      newErrors.giaTriToiThieu = 'Giá trị đơn hàng tối thiểu phải là số lớn hơn 0 (VNĐ)';
-    } else if (numGiaTriGiam && numGiaTriGiam > numGiaTriToiThieu) {
-      newErrors.giaTriGiam = 'Giá trị giảm không được lớn hơn giá trị đơn hàng tối thiểu';
+    if (!giaTriToiThieu || isNaN(numGiaTriToiThieu)) {
+      newErrors.giaTriToiThieu = 'Vui lòng nhập giá trị đơn hàng tối thiểu';
+    } else if (numGiaTriToiThieu <= 0) {
+      newErrors.giaTriToiThieu = 'Đơn tối thiểu phải lớn hơn 0 ₫';
+    } else if (numGiaTriGiam && numGiaTriToiThieu < numGiaTriGiam) {
+      newErrors.giaTriToiThieu = 'Đơn tối thiểu phải lớn hơn hoặc bằng giá trị giảm';
     }
 
-    // 4. Số lượng
+    // 4. Validate SoLuong
     const numSoLuong = Number(soLuong);
-    if (!soLuong || isNaN(numSoLuong) || !Number.isInteger(numSoLuong) || numSoLuong <= 0) {
-      newErrors.soLuong = 'Số lượng phát hành phải là số nguyên lớn hơn 0';
+    if (!soLuong || isNaN(numSoLuong)) {
+      newErrors.soLuong = 'Vui lòng nhập số lượng phát hành';
+    } else if (!Number.isInteger(numSoLuong) || numSoLuong <= 0) {
+      newErrors.soLuong = 'Số lượng phải là số nguyên dương (> 0)';
     }
 
-    // 5. Ngày hết hạn
+    // 5. Validate NgayHetHan
     if (!ngayHetHan) {
-      newErrors.ngayHetHan = 'Ngày hết hạn không được để trống';
+      newErrors.ngayHetHan = 'Vui lòng chọn ngày giờ hết hạn';
     } else {
-      const expireDateObj = new Date(ngayHetHan);
-      if (isNaN(expireDateObj.getTime())) {
-        newErrors.ngayHetHan = 'Ngày hết hạn không hợp lệ';
-      } else if (expireDateObj <= new Date()) {
+      const expDate = new Date(ngayHetHan);
+      if (isNaN(expDate.getTime())) {
+        newErrors.ngayHetHan = 'Thời gian hết hạn không hợp lệ';
+      } else if (!isEditMode && expDate <= new Date()) {
         newErrors.ngayHetHan = 'Ngày hết hạn phải lớn hơn thời điểm hiện tại';
       }
     }
@@ -206,21 +204,19 @@ const VoucherFormPage = () => {
   // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validateForm()) {
-      toast.error('Vui lòng kiểm tra lại thông tin trên biểu mẫu', { id: 'voucher-validate-err' });
+      toast.error('Vui lòng kiểm tra lại các trường thông tin lỗi!', { id: 'validate-err' });
       return;
     }
 
-    const trimmedCode = code.trim().toUpperCase();
-    const expireDateObj = new Date(ngayHetHan);
-
     const payload = {
-      Code: trimmedCode,
+      Code: code.trim().toUpperCase(),
       GiaTriGiam: Number(giaTriGiam),
       LoaiGiam: loaiGiam,
       GiaTriToiThieu: Number(giaTriToiThieu),
       SoLuong: Number(soLuong),
-      NgayHetHan: expireDateObj.toISOString(),
+      NgayHetHan: ngayHetHan,
       TrangThai: Number(trangThai)
     };
 
@@ -230,16 +226,16 @@ const VoucherFormPage = () => {
 
       if (isEditMode) {
         const res = await api.put(`/admin/vouchers/${id}`, payload);
-        toast.success(res.data.message || 'Cập nhật mã giảm giá thành công!', { id: 'voucher-save-success' });
+        toast.success(res.data?.message || 'Cập nhật mã giảm giá thành công!', { id: `voucher-update-${id}` });
       } else {
         const res = await api.post('/admin/vouchers', payload);
-        toast.success(res.data.message || 'Thêm mã giảm giá mới thành công!', { id: 'voucher-save-success' });
+        toast.success(res.data?.message || 'Thêm mã giảm giá thành công!', { id: 'voucher-create' });
       }
 
       setIsDirty(false);
       navigate('/admin/vouchers');
     } catch (err) {
-      console.error('Lỗi khi lưu mã giảm giá:', err);
+      console.error('Lỗi khi lưu voucher:', err);
       const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu mã giảm giá.';
       setSubmitError(msg);
       toast.error(msg, { id: 'voucher-save-error' });
@@ -248,25 +244,34 @@ const VoucherFormPage = () => {
     }
   };
 
+  // Nút Quay lại có cảnh báo dữ liệu bẩn
+  const handleBackClick = () => {
+    if (isDirty) {
+      setShowExitConfirm(true);
+    } else {
+      navigate('/admin/vouchers');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto flex flex-col items-center justify-center py-24 text-slate-400 space-y-4">
-        <RefreshCw className="w-10 h-10 animate-spin text-sky-400" />
-        <p className="text-sm font-medium">Đang tải thông tin mã giảm giá...</p>
+      <div className="p-6 max-w-4xl mx-auto flex flex-col items-center justify-center py-24 text-slate-400 space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin text-sky-600" />
+        <p className="text-sm font-medium text-slate-600">Đang tải thông tin mã giảm giá...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
 
-      {/* ── Top Header Navigation ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      {/* ── Top Header Navigation Bar (Tông sáng) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={handleBackNavigation}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-2 text-sm font-medium"
+            onClick={handleBackClick}
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-all flex items-center gap-2 text-sm font-semibold shadow-2xs"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -274,14 +279,14 @@ const VoucherFormPage = () => {
           </button>
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
-              <TicketPercent className="w-7 h-7 text-sky-400" />
-              {isEditMode ? `Chỉnh sửa mã giảm giá #${code || id}` : 'Thêm mã giảm giá mới'}
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+              <TicketPercent className="w-7 h-7 text-sky-600" />
+              {isEditMode ? `Chỉnh sửa Voucher #${id}` : 'Thêm Mã Giảm Giá Mới'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               {isEditMode
-                ? 'Thay đổi thông tin, hạn sử dụng hoặc giá trị áp dụng của voucher'
-                : 'Thiết lập mã code mới, giá trị giảm giá và thời gian áp dụng'}
+                ? 'Cập nhật lại giá trị mức giảm, số lượng hoặc gia hạn ngày kết thúc'
+                : 'Tạo mã voucher mới cho khách hàng áp dụng tại trang thanh toán'}
             </p>
           </div>
         </div>
@@ -289,9 +294,9 @@ const VoucherFormPage = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleBackNavigation}
+            onClick={handleBackClick}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-colors disabled:opacity-50"
           >
             Hủy bỏ
           </button>
@@ -310,7 +315,7 @@ const VoucherFormPage = () => {
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>{isEditMode ? 'Cập nhật mã' : 'Lưu mã mới'}</span>
+                <span>{isEditMode ? 'Cập nhật voucher' : 'Tạo voucher mới'}</span>
               </>
             )}
           </button>
@@ -319,30 +324,30 @@ const VoucherFormPage = () => {
 
       {/* ── Submit Error Banner ── */}
       {submitError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 shadow-lg">
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <p className="text-sm font-medium">{submitError}</p>
           <button
             type="button"
             onClick={() => setSubmitError(null)}
-            className="ml-auto text-slate-400 hover:text-white"
+            className="ml-auto text-slate-400 hover:text-slate-600"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* ── Main Form Form ── */}
+      {/* ── Main Form Form (Tông sáng) ── */}
       <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* ── CARD 1: Thông tin mã ── */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-              <Tag className="w-4 h-4 text-sky-400" />
-              Card 1: Thông tin mã giảm giá
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Tag className="w-4 h-4 text-sky-600" />
+              Thông tin mã giảm giá
             </h2>
-            <span className="text-xs text-sky-400/80 bg-sky-500/10 px-2.5 py-1 rounded-lg font-medium border border-sky-500/20">
+            <span className="text-xs text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg font-semibold border border-sky-200">
               Cơ bản
             </span>
           </div>
@@ -350,12 +355,12 @@ const VoucherFormPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Mã Code */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Mã Code (Voucher) <span className="text-rose-500">*</span>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Mã Code Voucher <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Hash className="w-4 h-4 text-amber-400" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Hash className="w-4 h-4 text-sky-600" />
                 </div>
                 <input
                   type="text"
@@ -366,31 +371,31 @@ const VoucherFormPage = () => {
                     if (errors.code) setErrors((prev) => ({ ...prev, code: null }));
                     markDirty();
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.code
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-amber-400 text-sm font-bold tracking-wider placeholder-slate-600 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-sky-700 text-sm font-bold tracking-wider placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-xs`}
                 />
               </div>
               {errors.code ? (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
                   {errors.code}
                 </p>
               ) : (
-                <p className="text-[11px] text-slate-500 mt-1">Viết hoa tự động, không chứa khoảng trắng</p>
+                <p className="text-[11px] text-slate-400 mt-1">Viết hoa tự động, không chứa khoảng trắng</p>
               )}
             </div>
 
             {/* Số lượng */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Số lượng phát hành <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Layers className="w-4 h-4 text-sky-400" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Layers className="w-4 h-4 text-sky-600" />
                 </div>
                 <input
                   type="number"
@@ -402,15 +407,15 @@ const VoucherFormPage = () => {
                     if (errors.soLuong) setErrors((prev) => ({ ...prev, soLuong: null }));
                     markDirty();
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.soLuong
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-slate-100 text-sm font-semibold placeholder-slate-600 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-slate-800 text-sm font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-xs`}
                 />
               </div>
               {errors.soLuong && (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
                   {errors.soLuong}
                 </p>
@@ -420,7 +425,7 @@ const VoucherFormPage = () => {
 
           {/* Trạng thái Bật/Tắt */}
           <div className="pt-2">
-            <label className="block text-xs font-semibold text-slate-300 mb-2">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
               Trạng thái áp dụng
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
@@ -429,10 +434,10 @@ const VoucherFormPage = () => {
                   setTrangThai(1);
                   markDirty();
                 }}
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                   Number(trangThai) === 1
-                    ? 'bg-sky-500/10 border-sky-500/50 text-sky-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 shadow-xs ring-1 ring-emerald-300'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/50'
                 }`}
               >
                 <input
@@ -443,12 +448,12 @@ const VoucherFormPage = () => {
                   className="hidden"
                 />
                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  Number(trangThai) === 1 ? 'border-sky-400 bg-sky-500' : 'border-slate-600'
+                  Number(trangThai) === 1 ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300'
                 }`}>
                   {Number(trangThai) === 1 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
-                  <span className="block text-xs font-bold">Bật (Kích hoạt ngay)</span>
+                  <span className="block text-xs font-bold text-slate-800">Bật (Kích hoạt ngay)</span>
                   <span className="block text-[11px] text-slate-500">Khách hàng có thể sử dụng mã ngay lập tức</span>
                 </div>
               </label>
@@ -458,10 +463,10 @@ const VoucherFormPage = () => {
                   setTrangThai(0);
                   markDirty();
                 }}
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
                   Number(trangThai) === 0
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-amber-50/80 border-amber-300 text-amber-900 shadow-xs ring-1 ring-amber-300'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/50'
                 }`}
               >
                 <input
@@ -472,12 +477,12 @@ const VoucherFormPage = () => {
                   className="hidden"
                 />
                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  Number(trangThai) === 0 ? 'border-amber-400 bg-amber-500' : 'border-slate-600'
+                  Number(trangThai) === 0 ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-300'
                 }`}>
                   {Number(trangThai) === 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
-                  <span className="block text-xs font-bold">Tắt (Tạm ẩn)</span>
+                  <span className="block text-xs font-bold text-slate-800">Tắt (Tạm ẩn)</span>
                   <span className="block text-[11px] text-slate-500">Mã chưa sẵn sàng cho khách áp dụng</span>
                 </div>
               </label>
@@ -486,13 +491,13 @@ const VoucherFormPage = () => {
         </div>
 
         {/* ── CARD 2: Điều kiện giảm giá ── */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-              Card 2: Điều kiện giảm giá (VNĐ)
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-600" />
+              Điều kiện & Mức giảm giá (VNĐ)
             </h2>
-            <span className="text-xs text-emerald-400/80 bg-emerald-500/10 px-2.5 py-1 rounded-lg font-medium border border-emerald-500/20">
+            <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200">
               Giá trị
             </span>
           </div>
@@ -500,12 +505,12 @@ const VoucherFormPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Số tiền giảm VND */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Giá trị giảm (VNĐ) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
                 </div>
                 <input
                   type="number"
@@ -518,22 +523,22 @@ const VoucherFormPage = () => {
                     if (errors.giaTriGiam) setErrors((prev) => ({ ...prev, giaTriGiam: null }));
                     markDirty();
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.giaTriGiam
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-emerald-400 text-sm font-bold placeholder-slate-600 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-emerald-600 text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-xs`}
                 />
               </div>
               {errors.giaTriGiam ? (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.giaTriGiam}
                 </p>
               ) : (
                 giaTriGiam && !isNaN(Number(giaTriGiam)) && Number(giaTriGiam) > 0 && (
-                  <p className="text-[11px] text-emerald-400 font-medium mt-1">
-                    Bằng chữ / định dạng: <span className="font-bold">{formatVND(Number(giaTriGiam))}</span>
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    Định dạng: <span className="font-bold">{formatVND(Number(giaTriGiam))}</span>
                   </p>
                 )
               )}
@@ -541,11 +546,11 @@ const VoucherFormPage = () => {
 
             {/* Đơn tối thiểu VND */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Đơn hàng tối thiểu (VNĐ) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <DollarSign className="w-4 h-4 text-slate-400" />
                 </div>
                 <input
@@ -559,22 +564,22 @@ const VoucherFormPage = () => {
                     if (errors.giaTriToiThieu) setErrors((prev) => ({ ...prev, giaTriToiThieu: null }));
                     markDirty();
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.giaTriToiThieu
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-slate-100 text-sm font-semibold placeholder-slate-600 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-slate-800 text-sm font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-xs`}
                 />
               </div>
               {errors.giaTriToiThieu ? (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.giaTriToiThieu}
                 </p>
               ) : (
                 giaTriToiThieu && !isNaN(Number(giaTriToiThieu)) && Number(giaTriToiThieu) > 0 && (
-                  <p className="text-[11px] text-slate-400 font-medium mt-1">
-                    Bằng chữ / định dạng: <span className="font-bold">{formatVND(Number(giaTriToiThieu))}</span>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1">
+                    Định dạng: <span className="font-bold text-slate-700">{formatVND(Number(giaTriToiThieu))}</span>
                   </p>
                 )
               )}
@@ -583,24 +588,24 @@ const VoucherFormPage = () => {
         </div>
 
         {/* ── CARD 3: Thời gian áp dụng ── */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-violet-400" />
-              Card 3: Thời gian áp dụng
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-purple-600" />
+              Thời gian áp dụng
             </h2>
-            <span className="text-xs text-violet-400/80 bg-violet-500/10 px-2.5 py-1 rounded-lg font-medium border border-violet-500/20">
+            <span className="text-xs text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg font-semibold border border-purple-200">
               Thời hạn
             </span>
           </div>
 
           <div className="max-w-md">
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Ngày giờ hết hạn <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                <Clock className="w-4 h-4 text-violet-400" />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Clock className="w-4 h-4 text-purple-600" />
               </div>
               <input
                 type="datetime-local"
@@ -610,22 +615,22 @@ const VoucherFormPage = () => {
                   if (errors.ngayHetHan) setErrors((prev) => ({ ...prev, ngayHetHan: null }));
                   markDirty();
                 }}
-                className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                   errors.ngayHetHan
-                    ? 'border-rose-500/80 focus:ring-rose-500/20'
-                    : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                } rounded-xl text-slate-100 text-xs font-semibold focus:outline-none focus:ring-2 transition-all`}
+                    ? 'border-rose-400 focus:ring-rose-500/20'
+                    : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                } rounded-xl text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 transition-all shadow-xs`}
               />
             </div>
             {errors.ngayHetHan ? (
-              <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+              <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {errors.ngayHetHan}
               </p>
             ) : (
               ngayHetHan && (
-                <p className="text-[11px] text-violet-300 font-medium mt-1 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-violet-400" />
+                <p className="text-[11px] text-purple-700 font-medium mt-1.5 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                   Mã sẽ hết hiệu lực vào: <span className="font-bold">{formatDateDisplay(ngayHetHan)}</span>
                 </p>
               )
@@ -634,21 +639,21 @@ const VoucherFormPage = () => {
         </div>
       </form>
 
-      {/* ── Confirmation Modal: Unsaved Changes Guard ── */}
+      {/* ── Confirmation Modal: Unsaved Changes Guard (Tông sáng) ── */}
       {showExitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-100">Xác nhận rời khỏi trang</h3>
-                <p className="text-xs text-slate-400">Dữ liệu vừa nhập chưa được lưu</p>
+                <h3 className="text-lg font-bold text-slate-800">Xác nhận rời khỏi trang</h3>
+                <p className="text-xs text-slate-500">Dữ liệu vừa nhập chưa được lưu</p>
               </div>
             </div>
 
-            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-300">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-600">
               Bạn có chắc chắn muốn rời khỏi trang không? Mọi thay đổi chưa lưu sẽ bị mất hoàn toàn.
             </div>
 
@@ -656,7 +661,7 @@ const VoucherFormPage = () => {
               <button
                 type="button"
                 onClick={() => setShowExitConfirm(false)}
-                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-semibold transition-colors"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors"
               >
                 Tiếp tục chỉnh sửa
               </button>

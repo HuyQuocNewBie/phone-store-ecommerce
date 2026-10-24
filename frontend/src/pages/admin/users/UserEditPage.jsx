@@ -22,7 +22,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 /**
  * UserEditPage
- * Trang chuyên dụng Chỉnh sửa thông tin & Phân quyền Người dùng
+ * Trang chuyên dụng Chỉnh sửa thông tin & Phân quyền Người dùng (Light Theme)
  */
 const UserEditPage = () => {
   const navigate = useNavigate();
@@ -143,7 +143,7 @@ const UserEditPage = () => {
       setSubmitError(null);
 
       const res = await api.put(`/admin/users/${id}`, payload);
-      toast.success(res.data.message || 'Cập nhật thông tin người dùng thành công!', {
+      toast.success(res.data?.message || 'Cập nhật thông tin người dùng thành công!', {
         id: `user-update-success-${id}`
       });
 
@@ -161,21 +161,22 @@ const UserEditPage = () => {
   if (loading) {
     return (
       <div className="p-6 max-w-5xl mx-auto flex flex-col items-center justify-center py-24 text-slate-400 space-y-4">
-        <RefreshCw className="w-10 h-10 animate-spin text-sky-400" />
-        <p className="text-sm font-medium">Đang tải thông tin người dùng #{id}...</p>
+        <RefreshCw className="w-10 h-10 animate-spin text-sky-600" />
+        <p className="text-sm font-medium text-slate-600">Đang tải thông tin người dùng #{id}...</p>
       </div>
     );
   }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* ── Header Navigation Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+
+      {/* ── Header Navigation Bar (Tông sáng) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => navigate('/admin/users')}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-2 text-sm font-medium"
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-all flex items-center gap-2 text-sm font-semibold shadow-2xs"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -183,11 +184,11 @@ const UserEditPage = () => {
           </button>
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
-              <Users className="w-7 h-7 text-sky-400" />
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+              <Users className="w-7 h-7 text-sky-600" />
               Chỉnh sửa người dùng #{id}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Cập nhật thông tin cá nhân, liên hệ và phân quyền tài khoản
             </p>
           </div>
@@ -198,7 +199,7 @@ const UserEditPage = () => {
             type="button"
             onClick={() => navigate('/admin/users')}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-colors disabled:opacity-50"
           >
             Hủy bỏ
           </button>
@@ -226,50 +227,50 @@ const UserEditPage = () => {
 
       {/* ── Submit Error Banner ── */}
       {submitError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 shadow-lg">
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <p className="text-sm font-medium">{submitError}</p>
           <button
             type="button"
             onClick={() => setSubmitError(null)}
-            className="ml-auto text-slate-400 hover:text-white"
+            className="ml-auto text-slate-400 hover:text-slate-600"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* ── Main Layout: Grid 2 cột ── */}
+      {/* ── Main Layout: Grid 2 cột (Tông sáng) ── */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* ── CỘT BÊN TRÁI: Avatar & Thông tin cố định (1 Cột) ── */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col items-center text-center">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
             {/* Avatar Circle */}
             <div className="relative mb-4">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-sky-500 via-indigo-500 to-violet-600 p-1 shadow-xl">
-                <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-3xl font-extrabold text-white">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-sky-500 via-indigo-500 to-violet-600 p-1 shadow-md">
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-3xl font-extrabold text-sky-600">
                   {(taiKhoan?.[0] || 'U').toUpperCase()}
                 </div>
               </div>
-              <span className="absolute bottom-0 right-0 p-1.5 bg-slate-900 border border-slate-700 rounded-full text-sky-400">
+              <span className="absolute bottom-0 right-0 p-1.5 bg-white border border-slate-200 rounded-full text-sky-600 shadow-sm">
                 <User className="w-4 h-4" />
               </span>
             </div>
 
             {/* Thông tin cố định */}
-            <h2 className="text-lg font-bold text-slate-100">{userData?.TaiKhoan || taiKhoan}</h2>
+            <h2 className="text-lg font-bold text-slate-800">{userData?.TaiKhoan || taiKhoan}</h2>
             <p className="text-xs text-slate-400 mt-0.5 mb-3 font-mono">ID: #{id}</p>
 
             {/* Role Badge */}
             <div className="mb-4">
               {Number(maVaiTro) === 1 ? (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
                   <Shield className="w-4 h-4" />
                   Quản trị viên (Admin)
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs">
                   <UserCheck className="w-4 h-4" />
                   Khách hàng (User)
                 </span>
@@ -277,33 +278,33 @@ const UserEditPage = () => {
             </div>
 
             {isSelf && (
-              <div className="w-full p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs font-medium flex items-center justify-center gap-2">
-                <Shield className="w-4 h-4 shrink-0" />
+              <div className="w-full p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-xs font-medium flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 shrink-0 text-sky-600" />
                 <span>Đây là tài khoản đang đăng nhập của bạn</span>
               </div>
             )}
 
             {/* Thông tin cố định khác */}
-            <div className="w-full mt-6 pt-6 border-t border-slate-800/80 space-y-3 text-left">
+            <div className="w-full mt-6 pt-6 border-t border-slate-100 space-y-3 text-left">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-slate-500 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
                   Mật khẩu:
                 </span>
-                <span className="text-slate-400 italic">Được bảo mật</span>
+                <span className="text-slate-400 italic font-medium">Được mã hóa an toàn</span>
               </div>
 
               {userData?.GioiTinh && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Giới tính:</span>
-                  <span className="text-slate-200 font-medium">{userData.GioiTinh}</span>
+                  <span className="text-slate-500">Giới tính:</span>
+                  <span className="text-slate-700 font-semibold">{userData.GioiTinh}</span>
                 </div>
               )}
 
               {userData?.NgaySinh && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Ngày sinh:</span>
-                  <span className="text-slate-200 font-medium">
+                  <span className="text-slate-500">Ngày sinh:</span>
+                  <span className="text-slate-700 font-semibold">
                     {new Date(userData.NgaySinh).toLocaleDateString('vi-VN')}
                   </span>
                 </div>
@@ -316,13 +317,13 @@ const UserEditPage = () => {
         <div className="lg:col-span-2 space-y-6">
 
           {/* Card 1: Thông tin cá nhân & Liên hệ */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                <User className="w-4 h-4 text-sky-400" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <User className="w-4 h-4 text-sky-600" />
                 Thông tin cá nhân & Liên hệ
               </h2>
-              <span className="text-xs text-sky-400/80 bg-sky-500/10 px-2.5 py-1 rounded-lg font-medium border border-sky-500/20">
+              <span className="text-xs text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg font-semibold border border-sky-200">
                 Bắt buộc
               </span>
             </div>
@@ -330,11 +331,11 @@ const UserEditPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {/* Họ và tên / Tài khoản */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Tài khoản / Họ và tên <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Tài khoản / Tên hiển thị <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <User className="w-4 h-4" />
                   </div>
                   <input
@@ -345,15 +346,15 @@ const UserEditPage = () => {
                       if (errors.taiKhoan) setErrors((prev) => ({ ...prev, taiKhoan: null }));
                     }}
                     placeholder="Nhập tên tài khoản..."
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                       errors.taiKhoan
-                        ? 'border-rose-500/80 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm font-semibold focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 transition-all shadow-xs`}
                   />
                 </div>
                 {errors.taiKhoan && (
-                  <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                  <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {errors.taiKhoan}
                   </p>
@@ -362,11 +363,11 @@ const UserEditPage = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Địa chỉ Email <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
@@ -377,15 +378,15 @@ const UserEditPage = () => {
                       if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
                     }}
                     placeholder="user@example.com"
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                       errors.email
-                        ? 'border-rose-500/80 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm font-semibold focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 transition-all shadow-xs`}
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                  <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {errors.email}
                   </p>
@@ -396,11 +397,11 @@ const UserEditPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
               {/* Số điện thoại chuẩn Việt Nam */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Số điện thoại (Định dạng VN)
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Phone className="w-4 h-4" />
                   </div>
                   <input
@@ -411,30 +412,30 @@ const UserEditPage = () => {
                       if (errors.soDienThoai) setErrors((prev) => ({ ...prev, soDienThoai: null }));
                     }}
                     placeholder="0987654321 hoặc +84987654321"
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                       errors.soDienThoai
-                        ? 'border-rose-500/80 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm font-semibold focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 transition-all shadow-xs`}
                   />
                 </div>
                 {errors.soDienThoai ? (
-                  <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                  <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {errors.soDienThoai}
                   </p>
                 ) : (
-                  <p className="text-[11px] text-slate-500 mt-1">Chấp nhận đầu số 03, 05, 07, 08, 09 hoặc +84</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Chấp nhận đầu số 03, 05, 07, 08, 09 hoặc +84</p>
                 )}
               </div>
 
               {/* Địa chỉ */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Địa chỉ liên hệ
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <input
@@ -442,7 +443,7 @@ const UserEditPage = () => {
                     value={diaChi}
                     onChange={(e) => setDiaChi(e.target.value)}
                     placeholder="123 Nguyễn Trãi, Thanh Xuân, Hà Nội"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm font-semibold focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm font-medium focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
                   />
                 </div>
               </div>
@@ -450,23 +451,23 @@ const UserEditPage = () => {
           </div>
 
           {/* Card 2: Phân quyền Vai trò hệ thống */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                <Shield className="w-4 h-4 text-violet-400" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-4 h-4 text-purple-600" />
                 Phân quyền truy cập hệ thống
               </h2>
-              <span className="text-xs text-violet-400/80 bg-violet-500/10 px-2.5 py-1 rounded-lg font-medium border border-violet-500/20">
+              <span className="text-xs text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg font-semibold border border-purple-200">
                 Vai trò
               </span>
             </div>
 
             {/* Cảnh báo tự thay đổi vai trò cá nhân */}
             {isSelf && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center gap-2.5">
-                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2.5">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500" />
                 <span>
-                  <strong>Lưu ý bảo mật:</strong> Bạn không thể tự thay đổi vai trò Quản trị viên của chính mình!
+                  <strong>Lưu ý bảo mật:</strong> Bạn không thể tự hạ quyền Quản trị viên của chính tài khoản đang đăng nhập!
                 </span>
               </div>
             )}
@@ -476,10 +477,10 @@ const UserEditPage = () => {
               <label
                 className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all ${
                   isSelf
-                    ? 'opacity-70 cursor-not-allowed bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'opacity-70 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-500'
                     : Number(maVaiTro) === 1
-                    ? 'bg-violet-500/15 border-violet-500/50 text-violet-200 cursor-pointer shadow-lg shadow-violet-500/5'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 cursor-pointer'
+                    ? 'bg-purple-50/80 border-purple-300 text-purple-900 cursor-pointer shadow-xs ring-1 ring-purple-300'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
                 }`}
               >
                 <input
@@ -488,15 +489,15 @@ const UserEditPage = () => {
                   disabled={isSelf}
                   checked={Number(maVaiTro) === 1}
                   onChange={() => !isSelf && setMaVaiTro(1)}
-                  className="mt-1 text-violet-500 focus:ring-violet-500"
+                  className="mt-1 text-purple-600 focus:ring-purple-500"
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-violet-400" />
-                    <span className="text-sm font-bold text-slate-100">Quản trị viên (Admin)</span>
+                    <Shield className="w-4 h-4 text-purple-600" />
+                    <span className="text-sm font-bold text-slate-800">Quản trị viên (Admin)</span>
                   </div>
-                  <p className="text-xs opacity-75 mt-1">
-                    Toàn quyền quản trị Dashboard, sản phẩm, đơn hàng, người dùng và cài đặt.
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Toàn quyền quản trị Dashboard, sản phẩm, đơn hàng, khách hàng, voucher và cài đặt.
                   </p>
                 </div>
               </label>
@@ -505,10 +506,10 @@ const UserEditPage = () => {
               <label
                 className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all ${
                   isSelf
-                    ? 'opacity-50 cursor-not-allowed bg-slate-950 border-slate-800 text-slate-500'
+                    ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
                     : Number(maVaiTro) === 2
-                    ? 'bg-sky-500/15 border-sky-500/50 text-sky-200 cursor-pointer shadow-lg shadow-sky-500/5'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 cursor-pointer'
+                    ? 'bg-sky-50/80 border-sky-300 text-sky-900 cursor-pointer shadow-xs ring-1 ring-sky-300'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
                 }`}
               >
                 <input
@@ -517,15 +518,15 @@ const UserEditPage = () => {
                   disabled={isSelf}
                   checked={Number(maVaiTro) === 2}
                   onChange={() => !isSelf && setMaVaiTro(2)}
-                  className="mt-1 text-sky-500 focus:ring-sky-500"
+                  className="mt-1 text-sky-600 focus:ring-sky-500"
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-sky-400" />
-                    <span className="text-sm font-bold text-slate-100">Khách hàng (User)</span>
+                    <UserCheck className="w-4 h-4 text-sky-600" />
+                    <span className="text-sm font-bold text-slate-800">Khách hàng (User)</span>
                   </div>
-                  <p className="text-xs opacity-75 mt-1">
-                    Tài khoản người dùng thông thường, mua hàng và xem lịch sử đơn hàng.
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Tài khoản khách hàng thông thường, mua hàng, lưu giỏ hàng và theo dõi đơn đã đặt.
                   </p>
                 </div>
               </label>

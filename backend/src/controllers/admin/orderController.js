@@ -14,6 +14,11 @@ const getAllOrders = async (req, res, next) => {
          d.NgayMuaHang,
          COALESCE(d.TenNguoiNhan, u.TaiKhoan, 'Khách hàng') AS TenNguoiNhan,
          d.TongTien,
+         d.PhiShip,
+         d.SoTienGiam,
+         d.SoDienThoai,
+         d.DiaChiGiaoHang,
+         d.GhiChu,
          d.TrangThaiDonHang
        FROM donhang d
        LEFT JOIN nguoidung u ON d.MaNguoiDung = u.MaNguoiDung
@@ -26,7 +31,12 @@ const getAllOrders = async (req, res, next) => {
       NgayMuaHang: row.NgayMuaHang,
       TenNguoiNhan: row.TenNguoiNhan,
       KhachHang: row.TenNguoiNhan,
+      SoDienThoai: row.SoDienThoai,
+      DiaChiGiaoHang: row.DiaChiGiaoHang,
+      GhiChu: row.GhiChu,
       TongTien: Number(row.TongTien),
+      PhiShip: Number(row.PhiShip || 0),
+      SoTienGiam: Number(row.SoTienGiam || 0),
       TrangThaiDonHang: row.TrangThaiDonHang
     }));
 
@@ -41,7 +51,110 @@ const getAllOrders = async (req, res, next) => {
 };
 
 /**
- * 2. PUT /api/v1/admin/orders/:id/status
+ * 2. GET /api/v1/admin/orders/:id
+ * Lấy chi tiết đơn hàng kèm danh sách sản phẩm (chitietdonhang)
+ */
+const getOrderDetail = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const orderId = Number(id);
+
+    if (isNaN(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã đơn hàng không hợp lệ'
+      });
+    }
+
+    const [orders] = await pool.query(
+      `SELECT 
+         d.MaDonHang,
+         d.NgayMuaHang,
+         d.TrangThaiDonHang,
+         d.MaVoucher,
+         d.DiaChiGiaoHang,
+         d.GhiChu,
+         d.SoDienThoai,
+         COALESCE(d.TenNguoiNhan, u.TaiKhoan, 'Khách hàng') AS TenNguoiNhan,
+         d.TongTien,
+         d.PhiShip,
+         d.SoTienGiam,
+         d.PhuongThucThanhToan,
+         u.Email,
+         u.TaiKhoan
+       FROM donhang d
+       LEFT JOIN nguoidung u ON d.MaNguoiDung = u.MaNguoiDung
+       WHERE d.MaDonHang = ?`,
+      [orderId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Đơn hàng không tồn tại'
+      });
+    }
+
+    const order = orders[0];
+
+    const [items] = await pool.query(
+      `SELECT 
+         ct.MaChiTietDonHang,
+         ct.MaDonHang,
+         ct.MaSanPham,
+         ct.SoLuong,
+         ct.DonGia,
+         ct.DungLuong,
+         ct.MauSac,
+         (ct.SoLuong * ct.DonGia) AS TongGia,
+         sp.TenSanPham,
+         sp.Anh
+       FROM chitietdonhang ct
+       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       WHERE ct.MaDonHang = ?
+       ORDER BY ct.MaChiTietDonHang ASC`,
+      [orderId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy chi tiết đơn hàng thành công',
+      data: {
+        MaDonHang: order.MaDonHang,
+        CodeDonHang: formatOrderCode(order.MaDonHang, order.NgayMuaHang),
+        NgayMuaHang: order.NgayMuaHang,
+        TenNguoiNhan: order.TenNguoiNhan,
+        KhachHang: order.TenNguoiNhan,
+        Email: order.Email,
+        TaiKhoan: order.TaiKhoan,
+        SoDienThoai: order.SoDienThoai,
+        DiaChiGiaoHang: order.DiaChiGiaoHang,
+        GhiChu: order.GhiChu,
+        TongTien: Number(order.TongTien),
+        PhiShip: Number(order.PhiShip || 0),
+        SoTienGiam: Number(order.SoTienGiam || 0),
+        TrangThaiDonHang: order.TrangThaiDonHang,
+        PhuongThucThanhToan: order.PhuongThucThanhToan || 'Thanh toán khi nhận hàng (COD)',
+        chitietdonhang: items.map((item) => ({
+          MaChiTietDonHang: item.MaChiTietDonHang,
+          MaSanPham: item.MaSanPham,
+          TenSanPham: item.TenSanPham || 'Sản phẩm',
+          Anh: item.Anh,
+          DungLuong: item.DungLuong,
+          MauSac: item.MauSac,
+          SoLuong: Number(item.SoLuong),
+          DonGia: Number(item.DonGia),
+          TongGia: Number(item.TongGia || item.SoLuong * item.DonGia)
+        }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 3. PUT /api/v1/admin/orders/:id/status
  * Cập nhật nhanh TrangThaiDonHang của đơn hàng (chỉ nhận 5 trạng thái chuẩn)
  */
 const updateOrderStatus = async (req, res, next) => {
@@ -109,5 +222,6 @@ const updateOrderStatus = async (req, res, next) => {
 
 module.exports = {
   getAllOrders,
+  getOrderDetail,
   updateOrderStatus
 };
