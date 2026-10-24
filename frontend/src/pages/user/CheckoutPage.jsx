@@ -657,10 +657,9 @@ const CheckoutPage = () => {
                       const itemQty = Number(it.SoLuong || 1);
                       const itemTotal = itemPrice * itemQty;
                       const variantDesc = [
-                        it.MauSac && `Màu: ${it.MauSac}`,
-                        it.DungLuong && `Dung lượng: ${it.DungLuong}`,
+                        `Phân loại: ${it.MauSac || 'N/A'} | ${it.DungLuong || 'N/A'}`,
                         `Số lượng: ${itemQty}`,
-                      ].filter(Boolean).join(' | ');
+                      ].filter(Boolean).join(' · ');
 
                       return (
                         <div key={it.id || it.MaSanPham || idx} className="flex items-start gap-unit-sm p-unit-xs bg-surface-container-low rounded-xl">
@@ -680,8 +679,13 @@ const CheckoutPage = () => {
                               <span className="font-body-md text-body-md font-bold text-on-surface truncate" title={it.TenSanPham}>
                                 {it.TenSanPham}
                               </span>
+                              <p className="text-xs text-on-surface-variant mt-0.5">
+                                <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{it.MauSac || 'N/A'}</span>
+                                <span className="mx-1 text-outline">·</span>
+                                <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{it.DungLuong || 'N/A'}</span>
+                              </p>
                               <span className="font-body-sm text-body-sm text-on-surface-variant">
-                                {variantDesc}
+                                Số lượng: {itemQty}
                               </span>
                             </div>
                             <div className="flex items-center justify-between pt-unit-2xs">

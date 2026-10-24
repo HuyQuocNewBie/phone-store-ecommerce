@@ -173,10 +173,10 @@ const ReviewModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
                   <p className="font-body-md text-body-md font-semibold text-on-surface truncate">
                     {item.TenSanPham}
                   </p>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    x{item.SoLuong}
-                    {item.MauSac && ` · ${item.MauSac}`}
-                    {item.DungLuong && ` · ${item.DungLuong}`}
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{item.MauSac || 'N/A'}</span>
+                    <span className="mx-1 text-outline">·</span>
+                    <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{item.DungLuong || 'N/A'}</span>
                   </p>
                 </div>
               </div>
@@ -892,21 +892,13 @@ const OrderHistoryPage = () => {
                                     >
                                       {item.TenSanPham || 'Sản phẩm SmartZone'}
                                     </Link>
-                                    <div className="flex flex-wrap items-center gap-unit-md text-on-surface-variant font-body-sm text-body-sm">
-                                      {item.MauSac && (
-                                        <span>
-                                          Màu sắc: <strong>{item.MauSac}</strong>
-                                        </span>
-                                      )}
-                                      {item.DungLuong && (
-                                        <span>
-                                          Dung lượng: <strong>{item.DungLuong}</strong>
-                                        </span>
-                                      )}
-                                      <span>
-                                        Số lượng: <strong className="text-on-surface">x{item.SoLuong}</strong>
-                                      </span>
-                                    </div>
+                                    <p className="text-xs text-on-surface-variant mt-0.5">
+                                      <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{item.MauSac || 'N/A'}</span>
+                                      <span className="mx-1 text-outline">·</span>
+                                      <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{item.DungLuong || 'N/A'}</span>
+                                      <span className="mx-1 text-outline">·</span>
+                                      <span className="text-outline">Số lượng:</span> <strong className="font-medium text-on-surface">x{item.SoLuong}</strong>
+                                    </p>
                                   </div>
                                 </div>
                                 <div className="flex flex-col md:items-end justify-between self-end md:self-center shrink-0">
@@ -1130,11 +1122,13 @@ const OrderHistoryPage = () => {
                                         <h3 className="font-title-card text-title-card font-bold text-on-surface line-clamp-1">
                                           {it.TenSanPham || 'Sản phẩm SmartZone'}
                                         </h3>
-                                        <div className="flex flex-wrap items-center gap-unit-md text-on-surface-variant font-body-sm text-body-sm mt-unit-2xs">
-                                          {it.MauSac && <span>Màu sắc: <strong>{it.MauSac}</strong></span>}
-                                          {it.DungLuong && <span>Dung lượng: <strong>{it.DungLuong}</strong></span>}
-                                          <span>Số lượng: <strong className="text-on-surface">x{it.SoLuong}</strong></span>
-                                        </div>
+                                        <p className="text-xs text-on-surface-variant mt-0.5">
+                                          <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{it.MauSac || 'N/A'}</span>
+                                          <span className="mx-1 text-outline">·</span>
+                                          <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{it.DungLuong || 'N/A'}</span>
+                                          <span className="mx-1 text-outline">·</span>
+                                          <span className="text-outline">Số lượng:</span> <strong className="font-medium text-on-surface">x{it.SoLuong}</strong>
+                                        </p>
                                       </div>
                                     </div>
                                     <div className="flex flex-col md:items-end justify-between self-end md:self-center shrink-0">

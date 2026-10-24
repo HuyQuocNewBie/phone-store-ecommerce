@@ -494,20 +494,11 @@ const CartPage = () => {
                             {item.TenSanPham}
                           </h3>
 
-                          {(item.MauSac || item.DungLuong) && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {item.MauSac && (
-                                <span className="px-2 py-0.5 rounded-md bg-surface-container text-xs text-on-surface-variant font-medium">
-                                  Màu: <strong className="text-on-surface font-semibold">{item.MauSac}</strong>
-                                </span>
-                              )}
-                              {item.DungLuong && (
-                                <span className="px-2 py-0.5 rounded-md bg-surface-container text-xs text-on-surface-variant font-medium">
-                                  Dung lượng: <strong className="text-on-surface font-semibold">{item.DungLuong}</strong>
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          <p className="text-xs text-on-surface-variant">
+                            <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{item.MauSac || 'N/A'}</span>
+                            <span className="mx-1 text-outline">·</span>
+                            <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{item.DungLuong || 'N/A'}</span>
+                          </p>
 
                           {item.TonKho <= 3 && (
                             <p className="text-xs text-error font-medium flex items-center gap-1 pt-0.5">
