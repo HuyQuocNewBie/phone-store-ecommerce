@@ -22,13 +22,34 @@ const upload = multer({
  * Gán req.file.path = secure_url từ Cloudinary nếu upload thành công
  */
 const uploadCloudinary = {
-  single: (fieldname) => {
+  single: (fieldname = 'Anh') => {
     const multerSingle = upload.single(fieldname);
 
     return (req, res, next) => {
       multerSingle(req, res, async (err) => {
         if (err) {
-          return next(err);
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+              return res.status(400).json({
+                success: false,
+                message: `Lỗi upload: Tên trường file không hợp lệ (nhận '${err.field}', yêu cầu key '${fieldname}'). Vui lòng kiểm tra lại FormData key.`
+              });
+            }
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res.status(400).json({
+                success: false,
+                message: 'Lỗi upload: Kích thước file vượt quá giới hạn cho phép (10MB).'
+              });
+            }
+            return res.status(400).json({
+              success: false,
+              message: `Lỗi upload file (Multer): ${err.message}`
+            });
+          }
+          return res.status(400).json({
+            success: false,
+            message: `Lỗi tải file: ${err.message}`
+          });
         }
 
         if (!req.file) {
@@ -57,7 +78,85 @@ const uploadCloudinary = {
           req.file.cloudinaryId = result.public_id;
           next();
         } catch (uploadError) {
-          return next(uploadError);
+          return res.status(500).json({
+            success: false,
+            message: `Lỗi upload lên Cloudinary: ${uploadError.message}`
+          });
+        }
+      });
+    };
+  },
+
+  array: (fieldname = 'Anh', maxCount = 5) => {
+    const multerArray = upload.array(fieldname, maxCount);
+
+    return (req, res, next) => {
+      multerArray(req, res, async (err) => {
+        if (err) {
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+              return res.status(400).json({
+                success: false,
+                message: `Lỗi upload: Tên trường file không hợp lệ (nhận '${err.field}', yêu cầu key '${fieldname}'). Vui lòng kiểm tra lại FormData key.`
+              });
+            }
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res.status(400).json({
+                success: false,
+                message: 'Lỗi upload: Kích thước file vượt quá giới hạn cho phép (10MB).'
+              });
+            }
+            return res.status(400).json({
+              success: false,
+              message: `Lỗi upload file (Multer): ${err.message}`
+            });
+          }
+          return res.status(400).json({
+            success: false,
+            message: `Lỗi tải file: ${err.message}`
+          });
+        }
+
+        if (!req.files || req.files.length === 0) {
+          return next();
+        }
+
+        try {
+          const uploadStream = (fileBuffer) => {
+            return new Promise((resolve, reject) => {
+              const stream = cloudinary.uploader.upload_stream(
+                {
+                  folder: 'products',
+                  resource_type: 'auto'
+                },
+                (error, result) => {
+                  if (error) return reject(error);
+                  resolve(result);
+                }
+              );
+              stream.end(fileBuffer);
+            });
+          };
+
+          await Promise.all(
+            req.files.map(async (file) => {
+              const result = await uploadStream(file.buffer);
+              file.path = result.secure_url;
+              file.cloudinaryId = result.public_id;
+              return result.secure_url;
+            })
+          );
+
+          if (req.files.length > 0) {
+            req.file = req.files[0];
+          }
+
+          next();
+        } catch (uploadError) {
+          return res.status(500).json({
+            success: false,
+            message: `Lỗi upload lên Cloudinary: ${uploadError.message}`
+          });
         }
       });
     };
@@ -66,5 +165,6 @@ const uploadCloudinary = {
 
 module.exports = {
   cloudinary,
-  uploadCloudinary
+  uploadCloudinary,
+  upload
 };

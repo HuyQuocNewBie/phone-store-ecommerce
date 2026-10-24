@@ -492,7 +492,6 @@ const ProductFormPage = () => {
       formData.append('MauSac', mauSacJoined);
 
       if (imageFile) {
-        formData.append('file', imageFile);
         formData.append('Anh', imageFile);
       } else if (imageMode === 'url' && imageUrlInput.trim()) {
         formData.append('Anh', imageUrlInput.trim());
