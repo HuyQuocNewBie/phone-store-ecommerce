@@ -78,8 +78,8 @@ const register = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(MatKhau, salt);
 
-    // 3. Sinh mã OTP 5 chữ số ngẫu nhiên (từ 10000 đến 99999)
-    const otpCode = Math.floor(10000 + Math.random() * 90000).toString();
+    // 3. Sinh mã OTP 6 chữ số ngẫu nhiên (từ 100000 đến 999999)
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     // 4. Lưu dữ liệu đăng ký + OTP vào Redis key otp:{email} với TTL = 300s (5 phút)
     const redisKey = `otp:${trimmedEmail}`;
