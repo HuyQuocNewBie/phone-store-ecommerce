@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, X } from 'lucide-react';
 import api from '../../../services/api';
 
 /**
  * ProductListPage
- * Trang Quản lý Sản phẩm dành cho Admin.
+ * Trang Quản lý Sản phẩm dành cho Admin - Light Theme.
  */
 const ProductListPage = () => {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ const ProductListPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pop-up Xác nhận Xóa State
-  const [deleteTarget, setDeleteTarget] = useState(null); // Product object to delete
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ─── Lấy danh sách sản phẩm từ API ──────────────────────────────────────────
@@ -45,7 +45,7 @@ const ProductListPage = () => {
     fetchProducts();
   }, []);
 
-  // ─── Lấy Toast thông báo từ location.state (sau khi lưu từ ProductFormPage) ─
+  // ─── Lấy Toast thông báo từ location.state ───────────────────────────────────
   useEffect(() => {
     if (location.state?.toast) {
       const { type, message } = location.state.toast;
@@ -54,7 +54,6 @@ const ProductListPage = () => {
       } else {
         toast.error(message, { id: 'product-nav-toast' });
       }
-      // Toast State Cleansing: Dọn dẹp location.state để tránh bị lặp lại Toast khi người dùng F5 refresh
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -109,43 +108,42 @@ const ProductListPage = () => {
 
       {/* ── Toolbar trên bảng ── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-        {/* Phía BÊN TRÁI: Ô tìm kiếm sản phẩm */}
+        {/* Ô tìm kiếm */}
         <div className="relative w-full sm:w-80 md:w-96">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm sản phẩm theo tên..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Phía BÊN PHẢI: Cụm xếp hàng ngang */}
+        {/* Phía BÊN PHẢI */}
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Badge text nhỏ */}
-          <span className="text-xs text-slate-400 whitespace-nowrap">
-            Tổng số: <strong className="text-sky-400 font-semibold">{filteredProducts.length}</strong> sản phẩm
+          <span className="text-xs text-slate-500 whitespace-nowrap">
+            Tổng số: <strong className="text-sky-600 font-semibold">{filteredProducts.length}</strong> sản phẩm
           </span>
 
-          {/* Nút Icon Làm mới */}
+          {/* Nút Làm mới */}
           <button
             onClick={fetchProducts}
-            className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-slate-100 hover:border-slate-700 transition-all shadow-sm"
+            className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm"
             title="Tải lại danh sách"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
-          {/* Nút bấm chính Thêm sản phẩm */}
+          {/* Nút Thêm sản phẩm */}
           <button
             id="btn-add-product"
             onClick={() => navigate('/admin/products/create')}
@@ -158,27 +156,27 @@ const ProductListPage = () => {
       </div>
 
       {/* ── Bảng Danh Sách Sản Phẩm ── */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400 space-y-3">
-            <RefreshCw className="w-8 h-8 animate-spin text-sky-400" />
+            <RefreshCw className="w-8 h-8 animate-spin text-sky-500" />
             <p className="text-sm font-medium">Đang tải danh sách sản phẩm...</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4 space-y-3">
             <AlertTriangle className="w-10 h-10 text-amber-400" />
-            <p className="text-slate-300 font-medium text-sm">{error}</p>
+            <p className="text-slate-600 font-medium text-sm">{error}</p>
             <button
               onClick={fetchProducts}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 text-sky-400 hover:bg-slate-750 text-xs font-semibold rounded-xl transition-all"
+              className="px-4 py-2 bg-slate-100 border border-slate-200 text-sky-600 hover:bg-slate-200 text-xs font-semibold rounded-xl transition-all"
             >
               Thử lại
             </button>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4 space-y-3">
-            <Package className="w-12 h-12 text-slate-700" />
-            <p className="text-slate-400 font-medium text-sm">
+            <Package className="w-12 h-12 text-slate-300" />
+            <p className="text-slate-500 font-medium text-sm">
               {searchQuery ? `Không tìm thấy sản phẩm nào khớp với "${searchQuery}"` : 'Chưa có sản phẩm nào trong hệ thống.'}
             </p>
           </div>
@@ -186,7 +184,7 @@ const ProductListPage = () => {
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
                   <th className="py-4 px-4 w-16 text-center">STT</th>
                   <th className="py-4 px-4 w-20 text-center">Ảnh</th>
                   <th className="py-4 px-6">Tên sản phẩm</th>
@@ -196,20 +194,20 @@ const ProductListPage = () => {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-800/60 text-sm text-slate-300">
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {filteredProducts.map((item, index) => (
                   <tr
                     key={item.MaSanPham}
-                    className="hover:bg-slate-800/40 transition-colors group"
+                    className="hover:bg-slate-50 transition-colors group"
                   >
                     {/* STT */}
-                    <td className="py-4 px-4 text-center font-medium text-slate-500 text-xs">
+                    <td className="py-4 px-4 text-center font-medium text-slate-400 text-xs">
                       {item.STT || index + 1}
                     </td>
 
                     {/* Ảnh đại diện */}
                     <td className="py-4 px-4 text-center">
-                      <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden mx-auto flex items-center justify-center relative shadow-inner">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden mx-auto flex items-center justify-center relative shadow-sm">
                         {item.Anh ? (
                           <img
                             src={item.Anh}
@@ -225,7 +223,7 @@ const ProductListPage = () => {
                           />
                         ) : null}
                         <div
-                          className={`w-full h-full items-center justify-center text-slate-600 ${
+                          className={`w-full h-full items-center justify-center text-slate-400 ${
                             item.Anh ? 'hidden' : 'flex'
                           }`}
                         >
@@ -235,12 +233,12 @@ const ProductListPage = () => {
                     </td>
 
                     {/* Tên Sản Phẩm */}
-                    <td className="py-4 px-6 font-semibold text-slate-100 group-hover:text-sky-400 transition-colors">
+                    <td className="py-4 px-6 font-semibold text-slate-800 group-hover:text-sky-600 transition-colors">
                       <span>{item.TenSanPham}</span>
                     </td>
 
                     {/* Giá */}
-                    <td className="py-4 px-6 text-right font-bold text-sky-400 whitespace-nowrap">
+                    <td className="py-4 px-6 text-right font-bold text-sky-600 whitespace-nowrap">
                       {formatVND(item.Gia)}
                     </td>
 
@@ -248,22 +246,22 @@ const ProductListPage = () => {
                     <td className="py-4 px-6 text-center">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
                         item.TonKho > 10
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : item.TonKho > 0
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-rose-50 text-rose-600 border-rose-200'
                       }`}>
                         {item.TonKho > 0 ? `${item.TonKho} cái` : 'Hết hàng'}
                       </span>
                     </td>
 
-                    {/* Hành động (Sửa, Xóa) */}
+                    {/* Hành động */}
                     <td className="py-4 px-6 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         {/* Nút Sửa */}
                         <button
                           onClick={() => navigate(`/admin/products/edit/${item.MaSanPham}`)}
-                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-400 border border-slate-700/80 hover:border-sky-500/30 transition-all cursor-pointer"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 hover:bg-sky-50 text-slate-500 hover:text-sky-600 border border-slate-200 hover:border-sky-200 transition-all cursor-pointer"
                           title="Sửa sản phẩm"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -272,7 +270,7 @@ const ProductListPage = () => {
                         {/* Nút Xóa */}
                         <button
                           onClick={() => confirmDelete(item)}
-                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/80 hover:border-rose-500/30 transition-all cursor-pointer"
+                          className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-500 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer"
                           title="Xóa sản phẩm"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -289,20 +287,20 @@ const ProductListPage = () => {
 
       {/* ── Modal Confirmation Xóa Sản phẩm ── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-500 shrink-0">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-100">Xác nhận xóa sản phẩm</h3>
-                <p className="text-xs text-slate-400">Thao tác này không thể hoàn tác</p>
+                <h3 className="text-lg font-bold text-slate-800">Xác nhận xóa sản phẩm</h3>
+                <p className="text-xs text-slate-500">Thao tác này không thể hoàn tác</p>
               </div>
             </div>
 
-            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-300">
-              Bạn có chắc chắn muốn xóa sản phẩm <strong className="text-rose-400">"{deleteTarget.TenSanPham}"</strong> (Mã SP: #{deleteTarget.MaSanPham}) không?
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-700">
+              Bạn có chắc chắn muốn xóa sản phẩm <strong className="text-rose-500">"{deleteTarget.TenSanPham}"</strong> (Mã SP: #{deleteTarget.MaSanPham}) không?
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -310,7 +308,7 @@ const ProductListPage = () => {
                 type="button"
                 onClick={() => setDeleteTarget(null)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-semibold transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors disabled:opacity-50"
               >
                 Hủy bỏ
               </button>
@@ -319,7 +317,7 @@ const ProductListPage = () => {
                 type="button"
                 onClick={handleExecuteDelete}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/20 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold shadow-lg shadow-rose-500/20 transition-all disabled:opacity-50"
               >
                 {isDeleting ? (
                   <>

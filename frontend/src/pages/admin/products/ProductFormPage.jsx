@@ -41,8 +41,8 @@ const ProductFormPage = () => {
   const [moTa, setMoTa] = useState('');
   const [maLoaiSanPham, setMaLoaiSanPham] = useState('');
   const [maNhaSanXuat, setMaNhaSanXuat] = useState('');
-  const [dungLuongList, setDungLuongList] = useState(['']);
-  const [mauSacList, setMauSacList] = useState(['']);
+  const [dungLuongList, setDungLuongList] = useState([]);
+  const [mauSacList, setMauSacList] = useState([]);
   const [imageMode, setImageMode] = useState('file'); // 'file' | 'url'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -100,11 +100,10 @@ const ProductFormPage = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty, isSubmitting]);
 
-  // ─── Helper: Tách chuỗi phân cách bởi dấu phẩy thành mảng ───────────────────
+  // ─── Helper: Tách chuỗi phân cách bởi dấu phẩy thành mảng tag ─────────────────
   const parseCommaSeparated = (str) => {
-    if (!str || typeof str !== 'string') return [''];
-    const items = str.split(',').map((s) => s.trim()).filter(Boolean);
-    return items.length > 0 ? items : [''];
+    if (!str || typeof str !== 'string') return [];
+    return str.split(',').map((s) => s.trim()).filter(Boolean);
   };
 
   // ─── Helper: Un-flatten mảng thông số từ backend (Edit Mode) ───────────────
@@ -547,12 +546,12 @@ const ProductFormPage = () => {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
 
       {/* ── Top Navigation Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={handleBackNavigation}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-2 text-sm font-medium"
+            className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 border border-slate-200 transition-all flex items-center gap-2 text-sm font-medium shadow-sm"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -560,20 +559,20 @@ const ProductFormPage = () => {
           </button>
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
               {isEditMode ? (
                 <>
-                  <FileText className="w-7 h-7 text-sky-400" />
+                  <FileText className="w-7 h-7 text-sky-600" />
                   Chỉnh sửa sản phẩm #{id}
                 </>
               ) : (
                 <>
-                  <Plus className="w-7 h-7 text-sky-400" />
+                  <Plus className="w-7 h-7 text-sky-600" />
                   Thêm sản phẩm mới
                 </>
               )}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               {isEditMode
                 ? 'Cập nhật thông tin chi tiết và thông số kỹ thuật động của sản phẩm'
                 : 'Điền thông tin cơ bản và thiết lập các nhóm thông số kỹ thuật cho sản phẩm'}
@@ -586,7 +585,7 @@ const ProductFormPage = () => {
             type="button"
             onClick={handleBackNavigation}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors disabled:opacity-50"
           >
             Hủy bỏ
           </button>
@@ -614,13 +613,13 @@ const ProductFormPage = () => {
 
       {/* ── Submit Error Alert ── */}
       {submitError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 shadow-lg">
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <p className="text-sm font-medium">{submitError}</p>
           <button
             type="button"
             onClick={() => setSubmitError(null)}
-            className="ml-auto text-slate-400 hover:text-white"
+            className="ml-auto text-slate-400 hover:text-slate-600"
           >
             <X className="w-4 h-4" />
           </button>
@@ -634,15 +633,15 @@ const ProductFormPage = () => {
         <div className="lg:col-span-5 space-y-6">
 
           {/* Block 1: Thông tin cơ bản */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Package className="w-4 h-4 text-sky-400" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Package className="w-4 h-4 text-sky-600" />
               Thông tin chung
             </h2>
 
             {/* Tên sản phẩm */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Tên sản phẩm <span className="text-rose-500">*</span>
               </label>
               <input
@@ -653,24 +652,24 @@ const ProductFormPage = () => {
                   markDirty();
                 }}
                 placeholder="iPhone 15 Pro Max 256GB"
-                className={`w-full px-3.5 py-2.5 bg-slate-950 border ${
+                className={`w-full px-3.5 py-2.5 bg-white border ${
                   errors.tenSanPham
-                    ? 'border-rose-500/70 focus:ring-rose-500/20'
-                    : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
+                    ? 'border-rose-400 focus:ring-rose-500/20'
+                    : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                } rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all`}
               />
               {errors.tenSanPham && (
-                <p className="mt-1 text-xs text-rose-400 font-medium">{errors.tenSanPham}</p>
+                <p className="mt-1 text-xs text-rose-500 font-medium">{errors.tenSanPham}</p>
               )}
             </div>
 
             {/* Giá bán */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Giá bán (VNĐ) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <input
@@ -683,15 +682,15 @@ const ProductFormPage = () => {
                   placeholder="29990000"
                   min="0"
                   step="1000"
-                  className={`w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-9 pr-3.5 py-2.5 bg-white border ${
                     errors.gia
-                      ? 'border-rose-500/70 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all`}
                 />
               </div>
               {errors.gia && (
-                <p className="mt-1 text-xs text-rose-400 font-medium">{errors.gia}</p>
+                <p className="mt-1 text-xs text-rose-500 font-medium">{errors.gia}</p>
               )}
             </div>
 
@@ -699,13 +698,13 @@ const ProductFormPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Loại sản phẩm */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Loại sản phẩm
                 </label>
                 <select
                   value={maLoaiSanPham}
                   onChange={(e) => { setMaLoaiSanPham(e.target.value); markDirty(); }}
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
                 >
                   <option value="">-- Chọn loại sản phẩm --</option>
                   {categories.map((cat) => (
@@ -718,13 +717,13 @@ const ProductFormPage = () => {
 
               {/* Nhà sản xuất */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Nhà sản xuất
                 </label>
                 <select
                   value={maNhaSanXuat}
                   onChange={(e) => { setMaNhaSanXuat(e.target.value); markDirty(); }}
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
                 >
                   <option value="">-- Chọn nhà sản xuất --</option>
                   {manufacturers.map((mf) => (
@@ -736,110 +735,124 @@ const ProductFormPage = () => {
               </div>
             </div>
 
-            {/* Dung lượng & Màu sắc (2 cols - Dynamic Input List) */}
+            {/* Dung lượng & Màu sắc (2 cols - Dynamic Multi-Input Tag/Chip) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
               {/* Cột Dung lượng */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700">
                     Dung lượng
                   </label>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    {dungLuongList.length} lựa chọn
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {dungLuongList.filter(Boolean).length} lựa chọn
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl min-h-[46px]">
                   {dungLuongList.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-semibold text-slate-800 transition-all focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500"
+                    >
                       <input
                         type="text"
                         value={item}
+                        autoFocus={item === ''}
                         onChange={(e) => handleDungLuongChange(idx, e.target.value)}
-                        placeholder={`Dung lượng ${idx + 1} (VD: 128GB)`}
-                        className="flex-1 min-w-0 px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddDungLuong();
+                          } else if (e.key === 'Backspace' && !item) {
+                            e.preventDefault();
+                            handleRemoveDungLuong(idx);
+                          }
+                        }}
+                        placeholder="128GB"
+                        className="w-16 sm:w-20 bg-transparent border-none outline-none text-slate-800 font-semibold text-xs focus:ring-0 p-0 placeholder-slate-400"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveDungLuong(idx)}
-                        className="p-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all shrink-0"
+                        className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-0.5 rounded transition-colors cursor-pointer"
                         title="Xóa dung lượng này"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
 
-                  {dungLuongList.length === 0 && (
-                    <p className="text-xs text-slate-500 italic py-1">
-                      Chưa có dung lượng nào. Bấm nút bên dưới để thêm.
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleAddDungLuong}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold transition-all shadow-sm cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Thêm dung lượng</span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddDungLuong}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-750 text-sky-400 hover:text-sky-300 text-xs font-semibold rounded-xl border border-slate-700/80 hover:border-sky-500/40 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Thêm Dung lượng</span>
-                </button>
               </div>
 
               {/* Cột Màu sắc */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700">
                     Màu sắc
                   </label>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    {mauSacList.length} lựa chọn
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {mauSacList.filter(Boolean).length} lựa chọn
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl min-h-[46px]">
                   {mauSacList.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-semibold text-slate-800 transition-all focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500"
+                    >
                       <input
                         type="text"
                         value={item}
+                        autoFocus={item === ''}
                         onChange={(e) => handleMauSacChange(idx, e.target.value)}
-                        placeholder={`Màu sắc ${idx + 1} (VD: Đen Titan)`}
-                        className="flex-1 min-w-0 px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddMauSac();
+                          } else if (e.key === 'Backspace' && !item) {
+                            e.preventDefault();
+                            handleRemoveMauSac(idx);
+                          }
+                        }}
+                        placeholder="Đen Titan"
+                        className="w-20 sm:w-24 bg-transparent border-none outline-none text-slate-800 font-semibold text-xs focus:ring-0 p-0 placeholder-slate-400"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveMauSac(idx)}
-                        className="p-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-slate-800 hover:border-rose-500/30 transition-all shrink-0"
+                        className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-0.5 rounded transition-colors cursor-pointer"
                         title="Xóa màu sắc này"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
 
-                  {mauSacList.length === 0 && (
-                    <p className="text-xs text-slate-500 italic py-1">
-                      Chưa có màu sắc nào. Bấm nút bên dưới để thêm.
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleAddMauSac}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold transition-all shadow-sm cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Thêm màu sắc</span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddMauSac}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-750 text-sky-400 hover:text-sky-300 text-xs font-semibold rounded-xl border border-slate-700/80 hover:border-sky-500/40 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Thêm Màu sắc</span>
-                </button>
               </div>
             </div>
 
             {/* Mô tả sản phẩm */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Mô tả sản phẩm
               </label>
               <textarea
@@ -847,34 +860,34 @@ const ProductFormPage = () => {
                 onChange={(e) => { setMoTa(e.target.value); markDirty(); }}
                 placeholder="Mô tả chi tiết về sản phẩm, tính năng nổi bật..."
                 rows={4}
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all resize-y"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 focus:border-sky-500 focus:ring-sky-500/20 rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all resize-y"
               />
             </div>
           </div>
 
           {/* Block 2: Ảnh Đại Diện Sản Phẩm (Cloudinary / File / URL) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-violet-400" />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-violet-500" />
                 Ảnh đại diện sản phẩm <span className="text-rose-500">*</span>
               </h2>
               {imagePreview && (
-                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                   {imageMode === 'file' ? '📁 Tệp từ máy' : '🔗 URL Trực tiếp'}
                 </span>
               )}
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => handleTabSwitch('file')}
                 className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   imageMode === 'file'
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                    ? 'bg-white text-sky-600 border border-slate-200 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200/50'
                 }`}
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -885,8 +898,8 @@ const ProductFormPage = () => {
                 onClick={() => handleTabSwitch('url')}
                 className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   imageMode === 'url'
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                    ? 'bg-white text-sky-600 border border-slate-200 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200/50'
                 }`}
               >
                 <Link className="w-3.5 h-3.5" />
@@ -898,14 +911,14 @@ const ProductFormPage = () => {
             <div className="space-y-4">
               {imageMode === 'file' ? (
                 <label className={`flex flex-col items-center justify-center w-full h-36 border-2 border-dashed ${
-                  errors.anh ? 'border-rose-500/70 bg-rose-950/10' : 'border-slate-700/80 hover:border-sky-500/60 bg-slate-950/60'
-                } hover:bg-slate-950 rounded-xl cursor-pointer transition-all group`}>
+                  errors.anh ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 hover:border-sky-500 bg-slate-50 hover:bg-sky-50/30'
+                } rounded-xl cursor-pointer transition-all group`}>
                   <div className="flex flex-col items-center justify-center py-4 text-center px-4">
-                    <Upload className="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition-colors mb-2" />
-                    <p className="text-xs text-slate-400">
-                      <span className="font-semibold text-sky-400">Bấm để chọn file ảnh</span> hoặc kéo thả vào đây
+                    <Upload className="w-8 h-8 text-slate-400 group-hover:text-sky-500 transition-colors mb-2" />
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-sky-600">Bấm để chọn file ảnh</span> hoặc kéo thả vào đây
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-1">Định dạng hỗ trợ: .png, .jpg, .jpeg, .webp (Tối đa 5MB)</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Định dạng hỗ trợ: .png, .jpg, .jpeg, .webp (Tối đa 5MB)</p>
                   </div>
                   <input
                     type="file"
@@ -916,7 +929,7 @@ const ProductFormPage = () => {
                 </label>
               ) : (
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
                     Nhập/Dán URL hình ảnh công khai (CellphoneS, Unsplash...)
                   </label>
                   <input
@@ -924,38 +937,38 @@ const ProductFormPage = () => {
                     value={imageUrlInput}
                     onChange={handleUrlInputChange}
                     placeholder="https://images.unsplash.com/photo-..."
-                    className={`w-full px-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full px-3.5 py-2.5 bg-white border ${
                       errors.anh || imageLoadError
-                        ? 'border-rose-500/70 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all`}
                   />
                 </div>
               )}
 
               {/* Validation Error Message */}
               {errors.anh && (
-                <p className="text-xs text-rose-400 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
                   <span>{errors.anh}</span>
                 </p>
               )}
 
               {/* Image Load Error Warning Banner */}
               {imageMode === 'url' && imageLoadError && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs font-medium">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>Đường dẫn ảnh không khả dụng hoặc bị chặn (vui lòng kiểm tra lại link).</span>
                 </div>
               )}
 
               {/* Preview Thumbnail Container */}
-              <div className="pt-2 border-t border-slate-800/60">
-                <label className="block text-xs font-semibold text-slate-400 mb-2">
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">
                   Xem trước hình ảnh (Preview)
                 </label>
                 {imagePreview ? (
-                  <div className="relative group w-44 h-44 rounded-2xl border border-slate-700 bg-slate-950 overflow-hidden shadow-xl flex items-center justify-center mx-auto sm:mx-0">
+                  <div className="relative group w-44 h-44 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm flex items-center justify-center mx-auto sm:mx-0">
                     <img
                       src={imagePreview}
                       alt="Xem trước ảnh sản phẩm"
@@ -966,7 +979,7 @@ const ProductFormPage = () => {
                       onLoad={() => setImageLoadError(false)}
                     />
                     {imageLoadError && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-slate-950/80 text-amber-400">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-slate-900/60 text-amber-300">
                         <AlertTriangle className="w-7 h-7 mb-1 text-amber-400 animate-bounce" />
                         <span className="text-[11px] font-bold">Lỗi tải ảnh</span>
                       </div>
@@ -974,16 +987,16 @@ const ProductFormPage = () => {
                     <button
                       type="button"
                       onClick={handleClearImage}
-                      className="absolute top-2.5 right-2.5 w-7 h-7 bg-slate-950/80 hover:bg-rose-600 rounded-full flex items-center justify-center text-slate-300 hover:text-white transition-all shadow-md backdrop-blur-sm z-10"
+                      className="absolute top-2.5 right-2.5 w-7 h-7 bg-slate-800/80 hover:bg-rose-600 rounded-full flex items-center justify-center text-white transition-all shadow-md backdrop-blur-sm z-10"
                       title="Xóa ảnh"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="w-44 h-44 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center text-slate-600 mx-auto sm:mx-0 space-y-1">
-                    <ImageIcon className="w-8 h-8 text-slate-600 stroke-[1.5]" />
-                    <span className="text-xs font-medium text-slate-500">Chưa có ảnh</span>
+                  <div className="w-44 h-44 rounded-2xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 mx-auto sm:mx-0 space-y-1">
+                    <ImageIcon className="w-8 h-8 text-slate-300 stroke-[1.5]" />
+                    <span className="text-xs font-medium text-slate-400">Chưa có ảnh</span>
                   </div>
                 )}
               </div>
@@ -993,16 +1006,16 @@ const ProductFormPage = () => {
 
         {/* ── COLUMN 2: Thông số kỹ thuật động (7 Cols on LG) ── */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
 
             {/* ── Section Header ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-5">
               <div>
-                <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-violet-400" />
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-violet-500" />
                   Thông số kỹ thuật động (Dynamic Specs)
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Phân loại thông số theo từng Nhóm (Màn hình, Hiệu năng, Pin &amp; Sạc, Camera...)
                 </p>
               </div>
@@ -1011,7 +1024,7 @@ const ProductFormPage = () => {
               <button
                 type="button"
                 onClick={handleAddGroup}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-violet-600/20 hover:bg-violet-500/30 border border-violet-500/40 hover:border-violet-400/60 rounded-xl text-sm font-semibold text-violet-300 hover:text-violet-100 transition-all duration-200 shadow-sm shadow-violet-500/10 hover:shadow-violet-500/20 shrink-0"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-xl text-sm font-semibold text-violet-700 transition-all duration-200 shadow-sm shrink-0 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Thêm nhóm thông số
@@ -1020,13 +1033,13 @@ const ProductFormPage = () => {
 
             {/* ── List các Nhóm thông số ── */}
             {specGroups.length === 0 ? (
-              <div className="text-center py-14 border-2 border-dashed border-slate-700/60 rounded-2xl space-y-4">
-                <Layers className="w-10 h-10 text-slate-600 mx-auto" />
-                <p className="text-sm text-slate-400">Chưa có nhóm thông số nào được tạo.</p>
+              <div className="text-center py-14 border-2 border-dashed border-slate-200 rounded-2xl space-y-4">
+                <Layers className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-sm text-slate-500">Chưa có nhóm thông số nào được tạo.</p>
                 <button
                   type="button"
                   onClick={handleAddGroup}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 text-sm font-semibold rounded-xl border border-slate-700 hover:border-slate-600 transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-sky-600 text-sm font-semibold rounded-xl border border-slate-200 transition-all duration-200 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Tạo nhóm thông số đầu tiên
                 </button>
@@ -1037,12 +1050,12 @@ const ProductFormPage = () => {
                   /* ── Card cho từng Nhóm thông số ── */
                   <div
                     key={group.id}
-                    className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 sm:p-5 transition-all duration-200 hover:border-slate-600/80 shadow-sm"
+                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 transition-all duration-200 hover:border-slate-300 shadow-sm"
                   >
                     {/* ── Header Nhóm ── */}
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <div className="flex-1 flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded-lg bg-violet-500/15 border border-violet-500/25 text-violet-300 text-xs font-bold flex items-center justify-center shrink-0">
+                        <span className="w-6 h-6 rounded-lg bg-violet-100 border border-violet-200 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0">
                           {gIdx + 1}
                         </span>
                         <input
@@ -1050,14 +1063,14 @@ const ProductFormPage = () => {
                           value={group.name}
                           onChange={(e) => handleGroupChange(group.id, e.target.value)}
                           placeholder="Màn hình, Pin & Sạc, Camera..."
-                          className="flex-1 min-w-0 px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-100 font-semibold text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all placeholder-slate-500"
+                          className="flex-1 min-w-0 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all placeholder-slate-400"
                         />
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleRemoveGroup(group.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all duration-200 shrink-0"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all duration-200 shrink-0 cursor-pointer"
                         title="Xóa nhóm thông số này"
                       >
                         <X className="w-4 h-4" />
@@ -1077,7 +1090,7 @@ const ProductFormPage = () => {
                             value={item.name}
                             onChange={(e) => handleItemChange(group.id, item.id, 'name', e.target.value)}
                             placeholder="Kích thước, RAM..."
-                            className="sm:col-span-4 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all"
+                            className="sm:col-span-4 w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all"
                           />
 
                           {/* Giá trị: 7 cols */}
@@ -1086,7 +1099,7 @@ const ProductFormPage = () => {
                             onChange={(e) => handleItemChange(group.id, item.id, 'value', e.target.value)}
                             placeholder="6.7 inch Super Retina XDR"
                             rows={2}
-                            className="sm:col-span-7 w-full px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all resize-none"
+                            className="sm:col-span-7 w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/20 transition-all resize-none"
                           />
 
                           {/* Nút Xóa dòng: 1 col */}
@@ -1094,7 +1107,7 @@ const ProductFormPage = () => {
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(group.id, item.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all duration-200 shrink-0"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all duration-200 shrink-0 cursor-pointer"
                               title="Xóa dòng thông số này"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1105,11 +1118,11 @@ const ProductFormPage = () => {
                     </div>
 
                     {/* ── Nút Thêm dòng ── */}
-                    <div className="mt-3 pt-3 border-t border-slate-700/50">
+                    <div className="mt-3 pt-3 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={() => handleAddItem(group.id)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 py-1.5 px-3 rounded-lg hover:bg-sky-500/10 border border-transparent hover:border-sky-500/20 transition-all duration-200"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 py-1.5 px-3 rounded-lg hover:bg-sky-50 transition-all duration-200 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Thêm dòng thông số
@@ -1125,19 +1138,19 @@ const ProductFormPage = () => {
 
       {/* ── Modal Confirmation: Unsaved Changes Guard ── */}
       {showExitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 shrink-0">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-100">Xác nhận rời khỏi trang</h3>
-                <p className="text-xs text-slate-400">Dữ liệu vừa nhập chưa được lưu</p>
+                <h3 className="text-lg font-bold text-slate-800">Xác nhận rời khỏi trang</h3>
+                <p className="text-xs text-slate-500">Dữ liệu vừa nhập chưa được lưu</p>
               </div>
             </div>
 
-            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-300">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm text-slate-700">
               Bạn có chắc chắn muốn rời khỏi trang không? Mọi thay đổi chưa lưu sẽ bị mất hoàn toàn.
             </div>
 
@@ -1145,7 +1158,7 @@ const ProductFormPage = () => {
               <button
                 type="button"
                 onClick={() => setShowExitConfirm(false)}
-                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-semibold transition-colors"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Tiếp tục chỉnh sửa
               </button>
@@ -1157,7 +1170,7 @@ const ProductFormPage = () => {
                   setShowExitConfirm(false);
                   navigate('/admin/products');
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-600/20 transition-all"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
               >
                 Đồng ý thoát
               </button>

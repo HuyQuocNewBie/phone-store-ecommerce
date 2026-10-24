@@ -14,7 +14,7 @@ const CategoryListPage = () => {
 
   // Slide-over Drawer State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null); // null = Add, object = Edit
+  const [editingCategory, setEditingCategory] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState(null);
 
@@ -135,7 +135,7 @@ const CategoryListPage = () => {
       <div className="flex justify-end items-center gap-3">
         <button
           onClick={fetchCategories}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-medium transition-all"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-50 text-xs font-medium transition-all shadow-sm"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Làm mới
@@ -150,19 +150,19 @@ const CategoryListPage = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3">
-        <Search className="w-5 h-5 text-slate-400 ml-1" />
+      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+        <Search className="w-5 h-5 text-slate-400 ml-1 shrink-0" />
         <input
           type="text"
           placeholder="Tìm kiếm theo Tên loại sản phẩm..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 bg-transparent border-none text-slate-200 text-sm focus:outline-none placeholder-slate-500"
+          className="flex-1 bg-transparent border-none text-slate-700 text-sm focus:outline-none placeholder-slate-400"
         />
         {searchTerm && (
           <button
             onClick={() => setSearchTerm('')}
-            className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 bg-slate-700/50 rounded-lg"
+            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
           >
             Xóa
           </button>
@@ -170,66 +170,66 @@ const CategoryListPage = () => {
       </div>
 
       {/* Table Section */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         {error ? (
           <div className="p-8 text-center space-y-3">
             <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" />
-            <p className="text-slate-300 font-medium">{error}</p>
+            <p className="text-slate-700 font-medium">{error}</p>
             <button
               onClick={fetchCategories}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
             >
               Thử lại
             </button>
           </div>
         ) : (
           <div className="w-full overflow-x-auto">
-            <table className="w-full text-left text-slate-200">
-              <thead className="bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
+            <table className="w-full text-left text-slate-700">
+              <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4 w-16 text-center">STT</th>
                   <th className="px-6 py-4">Tên loại sản phẩm</th>
                   <th className="px-6 py-4 text-center w-28">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/30 text-sm">
+              <tbody className="divide-y divide-slate-100 text-sm">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-6 mx-auto" /></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-slate-700/50 rounded w-48" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-700/50 rounded w-12 mx-auto" /></td>
+                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-100 rounded w-6 mx-auto" /></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-slate-100 rounded w-48" /></td>
+                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-100 rounded w-12 mx-auto" /></td>
                     </tr>
                   ))
                 ) : filteredCategories.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
                       <FolderTree className="w-10 h-10 mx-auto mb-2 opacity-40" />
                       {searchTerm ? 'Không tìm thấy loại sản phẩm phù hợp' : 'Chưa có loại sản phẩm nào'}
                     </td>
                   </tr>
                 ) : (
                   filteredCategories.map((c, index) => (
-                    <tr key={c.MaLoaiSanPham} className="hover:bg-slate-700/20 transition-colors">
+                    <tr key={c.MaLoaiSanPham} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-center font-medium text-slate-400">
                         {index + 1}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-100 flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-sky-400 shrink-0" />
+                      <td className="px-6 py-4 font-bold text-slate-800 flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-sky-500 shrink-0" />
                         <span>{c.TenLoaiSanPham}</span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => handleOpenEditDrawer(c)}
-                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg border border-transparent hover:border-sky-200 transition-colors cursor-pointer"
                             title="Sửa tên loại sản phẩm"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteCategory(c)}
-                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                             title="Xóa loại sản phẩm"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -245,39 +245,39 @@ const CategoryListPage = () => {
         )}
       </div>
 
-      {/* ── Slide-over Drawer (Panel trượt từ bên phải) ── */}
+      {/* ── Slide-over Drawer ── */}
       {/* Backdrop */}
       <div
         onClick={handleCloseDrawer}
-        className={`fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
+        className={`fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
           isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
 
       {/* Right Drawer Panel */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${
           isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Drawer Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/90 backdrop-blur">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
+            <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-600">
               <Tag className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">
+              <h2 className="text-base font-bold text-slate-800">
                 {editingCategory ? `Chỉnh sửa danh mục #${editingCategory.MaLoaiSanPham}` : 'Thêm danh mục mới'}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {editingCategory ? 'Cập nhật thông tin tên phân loại sản phẩm' : 'Nhập tên loại sản phẩm muốn tạo trong cửa hàng'}
               </p>
             </div>
           </div>
           <button
             onClick={handleCloseDrawer}
-            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition-colors"
             title="Đóng panel (Esc)"
           >
             <X className="w-5 h-5" />
@@ -287,7 +287,7 @@ const CategoryListPage = () => {
         {/* Drawer Form Body */}
         <form onSubmit={handleSubmitCategory} className="flex-1 p-6 space-y-6 overflow-y-auto">
           {drawerError && (
-            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{drawerError}</span>
             </div>
@@ -295,12 +295,12 @@ const CategoryListPage = () => {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Tên loại sản phẩm / Danh mục <span className="text-rose-400">*</span>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Tên loại sản phẩm / Danh mục <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Tag className="w-4 h-4 text-sky-400" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Tag className="w-4 h-4 text-sky-500" />
                 </div>
                 <input
                   type="text"
@@ -311,17 +311,17 @@ const CategoryListPage = () => {
                     setTenLoaiSanPham(e.target.value);
                     if (drawerError) setDrawerError(null);
                   }}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl text-slate-100 text-sm font-semibold placeholder-slate-600 focus:outline-none transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl text-slate-800 text-sm font-semibold placeholder-slate-400 focus:outline-none transition-all"
                 />
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-xs space-y-2">
-              <div className="flex items-center gap-2 font-medium text-slate-300">
-                <Sparkles className="w-4 h-4 text-sky-400" />
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-medium text-slate-600">
+                <Sparkles className="w-4 h-4 text-sky-500" />
                 <span>Gợi ý đặt tên:</span>
               </div>
-              <ul className="list-disc list-inside text-slate-400 space-y-1 pl-1">
+              <ul className="list-disc list-inside text-slate-500 space-y-1 pl-1">
                 <li>Đặt tên rõ ràng, dễ hiểu cho người mua (vd: Smartwatch, Tai nghe).</li>
                 <li>Không chứa ký tự đặc biệt không hợp lệ.</li>
               </ul>
@@ -333,12 +333,12 @@ const CategoryListPage = () => {
         </form>
 
         {/* Drawer Footer Actions */}
-        <div className="p-6 border-t border-slate-800 bg-slate-900/90 backdrop-blur flex items-center justify-end gap-3">
+        <div className="p-6 border-t border-slate-200 bg-white flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={handleCloseDrawer}
             disabled={drawerLoading}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-semibold transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors disabled:opacity-50"
           >
             Hủy bỏ
           </button>

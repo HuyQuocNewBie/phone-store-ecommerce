@@ -152,12 +152,12 @@ const ManufacturerFormPage = () => {
   return (
     <div className="flex-1 p-6 max-w-5xl mx-auto space-y-6 overflow-auto">
       {/* ── Top Header Navigation ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => navigate('/admin/manufacturers')}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all flex items-center gap-2 text-sm font-medium"
+            className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 border border-slate-200 transition-all flex items-center gap-2 text-sm font-medium shadow-sm"
             title="Quay lại danh sách"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -165,11 +165,11 @@ const ManufacturerFormPage = () => {
           </button>
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
-              <Building2 className="w-7 h-7 text-sky-400" />
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+              <Building2 className="w-7 h-7 text-sky-600" />
               {isEditMode ? `Chỉnh sửa nhà sản xuất #${id}` : 'Thêm nhà sản xuất mới'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               {isEditMode
                 ? 'Cập nhật tên thương hiệu, địa chỉ trụ sở và thông tin liên hệ'
                 : 'Tạo hồ sơ nhà sản xuất/thương hiệu đối tác cung cấp sản phẩm'}
@@ -182,7 +182,7 @@ const ManufacturerFormPage = () => {
             type="button"
             onClick={() => navigate('/admin/manufacturers')}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors disabled:opacity-50"
           >
             Hủy bỏ
           </button>
@@ -210,13 +210,13 @@ const ManufacturerFormPage = () => {
 
       {/* ── Submit Error Banner ── */}
       {submitError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 shadow-lg">
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <p className="text-sm font-medium">{submitError}</p>
           <button
             type="button"
             onClick={() => setSubmitError(null)}
-            className="ml-auto text-slate-400 hover:text-white"
+            className="ml-auto text-slate-400 hover:text-slate-600"
           >
             <X className="w-4 h-4" />
           </button>
@@ -225,13 +225,13 @@ const ManufacturerFormPage = () => {
 
       {/* ── Main Form ── */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-sky-400" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-sky-600" />
               Thông tin chi tiết nhà sản xuất
             </h2>
-            <span className="text-xs text-sky-400/80 bg-sky-500/10 px-2.5 py-1 rounded-lg font-medium border border-sky-500/20">
+            <span className="text-xs text-sky-600 bg-sky-50 px-2.5 py-1 rounded-lg font-medium border border-sky-200">
               Bắt buộc
             </span>
           </div>
@@ -239,12 +239,12 @@ const ManufacturerFormPage = () => {
           <div className="space-y-5">
             {/* Tên nhà sản xuất */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Tên nhà sản xuất / Thương hiệu <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Building2 className="w-4 h-4 text-sky-400" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Building2 className="w-4 h-4 text-sky-600" />
                 </div>
                 <input
                   type="text"
@@ -254,15 +254,15 @@ const ManufacturerFormPage = () => {
                     setTenNhaSanXuat(e.target.value);
                     if (errors.tenNhaSanXuat) setErrors((prev) => ({ ...prev, tenNhaSanXuat: null }));
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.tenNhaSanXuat
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-slate-100 text-sm font-semibold placeholder-slate-600 focus:outline-none focus:ring-2 transition-all`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-slate-800 text-sm font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 transition-all`}
                 />
               </div>
               {errors.tenNhaSanXuat && (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.tenNhaSanXuat}
                 </p>
@@ -273,12 +273,12 @@ const ManufacturerFormPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {/* Số điện thoại */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Số điện thoại liên hệ <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Phone className="w-4 h-4 text-emerald-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone className="w-4 h-4 text-emerald-500" />
                   </div>
                   <input
                     type="text"
@@ -288,31 +288,31 @@ const ManufacturerFormPage = () => {
                       setSoDienThoai(e.target.value);
                       if (errors.soDienThoai) setErrors((prev) => ({ ...prev, soDienThoai: null }));
                     }}
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                       errors.soDienThoai
-                        ? 'border-rose-500/80 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm font-mono focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm font-mono focus:outline-none focus:ring-2 transition-all`}
                   />
                 </div>
                 {errors.soDienThoai ? (
-                  <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                  <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {errors.soDienThoai}
                   </p>
                 ) : (
-                  <p className="text-[11px] text-slate-500 mt-1">Đủ 10 chữ số, bắt đầu bằng 0</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Đủ 10 chữ số, bắt đầu bằng 0</p>
                 )}
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Email liên hệ <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Mail className="w-4 h-4 text-violet-400" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4 text-violet-500" />
                   </div>
                   <input
                     type="email"
@@ -322,15 +322,15 @@ const ManufacturerFormPage = () => {
                       setEmail(e.target.value);
                       if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
                     }}
-                    className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                    className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                       errors.email
-                        ? 'border-rose-500/80 focus:ring-rose-500/20'
-                        : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                    } rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all`}
+                        ? 'border-rose-400 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                    } rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 transition-all`}
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                  <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {errors.email}
                   </p>
@@ -340,12 +340,12 @@ const ManufacturerFormPage = () => {
 
             {/* Địa chỉ */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Địa chỉ trụ sở / Văn phòng <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <div className="absolute top-3 left-0 pl-3.5 flex items-start pointer-events-none text-slate-500">
-                  <MapPin className="w-4 h-4 text-amber-400" />
+                <div className="absolute top-3 left-0 pl-3.5 flex items-start pointer-events-none text-slate-400">
+                  <MapPin className="w-4 h-4 text-amber-500" />
                 </div>
                 <textarea
                   rows={3}
@@ -355,15 +355,15 @@ const ManufacturerFormPage = () => {
                     setDiaChi(e.target.value);
                     if (errors.diaChi) setErrors((prev) => ({ ...prev, diaChi: null }));
                   }}
-                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border ${
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
                     errors.diaChi
-                      ? 'border-rose-500/80 focus:ring-rose-500/20'
-                      : 'border-slate-800 focus:border-sky-500 focus:ring-sky-500/20'
-                  } rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 transition-all resize-none`}
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 transition-all resize-none`}
                 />
               </div>
               {errors.diaChi && (
-                <p className="mt-1.5 text-xs text-rose-400 font-medium flex items-center gap-1">
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.diaChi}
                 </p>
