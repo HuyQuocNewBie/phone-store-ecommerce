@@ -242,10 +242,14 @@ const RegisterPage = () => {
           id: 'otp-sent',
           duration: 4000
         });
-        setTimer(300); // 5 phút
-        setOtpValues(['', '', '', '', '', '']);
-        setOtpError('');
-        setStep(2);
+        navigate('/verify-otp', {
+          state: {
+            email: form.Email.trim().toLowerCase(),
+            phone: '',
+            username: form.TaiKhoan.trim(),
+            password: form.MatKhau
+          }
+        });
       } else {
         setServerError(res.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
       }
@@ -415,14 +419,14 @@ const RegisterPage = () => {
   const handleResendOtp = resendOtp;
 
   return (
-    <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col justify-between">
+    <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col">
       {/* ── Navbar ── */}
       <Navbar />
 
       {/* ── Main Section ── */}
-      <main className="w-full bg-surface flex-grow">
+      <main className="w-full bg-surface">
         <div className="flex flex-col w-full">
-          <div className="relative w-full overflow-hidden py-unit-lg lg:py-unit-2xl">
+          <div className="relative w-full overflow-hidden pt-unit-lg pb-unit-xs">
             {/* Ambient geometric glow overlays */}
             <div className="absolute -top-32 -left-24 w-96 h-96 bg-primary-fixed-dim/30 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-24 -right-16 w-80 h-80 bg-secondary-fixed/40 rounded-full blur-3xl pointer-events-none" />
@@ -947,8 +951,10 @@ const RegisterPage = () => {
         </div>
       </main>
 
-      {/* ── Footer ── */}
-      <Footer />
+      {/* ── Footer (Tối ưu khoảng cách trên mỏng gọn) ── */}
+      <div className="[&>footer]:!mt-6 md:[&>footer]:!mt-8 [&>footer]:!pt-10 md:[&>footer]:!pt-12">
+        <Footer />
+      </div>
     </div>
   );
 };
