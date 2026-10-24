@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from '../components/admin/Sidebar';
-import Navbar from '../components/admin/Navbar';
+import AdminSidebar from '../components/admin/AdminSidebar';
+import AdminHeader from '../components/admin/AdminHeader';
 
 /**
  * AdminLayout
- * Layout chính cho toàn bộ trang Admin.
- * Bao gồm:
- *  - Sidebar thu gọn linh hoạt (w-64 ↔ w-20) trên Desktop & Mobile Drawer trên màn hình nhỏ (< lg)
- *  - Navbar sticky ở trên cùng phần nội dung với nút Hamburger Menu
- *  - <Outlet /> để render các trang con (React Router v6)
+ * Layout chính cho toàn bộ trang Admin tone sáng (Light Mode).
+ * Đồng nhất 100% với giao diện Stitch AI SaaS:
+ *  - Background: bg-[#faf8ff] / bg-slate-50
+ *  - Sidebar & Top Navbar: bg-white, viền nhẹ border-slate-200
+ *  - Active Item: bg-blue-600 text-white font-semibold shadow-sm
+ *  - Router <Outlet /> giữ nguyên hiển thị các trang con
  */
 const AdminLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -39,9 +40,9 @@ const AdminLayout = () => {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-slate-900">
+    <div className="flex min-h-screen bg-[#faf8ff] text-slate-900">
       {/* ── Sidebar (Mobile Drawer + Desktop Sidebar) ── */}
-      <Sidebar
+      <AdminSidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((prev) => !prev)}
         mobileOpen={mobileOpen}
@@ -50,11 +51,11 @@ const AdminLayout = () => {
 
       {/* ── Main Content Area ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Sticky Navbar */}
-        <Navbar onToggleMobile={() => setMobileOpen((prev) => !prev)} />
+        {/* Sticky Top Navbar */}
+        <AdminHeader onToggleMobile={() => setMobileOpen((prev) => !prev)} />
 
         {/* Page content via <Outlet /> */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-[#faf8ff]">
           <Outlet />
         </main>
       </div>
