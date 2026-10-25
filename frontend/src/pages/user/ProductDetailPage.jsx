@@ -24,6 +24,7 @@ import {
   X,
   Monitor,
   MemoryStick,
+  Camera,
   Maximize2,
   Sparkles,
   BatteryFull,
@@ -33,6 +34,8 @@ import Footer from "../../components/user/Footer";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import SpecDrawer from "../../components/user/SpecDrawer";
+import ReviewSection from "../../components/user/ReviewSection";
 
 const SESSION_INTENT_KEY = "cart_action_intent";
 
@@ -216,6 +219,7 @@ const ProductDetailPage = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
   const [showSpecsModal, setShowSpecsModal] = useState(false);
+  const [showSpecDrawer, setShowSpecDrawer] = useState(false);
   const [suggestedProducts, setSuggestedProducts] = useState([]);
   const [loadingSuggested, setLoadingSuggested] = useState(false);
 
@@ -269,19 +273,18 @@ const ProductDetailPage = () => {
     return Object.entries(groups);
   }, [product]);
 
+  // 3 thông số nhanh: Màn hình | Camera | RAM – khớp layout PHP
   const quickSpecs = React.useMemo(() => {
     if (!product?.thongsokythuat?.length) return [];
     const specs = product.thongsokythuat;
-    const rom    = findSpec(specs, ["rom", "dung luong trong", "bo nho trong", "storage", "dung lượng"]);
-    const chip   = findSpec(specs, ["chip", "vi xu ly", "cpu", "processor", "helio", "snapdragon", "apple"]);
-    const screen = findSpec(specs, ["man hinh", "kich thuoc man", "screen", "hien thi", "display", "màn hình"]);
-    const pin    = findSpec(specs, ["pin", "dung luong pin", "battery", "mah"]);
-    const result = [];
-    if (rom)    result.push({ icon: HardDrive,  label: "Bộ nhớ (ROM)",  value: rom });
-    if (chip)   result.push({ icon: Cpu,        label: "Vi xử lý",      value: chip });
-    if (screen) result.push({ icon: Monitor,    label: "Màn hình",       value: screen });
-    if (pin)    result.push({ icon: BatteryFull, label: "Dung lượng pin", value: pin });
-    return result;
+    const screen = findSpec(specs, ["kích thước màn hình", "man hinh", "kich thuoc man", "màn hình", "screen", "display"]);
+    const camera = findSpec(specs, ["độ phân giải camera", "camera", "resolution", "do phan giai camera"]);
+    const ram    = findSpec(specs, ["ram", "dung lượng ram", "dung luong ram"]);
+    return [
+      { key: "screen", label: "Kích thước màn hình", value: screen },
+      { key: "camera", label: "Camera",              value: camera },
+      { key: "ram",    label: "RAM",                 value: ram },
+    ].filter((s) => s.value);
   }, [product]);
 
   const isOutOfStock = product?.TonKho <= 0;
@@ -430,9 +433,19 @@ const ProductDetailPage = () => {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <Navbar />
 
+      {/* SpecsModal cũ (giữ lại để không phá vỡ) */}
       {showSpecsModal && (
         <SpecsModal specGroups={specGroups} productName={product.TenSanPham} onClose={() => setShowSpecsModal(false)} />
       )}
+
+      {/* SpecDrawer mới – slide từ phải */}
+      <SpecDrawer
+        isOpen={showSpecDrawer}
+        onClose={() => setShowSpecDrawer(false)}
+        specGroups={specGroups}
+        productName={product.TenSanPham}
+        productImage={product.Anh}
+      />
 
       <main className="flex-1 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
@@ -486,48 +499,66 @@ const ProductDetailPage = () => {
               </div>
             </div>
 
-            {/* 4 thông số kỹ thuật nổi bật – Grid 2×2 */}
-            {quickSpecs.length > 0 && (
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-blue-500" />
-                    <h3 className="text-sm font-semibold text-slate-800">Thông Số Nổi Bật</h3>
-                  </div>
+            {/* Thông số kỹ thuật – 3 cột (Màn hình | Camera | RAM) khớp PHP */}
+            {(quickSpecs.length > 0 || specGroups.length > 0) && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                {/* Header: tiêu đề + nút pill xem tất cả */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">Thông số kỹ thuật</p>
                   {specGroups.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setShowSpecsModal(true)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                      id="btn-view-all-specs"
+                      onClick={() => setShowSpecDrawer(true)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        backgroundColor: "#fff",
+                        border: "0.8px solid #dc2626",
+                        borderRadius: "24px",
+                        color: "#dc2626",
+                        fontWeight: 500,
+                        padding: "6px 12px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        gap: "4px",
+                      }}
                     >
-                      Xem tất cả
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      Xem tất cả thông số
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
-                  {quickSpecs.map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="flex flex-col gap-2 p-4 hover:bg-slate-50/70 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                          <Icon className="w-3.5 h-3.5 text-blue-500" />
+
+                {/* 3 cột: Màn hình | Camera | RAM */}
+                {quickSpecs.length > 0 && (
+                  <div className="flex border-t border-slate-100">
+                    {quickSpecs.map((spec, idx) => (
+                      <div
+                        key={spec.key}
+                        className={`flex flex-col justify-center h-[72px] flex-1 px-3 ${
+                          idx < quickSpecs.length - 1 ? "border-r border-slate-200" : ""
+                        }`}
+                      >
+                        <p className="text-xs text-slate-500 mb-1">{spec.label}</p>
+                        <div className="flex items-center gap-1.5">
+                          {spec.key === "screen" && (
+                            <Monitor className="w-4 h-4 shrink-0 text-slate-600" />
+                          )}
+                          {spec.key === "camera" && (
+                            <Camera className="w-4 h-4 shrink-0 text-slate-600" />
+                          )}
+                          {spec.key === "ram" && (
+                            <MemoryStick className="w-4 h-4 shrink-0 text-slate-600" />
+                          )}
+                          <p
+                            className="text-xs font-semibold text-slate-900 truncate"
+                            title={spec.value}
+                          >
+                            {spec.value}
+                          </p>
                         </div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-tight">{label}</p>
                       </div>
-                      <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2">{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {specGroups.length > 0 && (
-                  <div className="px-4 py-2.5 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setShowSpecsModal(true)}
-                      className="w-full text-center text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex items-center justify-center gap-1.5 py-0.5"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      Xem đầy đủ thông số kỹ thuật
-                    </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -756,6 +787,11 @@ const ProductDetailPage = () => {
             </div>
           </section>
         )}
+
+        {/* ═══════════════════════════════════════
+            DIV 2.5 - HỆ THỐNG ĐÁNH GIÁ
+        ═══════════════════════════════════════ */}
+        <ReviewSection productId={id} productName={product?.TenSanPham} />
 
         {/* ═══════════════════════════════════════
             DIV 3 - SẢN PHẨM TƯƠNG TỰ (Grid 4 cột)
