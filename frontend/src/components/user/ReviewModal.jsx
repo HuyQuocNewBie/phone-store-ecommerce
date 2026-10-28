@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -195,16 +196,16 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
 
   if (!isRendered) return null;
 
-  return (
+  return createPortal(
     <div
       id="reviewModal"
-      className={`fixed inset-0 z-[140] flex items-center justify-center transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-300 ${
         isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/50 transition-opacity duration-300 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}
         onClick={handleClose}
@@ -458,7 +459,8 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

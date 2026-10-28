@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -154,11 +155,11 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
 
   if (!shouldRender) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop mờ nhẹ */}
       <div
-        className={`fixed inset-0 z-[110] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
           animating ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -171,7 +172,7 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
         role="dialog"
         aria-modal="true"
         aria-labelledby="specDrawerTitle"
-        className={`fixed top-0 right-0 z-[120] h-full w-full md:w-[600px]
+        className={`fixed top-0 right-0 z-[9999] h-full w-full md:w-[600px]
                    bg-white shadow-2xl flex flex-col
                    transition-transform duration-300 ease-out ${
                      animating ? "translate-x-0" : "translate-x-full"
@@ -319,7 +320,8 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };
 
