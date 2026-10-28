@@ -26,6 +26,16 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
   const tabButtonRefs = useRef([]);
   const isClickScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
+  const rafIdRef = useRef(null);
+
+  // Cleanup khi component unmount đột ngột
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, []);
 
   // Điều khiển animation mở / đóng drawer
   useEffect(() => {
@@ -36,7 +46,10 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
       setStickyVisible(false);
       isClickScrollingRef.current = false;
       const timer = setTimeout(() => setAnimating(true), 15);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = "";
+      };
     } else {
       setAnimating(false);
       document.body.style.overflow = "";
@@ -55,46 +68,51 @@ const SpecDrawer = ({ isOpen, onClose, specGroups = [], productName, productImag
     return () => document.removeEventListener("keydown", handleKey);
   }, [isOpen, onClose]);
 
-  // Logic cuộn: tự động xuất hiện mini header CHỈ KHI cuộn qua hết thumbnail & cập nhật active tab
+  // Logic cuộn: Tối ưu với requestAnimationFrame để mượt mà trên mobile, tránh layout thrashing
   const handleScrollActiveTab = useCallback(() => {
-    const area = scrollAreaRef.current;
-    if (!area) return;
+    if (rafIdRef.current) return;
 
-    // Chiều cao thumbnail sản phẩm chính ở đầu
-    const mainHeight = mainProductRef.current?.offsetHeight || 280;
-    // CHỈ hiện mini sticky header khi người dùng đã cuộn qua toàn bộ thumbnail ảnh chính
-    const scrolled = area.scrollTop >= mainHeight - 10;
-    setStickyVisible(scrolled);
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      const area = scrollAreaRef.current;
+      if (!area) return;
 
-    // Nếu đang cuộn do người dùng bấm tab thì không can thiệp đổi activeTab
-    if (isClickScrollingRef.current) return;
+      // Chiều cao thumbnail sản phẩm chính ở đầu
+      const mainHeight = mainProductRef.current?.offsetHeight || 280;
+      // CHỈ hiện mini sticky header khi người dùng đã cuộn qua toàn bộ thumbnail ảnh chính
+      const scrolled = area.scrollTop >= mainHeight - 10;
+      setStickyVisible(scrolled);
 
-    // Xác định tab đang xem dựa trên toạ độ tương đối
-    const stickyHeight = scrolled ? 118 : 45;
-    const threshold = stickyHeight + 35;
-    let currentIdx = 0;
-    groupRefs.current.forEach((ref, idx) => {
-      if (ref) {
-        const areaRect = area.getBoundingClientRect();
-        const refRect = ref.getBoundingClientRect();
-        if (refRect.top - areaRect.top <= threshold) {
-          currentIdx = idx;
+      // Nếu đang cuộn do người dùng bấm tab thì không can thiệp đổi activeTab
+      if (isClickScrollingRef.current) return;
+
+      // Xác định tab đang xem dựa trên toạ độ tương đối
+      const stickyHeight = scrolled ? 118 : 45;
+      const threshold = stickyHeight + 35;
+      let currentIdx = 0;
+      groupRefs.current.forEach((ref, idx) => {
+        if (ref) {
+          const areaRect = area.getBoundingClientRect();
+          const refRect = ref.getBoundingClientRect();
+          if (refRect.top - areaRect.top <= threshold) {
+            currentIdx = idx;
+          }
         }
-      }
-    });
+      });
 
-    setActiveTab((prev) => {
-      if (prev !== currentIdx) {
-        // Cuộn ngang thanh tabs để đưa tab active vào vùng nhìn (CHỈ cuộn tabsContainer, không ảnh hưởng cuộn dọc)
-        if (tabsContainerRef.current && tabButtonRefs.current[currentIdx]) {
-          const container = tabsContainerRef.current;
-          const button = tabButtonRefs.current[currentIdx];
-          const scrollLeft = button.offsetLeft - container.offsetWidth / 2 + button.offsetWidth / 2;
-          container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+      setActiveTab((prev) => {
+        if (prev !== currentIdx) {
+          // Cuộn ngang thanh tabs để đưa tab active vào vùng nhìn (CHỈ cuộn tabsContainer, không ảnh hưởng cuộn dọc)
+          if (tabsContainerRef.current && tabButtonRefs.current[currentIdx]) {
+            const container = tabsContainerRef.current;
+            const button = tabButtonRefs.current[currentIdx];
+            const scrollLeft = button.offsetLeft - container.offsetWidth / 2 + button.offsetWidth / 2;
+            container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+          }
+          return currentIdx;
         }
-        return currentIdx;
-      }
-      return prev;
+        return prev;
+      });
     });
   }, []);
 

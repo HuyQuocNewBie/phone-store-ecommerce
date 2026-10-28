@@ -48,9 +48,34 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Ref lưu mảng previews để dọn dẹp bộ nhớ (revokeObjectURL) tránh memory leak
+  const previewsRef = useRef([]);
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
+
+  const revokeAllPreviews = () => {
+    if (previewsRef.current && previewsRef.current.length > 0) {
+      previewsRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+      });
+      previewsRef.current = [];
+    }
+  };
+
   // Trạng thái điều khiển animation fade-in / fade-out
   const [isRendered, setIsRendered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+
+  // Cleanup khi component unmount đột ngột (chuyển trang, đóng modal)
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      revokeAllPreviews();
+    };
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -64,6 +89,7 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
       setCriteriaRatings({ hieu_nang: 5, pin: 5, camera: 5 });
       setHoverCriteria({});
       setContent("");
+      revokeAllPreviews();
       setSelectedFiles([]);
       setPreviews([]);
 
@@ -79,12 +105,14 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
       timer = setTimeout(() => {
         setIsRendered(false);
         document.body.style.overflow = "";
+        revokeAllPreviews();
       }, 300);
     }
 
     return () => {
       if (animFrame) cancelAnimationFrame(animFrame);
       if (timer) clearTimeout(timer);
+      document.body.style.overflow = "";
     };
   }, [isOpen]);
 
@@ -92,6 +120,9 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
   const handleClose = () => {
     setIsVisible(false);
     setTimeout(() => {
+      revokeAllPreviews();
+      setSelectedFiles([]);
+      setPreviews([]);
       onClose();
     }, 300);
   };
@@ -134,7 +165,12 @@ const ReviewModal = ({ isOpen, onClose, productId, productName, onSuccess }) => 
   };
 
   const removeImage = (index) => {
-    URL.revokeObjectURL(previews[index]);
+    const targetUrl = previews[index];
+    if (targetUrl) {
+      try {
+        URL.revokeObjectURL(targetUrl);
+      } catch (e) {}
+    }
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };

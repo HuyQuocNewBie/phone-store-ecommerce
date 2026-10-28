@@ -46,25 +46,41 @@ export const formatAnonymizedName = (rawName = "") => {
   const trimmed = rawName.trim();
   if (!trimmed) return "Ẩn danh";
 
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    const word = parts[0];
-    if (word.length <= 2) return word.charAt(0) + "***";
-    return word.charAt(0) + "***" + word.charAt(word.length - 1);
-  }
-  if (parts.length === 2) {
-    return `${parts[0]} ${parts[1].charAt(0)}***`;
+  // Hàm ẩn danh an toàn cho từng từ đơn
+  const maskWord = (w) => {
+    if (!w) return "";
+    // Trường hợp 1 ký tự (Ví dụ: "Ý", "A") -> "Ý***" (tránh lặp ký tự out-of-bounds hoặc "Ý***Ý")
+    if (w.length <= 1) return `${w}***`;
+    // Trường hợp 2 ký tự (Ví dụ: "An", "Vũ") -> "A***n" (tránh nối chuỗi sai dạng "A***An")
+    if (w.length === 2) return `${w.charAt(0)}***${w.charAt(1)}`;
+    // Trường hợp từ 3 ký tự trở lên (Ví dụ: "admin" -> "a***n", "huyquoc" -> "h***c")
+    return `${w.charAt(0)}***${w.charAt(w.length - 1)}`;
+  };
+
+  // Kiểm tra nếu toàn bộ chuỗi chỉ có 1 hoặc 2 ký tự
+  if (trimmed.length <= 2) {
+    return maskWord(trimmed);
   }
 
-  // 3 từ trở lên: ví dụ "Nguyễn Văn An" -> "Nguyễn V*** A"
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return maskWord(parts[0]);
+  }
+
+  if (parts.length === 2) {
+    return `${parts[0]} ${maskWord(parts[1])}`;
+  }
+
+  // 3 từ trở lên: ví dụ "Nguyễn Văn An" -> "Nguyễn V*** A***n"
   const first = parts[0];
-  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+  const lastMasked = maskWord(parts[parts.length - 1]);
   const middle = parts
     .slice(1, -1)
-    .map((p) => p.charAt(0).toUpperCase() + "***")
+    .map((p) => (p.charAt(0) ? p.charAt(0).toUpperCase() + "***" : ""))
+    .filter(Boolean)
     .join(" ");
 
-  return `${first} ${middle} ${lastInitial}`;
+  return `${first} ${middle} ${lastMasked}`;
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -240,7 +256,7 @@ const ReviewCard = ({ review, onLike, onLikeReply, onReplySuccess }) => {
   }, [review.criteria]);
 
   const authorName = formatAnonymizedName(review.HoTen);
-  const firstLetter = authorName.charAt(0).toUpperCase();
+  const firstLetter = (authorName.charAt(0) || "U").toUpperCase();
 
   return (
     <div
