@@ -1,8 +1,6 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Heart, Sparkles, ArrowRight } from 'lucide-react';
-import Navbar from '../../components/user/Navbar';
-import Footer from '../../components/user/Footer';
 import ProductCard from '../../components/user/ProductCard';
 import { useWishlist } from '../../context/WishlistContext';
 
@@ -109,68 +107,54 @@ const EmptyWishlist = () => {
 };
 
 /* ─── WishlistPage ────────────────────────────────────────────────────────── */
+/**
+ * WishlistPage — Content-only component.
+ * Navbar, Footer, Breadcrumb và Layout container được quản lý bởi AccountLayout.
+ */
 const WishlistPage = () => {
   const { wishlistItems, loading } = useWishlist();
   const count = wishlistItems.length;
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface flex flex-col font-sans">
-      <Navbar />
+    <div className="flex flex-col gap-unit-lg">
 
-      <main className="flex-1 w-full bg-surface py-unit-lg md:py-unit-xl pb-unit-4xl">
-        <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col gap-unit-lg">
+      {/* ── Tiêu đề chính + Badge số lượng ── */}
+      <div className="flex items-center gap-unit-xs">
+        <h1 className="font-headline-sm text-headline-sm font-extrabold text-on-surface leading-tight">
+          Sản phẩm yêu thích của tôi
+        </h1>
+        {!loading && count > 0 && (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#fe2c55]/10 text-[#fe2c55] font-body-sm text-body-sm font-bold">
+            {count}
+          </span>
+        )}
+      </div>
 
-          {/* ── Breadcrumb ── */}
-          <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
-            <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
-              <span className="material-symbols-outlined text-base leading-none">home</span>
-              Trang chủ
-            </Link>
-            <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
-            <span className="text-on-surface font-semibold">Danh sách yêu thích</span>
-          </nav>
-
-          {/* ── Tiêu đề chính + Badge số lượng ── */}
-          <div className="flex items-center gap-unit-xs">
-            <h1 className="font-headline-sm text-headline-sm font-extrabold text-on-surface leading-tight">
-              Sản phẩm yêu thích của tôi
-            </h1>
-            {!loading && count > 0 && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#fe2c55]/10 text-[#fe2c55] font-body-sm text-body-sm font-bold">
-                {count}
-              </span>
-            )}
-          </div>
-
-          {/* ── Danh sách sản phẩm ── */}
-          {loading ? (
-            /* Loading skeleton */
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-unit-md">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <WishlistSkeleton key={i} />
-              ))}
-            </div>
-          ) : count === 0 ? (
-            /* Empty state */
-            <EmptyWishlist />
-          ) : (
-            /* Grid hiển thị sản phẩm sử dụng ProductCard */
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-unit-md">
-              {wishlistItems.map((item) => {
-                const key = item.MaSanPham ?? item.id ?? item.product_id;
-                return (
-                  <ProductCard
-                    key={key}
-                    product={item}
-                  />
-                );
-              })}
-            </div>
-          )}
+      {/* ── Danh sách sản phẩm ── */}
+      {loading ? (
+        /* Loading skeleton */
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-unit-md">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <WishlistSkeleton key={i} />
+          ))}
         </div>
-      </main>
-
-      <Footer />
+      ) : count === 0 ? (
+        /* Empty state */
+        <EmptyWishlist />
+      ) : (
+        /* Grid hiển thị sản phẩm sử dụng ProductCard */
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-unit-md">
+          {wishlistItems.map((item) => {
+            const key = item.MaSanPham ?? item.id ?? item.product_id;
+            return (
+              <ProductCard
+                key={key}
+                product={item}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

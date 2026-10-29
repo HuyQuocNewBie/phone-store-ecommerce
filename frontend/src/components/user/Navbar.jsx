@@ -370,7 +370,7 @@ const Navbar = () => {
                   )}
 
                   <Link
-                    to="/orders"
+                    to="/user/orders"
                     onClick={() => setIsUserMenuOpen(false)}
                     className="flex items-center gap-unit-sm px-unit-sm py-unit-xs rounded-lg text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors font-body-md text-body-md"
                   >
@@ -602,7 +602,7 @@ const Navbar = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDrawerNavigate('/orders')}
+                  onClick={() => handleDrawerNavigate('/user/orders')}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-slate-200 text-slate-700 text-[12px] font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
                 >
                   <span className="material-symbols-outlined text-[15px] leading-none">receipt_long</span>

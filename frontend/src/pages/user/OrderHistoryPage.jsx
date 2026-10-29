@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import Navbar from '../../components/user/Navbar';
-import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -589,139 +587,11 @@ const OrderHistoryPage = () => {
   const featuredStatusInfo = currentFeaturedOrder ? getStatusInfo(currentFeaturedOrder.TrangThaiDonHang) : null;
 
   return (
-    <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col">
-      <Navbar />
+    <>
+      {/* ── Order History Content (content-only, layout managed by AccountLayout) ── */}
+      <div className="flex flex-col gap-unit-xl">
 
-      <main className="w-full pt-4 sm:pt-6 bg-surface min-h-screen">
-        <div className="flex flex-col w-full">
-          
-          {/* ── Breadcrumb: Trang chủ > Lịch sử đơn hàng ── */}
-          <div className="max-w-container-max mx-auto w-full px-gutter-desktop pb-unit-sm">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
-              <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
-                <span className="material-symbols-outlined text-base leading-none">home</span>
-                Trang chủ
-              </Link>
-              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
-              <span className="text-on-surface font-semibold">Lịch sử đơn hàng</span>
-            </nav>
-          </div>
-
-          {/* Main Body Content: Asymmetric 12-Column Responsive Dashboard Layout */}
-          <div className="max-w-container-max mx-auto w-full px-gutter-desktop pb-unit-4xl">
-            <div className="grid grid-cols-12 gap-gutter-desktop items-start">
-              
-              {/* ── LEFT COLUMN: Account Sidebar (Span 3.5 on desktop) ── */}
-              <aside className="col-span-12 lg:col-span-4 xl:col-span-3 flex flex-col gap-unit-lg lg:sticky lg:top-24">
-                
-                {/* Member Profile Master Card */}
-                <div className="bg-surface-container-lowest rounded-2xl shadow-sm p-unit-lg flex flex-col relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary-fixed/40 via-transparent to-transparent rounded-bl-full pointer-events-none" />
-                  
-                  {/* Avatar & Identity */}
-                  <div className="flex items-center gap-unit-md relative">
-                    <div className="relative shrink-0">
-                      <img
-                        alt={user?.HoTen || user?.TaiKhoan || 'Khách hàng'}
-                        className="w-16 h-16 rounded-2xl object-cover shadow-sm bg-surface-container-high"
-                        src={user?.AnhDaiDien || defaultAvatar}
-                        onError={(e) => {
-                          e.target.src = defaultAvatar;
-                        }}
-                      />
-                      <span
-                        className="absolute -bottom-1 -right-1 bg-primary text-on-primary rounded-full p-0.5 flex items-center justify-center shadow-sm"
-                        title="Tài khoản khách hàng chính thức"
-                      >
-                        <span className="material-symbols-outlined text-xs leading-none">verified</span>
-                      </span>
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-title-card text-title-card text-on-surface truncate font-bold">
-                        {user?.HoTen || user?.TaiKhoan || 'Khách hàng'}
-                      </span>
-                      <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                        {user?.Email || 'customer@smartzone.vn'}
-                      </span>
-                      {user?.SoDienThoai && (
-                        <span className="font-label-spec text-label-spec text-outline mt-unit-2xs">
-                          {user.SoDienThoai}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Navigation Submenu */}
-                  <nav className="flex flex-col gap-unit-2xs mt-unit-lg">
-                    {/* 1. Hồ sơ cá nhân */}
-                    <Link
-                      to="/profile"
-                      className="flex items-center justify-between px-unit-sm py-unit-xs rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors font-body-md text-body-md"
-                    >
-                      <span className="flex items-center gap-unit-sm">
-                        <span className="material-symbols-outlined text-outline leading-none">person</span>
-                        Hồ sơ cá nhân
-                      </span>
-                      <span className="material-symbols-outlined text-sm text-outline leading-none">chevron_right</span>
-                    </Link>
-
-                    {/* 2. Lịch sử đơn hàng (Active) */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTab('ALL')}
-                      className="w-full flex items-center justify-between px-unit-sm py-unit-xs rounded-xl bg-primary text-on-primary font-body-md text-body-md font-semibold shadow-sm text-left"
-                    >
-                      <span className="flex items-center gap-unit-sm">
-                        <span className="material-symbols-outlined leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          package_2
-                        </span>
-                        Lịch sử đơn hàng
-                      </span>
-                    </button>
-
-                    {/* 3. Sổ địa chỉ */}
-                    <Link
-                      to="/profile"
-                      className="flex items-center justify-between px-unit-sm py-unit-xs rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors font-body-md text-body-md"
-                    >
-                      <span className="flex items-center gap-unit-sm">
-                        <span className="material-symbols-outlined text-outline leading-none">location_on</span>
-                        Sổ địa chỉ
-                      </span>
-                      <span className="material-symbols-outlined text-sm text-outline leading-none">chevron_right</span>
-                    </Link>
-
-                    {/* 4. Sản phẩm yêu thích */}
-                    <Link
-                      to="/wishlist"
-                      className="flex items-center justify-between px-unit-sm py-unit-xs rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors font-body-md text-body-md"
-                    >
-                      <span className="flex items-center gap-unit-sm">
-                        <span className="material-symbols-outlined text-outline leading-none">favorite</span>
-                        Sản phẩm yêu thích
-                      </span>
-                      <span className="material-symbols-outlined text-sm text-outline leading-none">chevron_right</span>
-                    </Link>
-
-                    {/* 5. Đăng xuất */}
-                    <button
-                      type="button"
-                      onClick={logout}
-                      className="w-full flex items-center justify-between px-unit-sm py-unit-xs rounded-xl text-error hover:bg-error-container/20 transition-colors font-body-md text-body-md mt-unit-sm text-left"
-                    >
-                      <span className="flex items-center gap-unit-sm">
-                        <span className="material-symbols-outlined leading-none">logout</span>
-                        Đăng xuất
-                      </span>
-                    </button>
-                  </nav>
-                </div>
-              </aside>
-
-              {/* ── RIGHT COLUMN: Order History & Interactive Detail Visualizer (Span 8.5 on desktop) ── */}
-              <div className="col-span-12 lg:col-span-8 xl:col-span-9 flex flex-col gap-unit-xl">
-                
-                {/* Status Filter Tabs */}
+        {/* Status Filter Tabs */}
                 <div className="bg-surface-container-lowest rounded-2xl shadow-sm p-unit-xs flex items-center overflow-x-auto min-w-max pb-1 sm:pb-0">
                   <div className="flex items-center gap-unit-xs">
                     {ORDER_TABS.map((tab) => {
@@ -1187,11 +1057,7 @@ const OrderHistoryPage = () => {
                     </section>
                   </>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+      </div>
 
       {/* ── Modals ── */}
       <ReviewModal
@@ -1208,9 +1074,7 @@ const OrderHistoryPage = () => {
         onConfirm={handleCancelOrder}
         isCancelling={isCancelling}
       />
-
-      <Footer />
-    </div>
+    </>
   );
 };
 

@@ -28,6 +28,7 @@ import CheckoutPage from '../pages/user/CheckoutPage';
 import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
 import OrderHistoryPage from '../pages/user/OrderHistoryPage';
 import WishlistPage from '../pages/user/WishlistPage';
+import AccountLayout from '../components/user/AccountLayout';
 
 import RegisterPage from '../pages/user/RegisterPage';
 import VerifyOtpPage from '../pages/user/VerifyOtpPage';
@@ -55,8 +56,17 @@ const AppRoutes = () => {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
-        <Route path="/orders" element={<OrderHistoryPage />} />
-        <Route path="/wishlist" element={<WishlistPage />} />
+        {/* Legacy redirects → new /user/* paths */}
+        <Route path="/orders" element={<Navigate to="/user/orders" replace />} />
+        <Route path="/wishlist" element={<Navigate to="/user/wishlist" replace />} />
+        {/* ── Account Sub-system (/user/*) — nested under AccountLayout ── */}
+        <Route path="/user" element={<AccountLayout />}>
+          <Route path="orders" element={<OrderHistoryPage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
+          {/* Placeholder routes — thêm page components khi sẵn sàng */}
+          {/* <Route path="profile"   element={<ProfilePage />} /> */}
+          {/* <Route path="addresses" element={<AddressesPage />} /> */}
+        </Route>
       </Route>
 
       {/* ── Admin Routes (Protected) ── */}
