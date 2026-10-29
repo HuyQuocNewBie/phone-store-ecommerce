@@ -722,8 +722,8 @@ const OrderHistoryPage = () => {
               <div className="col-span-12 lg:col-span-8 xl:col-span-9 flex flex-col gap-unit-xl">
                 
                 {/* Status Filter Tabs */}
-                <div className="bg-surface-container-lowest rounded-2xl shadow-sm p-unit-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-unit-xs">
-                  <div className="flex items-center gap-unit-xs overflow-x-auto min-w-max pb-1 sm:pb-0">
+                <div className="bg-surface-container-lowest rounded-2xl shadow-sm p-unit-xs flex items-center overflow-x-auto min-w-max pb-1 sm:pb-0">
+                  <div className="flex items-center gap-unit-xs">
                     {ORDER_TABS.map((tab) => {
                       const isActive = activeTab === tab.id;
                       const count = tabCounts[tab.id] || 0;
@@ -754,28 +754,6 @@ const OrderHistoryPage = () => {
                         </button>
                       );
                     })}
-                  </div>
-
-                  {/* Thanh tìm kiếm đơn hàng nhanh */}
-                  <div className="relative flex items-center min-w-[200px]">
-                    <span className="material-symbols-outlined absolute left-unit-xs text-outline pointer-events-none text-base">
-                      search
-                    </span>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm mã đơn hoặc sản phẩm..."
-                      className="w-full pl-8 pr-7 py-1.5 bg-surface-container-low rounded-xl text-body-sm font-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary border-none"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-unit-xs text-outline hover:text-on-surface flex items-center"
-                      >
-                        <span className="material-symbols-outlined text-sm">close</span>
-                      </button>
-                    )}
                   </div>
                 </div>
 
