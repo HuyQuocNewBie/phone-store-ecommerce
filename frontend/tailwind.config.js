@@ -124,9 +124,17 @@ export default {
           '75%':      { transform: 'translateX(-3px)' },
           '90%':      { transform: 'translateX(3px)' },
         },
+        'tiktok-heart': {
+          '0%': { transform: 'scale(1)' },
+          '25%': { transform: 'scale(1.35)' },
+          '50%': { transform: 'scale(0.85)' },
+          '75%': { transform: 'scale(1.15)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         shake: 'shake 0.5s ease-in-out',
+        'tiktok-heart': 'tiktok-heart 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
       },
     },
   },

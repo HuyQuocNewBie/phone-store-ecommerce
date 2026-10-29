@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 
 /**
  * ProductCard – Stitch AI Design
@@ -17,11 +19,13 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
+  const { isWished, toggleWishlist } = useWishlist();
   const data = product || item;
 
   if (!data) return null;
 
   const isOutOfStock = data.TonKho !== undefined && data.TonKho <= 0;
+  const isLiked = isWished(data.MaSanPham) === true;
 
   const defaultAddToCart = async (p) => {
     if (!isAuthenticated) {
@@ -107,8 +111,30 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
         {/* 1. Hình ảnh sản phẩm */}
         <div
           onClick={() => navigate(`/products/${data.MaSanPham}`)}
-          className="w-full aspect-square flex items-center justify-center p-unit-xs relative overflow-hidden bg-surface-container-low rounded-lg mb-unit-xs cursor-pointer"
+          className="w-full aspect-square flex items-center justify-center p-unit-xs relative overflow-hidden bg-surface-container-low rounded-lg mb-unit-xs cursor-pointer group/image"
         >
+          {/* Nút Trái tim thả tim sản phẩm ở góc trên bên phải ảnh */}
+          <button
+            type="button"
+            id={`btn-wishlist-${data.MaSanPham}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleWishlist(product || data);
+            }}
+            className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white shadow-sm hover:shadow flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90"
+            title={isLiked ? "Bỏ yêu thích" : "Yêu thích"}
+            aria-label="Yêu thích"
+          >
+            <Heart
+              key={isLiked ? "liked" : "unliked"}
+              className={`w-4 h-4 transition-colors duration-200 ${
+                isLiked
+                  ? "text-[#fe2c55] fill-[#fe2c55] animate-tiktok-heart"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            />
+          </button>
+
           {data.Anh ? (
             <img
               src={data.Anh}

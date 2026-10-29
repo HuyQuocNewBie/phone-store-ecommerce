@@ -28,6 +28,7 @@ import {
   Maximize2,
   Sparkles,
   BatteryFull,
+  Heart,
 } from "lucide-react";
 import Navbar from "../../components/user/Navbar";
 import Footer from "../../components/user/Footer";
@@ -35,6 +36,7 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
+import { useWishlist } from "../../context/WishlistContext";
 import SpecDrawer from "../../components/user/SpecDrawer";
 import ReviewSection from "../../components/user/ReviewSection";
 
@@ -148,7 +150,9 @@ const SpecsModal = ({ specGroups, productName, onClose }) => {
 /* ─── SuggestedProductCard ───────────────────────────────────────────────── */
 const SuggestedProductCard = ({ item }) => {
   const navigate = useNavigate();
+  const { isWished, toggleWishlist } = useWishlist();
   const isOutOfStock = item.TonKho <= 0;
+  const isLiked = isWished(item.MaSanPham) === true;
 
   return (
     <div
@@ -158,6 +162,27 @@ const SuggestedProductCard = ({ item }) => {
       onClick={() => navigate(`/products/${item.MaSanPham}`)}
     >
       <div className="relative w-full aspect-square rounded-xl bg-slate-50 flex items-center justify-center p-4 overflow-hidden">
+        {/* Nút Yêu thích trên gợi ý sản phẩm */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleWishlist(item);
+          }}
+          className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90"
+          title={isLiked ? "Bỏ yêu thích" : "Yêu thích"}
+          aria-label="Yêu thích"
+        >
+          <Heart
+            key={isLiked ? "liked" : "unliked"}
+            className={`w-3.5 h-3.5 transition-colors duration-200 ${
+              isLiked
+                ? "text-[#fe2c55] fill-[#fe2c55] animate-tiktok-heart"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          />
+        </button>
+
         {item.Anh ? (
           <img
             src={item.Anh}
@@ -210,6 +235,7 @@ const ProductDetailPage = () => {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const { toggleCompare, isInCompare } = useCompare();
+  const { isWished, toggleWishlist } = useWishlist();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -290,6 +316,7 @@ const ProductDetailPage = () => {
   }, [product]);
 
   const isOutOfStock = product?.TonKho <= 0;
+  const isFavorite = product && isWished(product.MaSanPham) === true;
 
   /* ── Parse chuỗi biến thể từ DB (luôn dùng chuỗi, bỏ qua mảng raw) ── */
   const storageList = product?.DungLuong
@@ -728,22 +755,53 @@ const ProductDetailPage = () => {
                 {!isOutOfStock && !buyingNow && <ArrowRight className="w-4 h-4" />}
               </button>
 
-              {/* Nút Thêm vào so sánh */}
-              <button
-                type="button"
-                id="btn-compare-detail"
-                onClick={() => product && toggleCompare(product)}
-                className={`w-14 h-14 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
-                  product && isInCompare(product.MaSanPham)
-                    ? "bg-blue-50 border-blue-400 text-blue-600 shadow-sm"
-                    : "bg-white border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-blue-600"
-                }`}
-                title={product && isInCompare(product.MaSanPham) ? "Đã thêm vào so sánh (Click để bỏ)" : "Thêm vào so sánh"}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-              </button>
+              {/* Nhóm Nút Yêu thích & So sánh */}
+              <div className="flex items-center gap-3">
+                {/* Nút Yêu thích */}
+                <button
+                  type="button"
+                  id="btn-wishlist-detail"
+                  onClick={() => product && toggleWishlist(product)}
+                  className={`flex-1 sm:flex-none w-full sm:w-14 h-14 rounded-xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${
+                    isFavorite
+                      ? "bg-rose-50 border-rose-200 text-[#fe2c55] shadow-sm"
+                      : "bg-white border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#fe2c55]"
+                  }`}
+                  title={isFavorite ? "Đã yêu thích (Click để bỏ)" : "Thêm vào yêu thích"}
+                  aria-label="Yêu thích"
+                >
+                  <Heart
+                    key={isFavorite ? "liked" : "unliked"}
+                    className={`w-6 h-6 transition-transform duration-200 ${
+                      isFavorite
+                        ? "text-[#fe2c55] fill-[#fe2c55] animate-tiktok-heart"
+                        : "text-slate-500 hover:text-[#fe2c55]"
+                    }`}
+                  />
+                  <span className="sm:hidden ml-2 text-sm font-semibold">
+                    {isFavorite ? "Đã yêu thích" : "Yêu thích"}
+                  </span>
+                </button>
+
+                {/* Nút Thêm vào so sánh */}
+                <button
+                  type="button"
+                  id="btn-compare-detail"
+                  onClick={() => product && toggleCompare(product)}
+                  className={`flex-1 sm:flex-none w-full sm:w-14 h-14 rounded-xl border flex items-center justify-center transition-all shrink-0 active:scale-95 ${
+                    product && isInCompare(product.MaSanPham)
+                      ? "bg-blue-50 border-blue-400 text-blue-600 shadow-sm"
+                      : "bg-white border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-blue-600"
+                  }`}
+                  title={product && isInCompare(product.MaSanPham) ? "Đã thêm vào so sánh (Click để bỏ)" : "Thêm vào so sánh"}
+                  aria-label="So sánh"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  <span className="sm:hidden ml-2 text-sm font-semibold">So sánh</span>
+                </button>
+              </div>
             </div>
 
             {/* Login hint */}

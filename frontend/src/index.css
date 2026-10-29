@@ -299,3 +299,16 @@ html, body, #root {
   60%       { transform: scale(0.9); }
 }
 .like-animate { animation: likeBounce 0.5s ease; }
+
+/* ─── TikTok Heart Animation ─────────────────────────────────────────────── */
+@keyframes tiktokHeart {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.35); }
+  50% { transform: scale(0.85); }
+  75% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.animate-tiktok-heart {
+  animation: tiktokHeart 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
