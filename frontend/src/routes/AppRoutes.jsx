@@ -28,6 +28,8 @@ import CheckoutPage from '../pages/user/CheckoutPage';
 import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
 import OrderHistoryPage from '../pages/user/OrderHistoryPage';
 import WishlistPage from '../pages/user/WishlistPage';
+import ProfilePage from '../pages/user/ProfilePage';
+import AddressPage from '../pages/user/AddressPage';
 import AccountLayout from '../components/user/AccountLayout';
 
 import RegisterPage from '../pages/user/RegisterPage';
@@ -51,21 +53,25 @@ const AppRoutes = () => {
       <Route path="/xac-thuc-otp" element={<Navigate to="/verify-otp" replace />} />
       <Route path="/404" element={<NotFoundPage />} />
 
+      {/* ── Compatibility / Legacy Redirects (Ngăn ngừa lỗi mất layout khi chuyển trang trực tiếp bằng URL) ── */}
+      <Route path="/orders" element={<Navigate to="/user/orders" replace />} />
+      <Route path="/wishlist" element={<Navigate to="/user/wishlist" replace />} />
+      <Route path="/profile" element={<Navigate to="/user/profile" replace />} />
+      <Route path="/addresses" element={<Navigate to="/user/addresses" replace />} />
+
       {/* ── User Protected Routes ── */}
       <Route element={<UserProtectedRoute />}>
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
-        {/* Legacy redirects → new /user/* paths */}
-        <Route path="/orders" element={<Navigate to="/user/orders" replace />} />
-        <Route path="/wishlist" element={<Navigate to="/user/wishlist" replace />} />
-        {/* ── Account Sub-system (/user/*) — nested under AccountLayout ── */}
+
+        {/* ── Cấu trúc Nested Routes người dùng bọc bởi AccountLayout ── */}
         <Route path="/user" element={<AccountLayout />}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="orders" element={<OrderHistoryPage />} />
+          <Route path="addresses" element={<AddressPage />} />
           <Route path="wishlist" element={<WishlistPage />} />
-          {/* Placeholder routes — thêm page components khi sẵn sàng */}
-          {/* <Route path="profile"   element={<ProfilePage />} /> */}
-          {/* <Route path="addresses" element={<AddressesPage />} /> */}
         </Route>
       </Route>
 

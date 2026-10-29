@@ -594,7 +594,7 @@ const Navbar = () => {
               <div className="flex gap-2 px-4 pb-4">
                 <button
                   type="button"
-                  onClick={() => handleDrawerNavigate('/profile')}
+                  onClick={() => handleDrawerNavigate('/user/profile')}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-slate-200 text-slate-700 text-[12px] font-semibold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
                 >
                   <span className="material-symbols-outlined text-[15px] leading-none">manage_accounts</span>

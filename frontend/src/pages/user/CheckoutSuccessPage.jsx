@@ -366,7 +366,7 @@ const CheckoutSuccessPage = () => {
 
               {/* Nút Xem lịch sử đơn hàng */}
               <Link
-                to="/orders"
+                to="/user/orders"
                 id="order-history-btn"
                 className="w-full sm:w-auto min-w-[200px] px-7 py-3.5 rounded-xl font-semibold text-sm bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 transition-all text-center flex items-center justify-center gap-2"
               >
