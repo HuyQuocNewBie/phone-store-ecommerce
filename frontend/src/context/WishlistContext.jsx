@@ -11,7 +11,9 @@ const WishlistContext = createContext(null);
  */
 const createWishedSet = (ids = []) => {
   const set = new Set(ids.map(Number).filter((id) => !isNaN(id) && id > 0));
-  set.includes = (id) => set.has(Number(id));
+  const nativeHas = set.has.bind(set);
+  set.has = (id) => nativeHas(Number(id));
+  set.includes = (id) => nativeHas(Number(id));
   Object.defineProperty(set, 'length', {
     get() {
       return this.size;
