@@ -8,6 +8,9 @@ const { uploadCloudinary } = require('../../../utils/cloudinary');
 // 0. GET /api/v1/products/categories -> Trả về danh sách loại sản phẩm
 router.get('/categories', productController.getCategories);
 
+// GET /api/v1/products/compare -> Trả về dữ liệu so sánh sản phẩm theo ids
+router.get('/compare', productController.getCompareProducts);
+
 // 1. GET /api/v1/products -> Trả về danh sách sản phẩm phân trang (kèm bộ lọc & sắp xếp)
 router.get('/', productController.getProducts);
 

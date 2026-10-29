@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useCompare } from '../../context/CompareContext';
 
 /**
  * ProductCard – Stitch AI Design
@@ -17,6 +18,7 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
+  const { toggleCompare, isInCompare } = useCompare();
   const data = product || item;
 
   if (!data) return null;
@@ -109,6 +111,25 @@ const ProductCard = ({ product, item, onAddToCart, onBuyNow }) => {
           onClick={() => navigate(`/products/${data.MaSanPham}`)}
           className="w-full aspect-square flex items-center justify-center p-unit-xs relative overflow-hidden bg-surface-container-low rounded-lg mb-unit-xs cursor-pointer"
         >
+          {/* Nút Toggle So sánh */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCompare(data);
+            }}
+            className={`btn-compare-toggle absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              isInCompare(data.MaSanPham)
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-white/90 backdrop-blur-sm text-gray-500 hover:text-blue-600 hover:bg-white shadow-sm'
+            }`}
+            title={isInCompare(data.MaSanPham) ? 'Đã thêm vào so sánh (Click để bỏ)' : 'So sánh sản phẩm'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </button>
+
           {data.Anh ? (
             <img
               src={data.Anh}

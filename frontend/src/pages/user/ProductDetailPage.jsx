@@ -34,6 +34,7 @@ import Footer from "../../components/user/Footer";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import { useCompare } from "../../context/CompareContext";
 import SpecDrawer from "../../components/user/SpecDrawer";
 import ReviewSection from "../../components/user/ReviewSection";
 
@@ -208,6 +209,7 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
+  const { toggleCompare, isInCompare } = useCompare();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -724,6 +726,23 @@ const ProductDetailPage = () => {
                 {buyingNow ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
                 <span>{buyingNow ? "Đang Xử Lý..." : "Mua Ngay"}</span>
                 {!isOutOfStock && !buyingNow && <ArrowRight className="w-4 h-4" />}
+              </button>
+
+              {/* Nút Thêm vào so sánh */}
+              <button
+                type="button"
+                id="btn-compare-detail"
+                onClick={() => product && toggleCompare(product)}
+                className={`w-14 h-14 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+                  product && isInCompare(product.MaSanPham)
+                    ? "bg-blue-50 border-blue-400 text-blue-600 shadow-sm"
+                    : "bg-white border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-blue-600"
+                }`}
+                title={product && isInCompare(product.MaSanPham) ? "Đã thêm vào so sánh (Click để bỏ)" : "Thêm vào so sánh"}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
               </button>
             </div>
 

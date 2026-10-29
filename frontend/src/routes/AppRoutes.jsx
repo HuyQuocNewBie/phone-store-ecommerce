@@ -22,6 +22,7 @@ import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 import HomePage from '../pages/user/HomePage';
 import CatalogPage from '../pages/user/CatalogPage';
 import ProductDetailPage from '../pages/user/ProductDetailPage';
+import ComparePage from '../pages/user/ComparePage';
 import CartPage from '../pages/user/CartPage';
 import CheckoutPage from '../pages/user/CheckoutPage';
 import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
@@ -40,6 +41,7 @@ const AppRoutes = () => {
       <Route path="/" element={<HomePage />} />
       <Route path="/products" element={<CatalogPage />} />
       <Route path="/products/:id" element={<ProductDetailPage />} />
+      <Route path="/compare" element={<ComparePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />

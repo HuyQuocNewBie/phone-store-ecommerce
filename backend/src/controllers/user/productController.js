@@ -263,8 +263,87 @@ const getProductById = async (req, res, next) => {
   }
 };
 
+/**
+ * 3. GET /api/v1/products/compare
+ * Lấy thông tin so sánh tối đa 3 sản phẩm kèm thông số kỹ thuật
+ * Query params: ids=3,5 (chuỗi các MaSanPham cách nhau dấu phẩy)
+ */
+const getCompareProducts = async (req, res, next) => {
+  try {
+    const idsStr = req.query.ids || '';
+    const idArray = String(idsStr)
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    const cleanIds = [...new Set(idArray)].slice(0, 3);
+
+    if (cleanIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Danh sách sản phẩm so sánh trống',
+        data: {
+          products: [],
+          specs: []
+        }
+      });
+    }
+
+    // Lấy thông tin các sản phẩm
+    const [productRows] = await pool.query(
+      `SELECT MaSanPham, TenSanPham, Anh, Gia, TonKho, DungLuong, MauSac, TrangThai, MoTa, MaLoaiSanPham, MaNhaSanXuat
+       FROM sanpham
+       WHERE MaSanPham IN (?)`,
+      [cleanIds]
+    );
+
+    const formattedProducts = productRows.map((item) => ({
+      ...item,
+      Gia: Number(item.Gia),
+      TonKho: Number(item.TonKho)
+    }));
+
+    // Giữ đúng thứ tự cleanIds
+    const productMap = new Map(formattedProducts.map((p) => [p.MaSanPham, p]));
+    const orderedProducts = cleanIds.map((id) => productMap.get(id)).filter(Boolean);
+
+    if (orderedProducts.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Không tìm thấy sản phẩm hợp lệ',
+        data: {
+          products: [],
+          specs: []
+        }
+      });
+    }
+
+    const validProductIds = orderedProducts.map((p) => p.MaSanPham);
+
+    // Lấy thông số kỹ thuật của các sản phẩm này (giữ nguyên thứ tự sản phẩm và thứ tự nhập thông số gốc)
+    const [specRows] = await pool.query(
+      `SELECT MaThongSo, MaSanPham, NhomThongSo, TenThongSo, GiaTri
+       FROM thongsokythuat
+       WHERE MaSanPham IN (?)
+       ORDER BY FIELD(MaSanPham, ?), MaThongSo ASC`,
+      [validProductIds, validProductIds]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy thông tin so sánh thành công',
+      data: {
+        products: orderedProducts,
+        specs: specRows
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getCategories,
   getProducts,
-  getProductById
+  getProductById,
+  getCompareProducts
 };
