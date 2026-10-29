@@ -27,6 +27,7 @@ import CartPage from '../pages/user/CartPage';
 import CheckoutPage from '../pages/user/CheckoutPage';
 import CheckoutSuccessPage from '../pages/user/CheckoutSuccessPage';
 import OrderHistoryPage from '../pages/user/OrderHistoryPage';
+import WishlistPage from '../pages/user/WishlistPage';
 
 import RegisterPage from '../pages/user/RegisterPage';
 import VerifyOtpPage from '../pages/user/VerifyOtpPage';
@@ -55,6 +56,7 @@ const AppRoutes = () => {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
         <Route path="/orders" element={<OrderHistoryPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
       </Route>
 
       {/* ── Admin Routes (Protected) ── */}
