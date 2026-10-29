@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import Navbar from "../../components/user/Navbar";
 import Footer from "../../components/user/Footer";
+import ProductCard from "../../components/user/ProductCard";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
@@ -143,87 +144,6 @@ const SpecsModal = ({ specGroups, productName, onClose }) => {
           )}
         </div>
       </div>
-    </div>
-  );
-};
-
-/* ─── SuggestedProductCard ───────────────────────────────────────────────── */
-const SuggestedProductCard = ({ item }) => {
-  const navigate = useNavigate();
-  const { isWished, toggleWishlist } = useWishlist();
-  const isOutOfStock = item.TonKho <= 0;
-  const isLiked = isWished(item.MaSanPham) === true;
-
-  return (
-    <div
-      className="group bg-white border border-slate-100 rounded-2xl p-4 flex flex-col gap-3
-                 shadow-sm transition-all duration-300 hover:-translate-y-1
-                 hover:shadow-[0_12px_40px_-8px_rgba(37,99,235,0.12)] hover:border-blue-100 cursor-pointer"
-      onClick={() => navigate(`/products/${item.MaSanPham}`)}
-    >
-      <div className="relative w-full aspect-square rounded-xl bg-slate-50 flex items-center justify-center p-4 overflow-hidden">
-        {/* Nút Yêu thích trên gợi ý sản phẩm */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleWishlist(item);
-          }}
-          className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90"
-          title={isLiked ? "Bỏ yêu thích" : "Yêu thích"}
-          aria-label="Yêu thích"
-        >
-          <Heart
-            key={isLiked ? "liked" : "unliked"}
-            className={`w-3.5 h-3.5 transition-colors duration-200 ${
-              isLiked
-                ? "text-[#fe2c55] fill-[#fe2c55] animate-tiktok-heart"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          />
-        </button>
-
-        {item.Anh ? (
-          <img
-            src={item.Anh}
-            alt={item.TenSanPham}
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = "none"; }}
-          />
-        ) : (
-          <PackageCheck className="w-12 h-12 text-slate-300" />
-        )}
-        {isOutOfStock && (
-          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-xl flex items-center justify-center">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hết hàng</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1.5 flex-1">
-        <h3 className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug">
-          {item.TenSanPham}
-        </h3>
-        <div className="flex items-center justify-between">
-          <p className="font-bold text-blue-600 text-base">{formatVND(item.Gia)}</p>
-          {item.DungLuong && (
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-              {item.DungLuong}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl
-                   transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-1.5
-                   opacity-0 group-hover:opacity-100 shadow-sm"
-        onClick={(e) => { e.stopPropagation(); navigate(`/products/${item.MaSanPham}`); }}
-      >
-        <ShoppingCart className="w-3.5 h-3.5" />
-        Xem chi tiết
-      </button>
     </div>
   );
 };
@@ -906,7 +826,7 @@ const ProductDetailPage = () => {
           ) : suggestedProducts.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {suggestedProducts.map((item) => (
-                <SuggestedProductCard key={item.MaSanPham} item={item} />
+                <ProductCard key={item.MaSanPham} product={item} />
               ))}
             </div>
           ) : (
