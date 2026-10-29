@@ -1,10 +1,10 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   User,
   ClipboardList,
-  Heart,
   MapPin,
+  Heart,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -15,29 +15,25 @@ const NAV_ITEMS = [
     to: '/user/profile',
     label: 'Hồ sơ cá nhân',
     icon: User,
-    description: 'Thông tin tài khoản',
   },
   {
     to: '/user/orders',
     label: 'Lịch sử đơn hàng',
     icon: ClipboardList,
-    description: 'Theo dõi & quản lý đơn',
-  },
-  {
-    to: '/user/wishlist',
-    label: 'Sản phẩm yêu thích',
-    icon: Heart,
-    description: 'Danh sách lưu trữ',
   },
   {
     to: '/user/addresses',
     label: 'Sổ địa chỉ',
     icon: MapPin,
-    description: 'Địa chỉ giao hàng',
+  },
+  {
+    to: '/user/wishlist',
+    label: 'Sản phẩm yêu thích',
+    icon: Heart,
   },
 ];
 
-/* ─── Avatar Fallback ───────────────────────────────────────────────────────── */
+/* ─── Avatar Fallback Helper ─────────────────────────────────────────────────── */
 const getInitials = (name = '') =>
   name
     .trim()
@@ -46,10 +42,12 @@ const getInitials = (name = '') =>
     .slice(0, 2)
     .join('')
     .toUpperCase() || '?';
+
 /* ─── AccountSidebar Component ──────────────────────────────────────────────── */
 const AccountSidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await logout?.();
@@ -60,143 +58,96 @@ const AccountSidebar = () => {
   const displayName = user?.HoTen || user?.TaiKhoan || 'Khách hàng';
 
   return (
-    <aside className="flex flex-col gap-4">
-      {/* ── User Identity Card ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-surface-container/60 shadow-sm overflow-hidden">
-        {/* Gradient Banner */}
-        <div className="h-16 bg-gradient-to-r from-primary/80 to-primary-container relative">
-          <div className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)',
-              backgroundSize: '32px 32px',
-            }}
-          />
+    <aside className="w-full bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      {/* ── User Profile Header ── */}
+      <div className="p-5 border-b border-slate-100 flex items-center gap-3.5 bg-gradient-to-r from-blue-50/50 via-slate-50/30 to-transparent">
+        <div className="relative shrink-0">
+          {user?.AnhDaiDien ? (
+            <img
+              src={user.AnhDaiDien}
+              alt={displayName}
+              className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100 shadow-sm"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-base shadow-sm shadow-blue-500/20">
+              {initials}
+            </div>
+          )}
         </div>
-
-        {/* Avatar + Info */}
-        <div className="px-4 pb-4 -mt-8 flex flex-col items-center text-center">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-white ring-4 ring-white shadow-md flex items-center justify-center overflow-hidden">
-            {user?.AnhDaiDien ? (
-              <img
-                src={user.AnhDaiDien}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-primary text-white text-lg font-bold rounded-full">
-                {initials}
-              </div>
-            )}
-          </div>
-
-          {/* Name */}
-          <h3 className="mt-2 text-sm font-semibold text-on-surface leading-tight line-clamp-1">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-slate-800 truncate" title={displayName}>
             {displayName}
           </h3>
+          <p className="text-xs text-slate-500 truncate mt-0.5">
+            {user?.Email || 'customer@smartzone.vn'}
+          </p>
+          {user?.SoDienThoai && (
+            <p className="text-[11px] text-slate-400 truncate mt-0.5">
+              {user.SoDienThoai}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* ── Navigation Menu ────────────────────────────────────────────── */}
-      <nav className="bg-white rounded-2xl border border-surface-container/60 shadow-sm overflow-hidden">
-        <ul className="divide-y divide-surface-container/40">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, description }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end
-                className={({ isActive }) =>
-                  [
-                    'group flex items-center gap-3 px-4 py-3 transition-all duration-150',
-                    isActive
-                      ? 'bg-primary/5 text-primary'
-                      : 'text-on-surface hover:bg-surface-container-low',
-                  ].join(' ')
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {/* Icon */}
-                    <span
-                      className={[
-                        'flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors duration-150',
-                        isActive
-                          ? 'bg-primary text-white shadow-sm'
-                          : 'bg-surface-container-low text-on-surface-variant group-hover:bg-primary/10 group-hover:text-primary',
-                      ].join(' ')}
-                    >
-                      <Icon size={16} strokeWidth={2} />
-                    </span>
+      {/* ── Navigation Menu ── */}
+      <nav className="p-3 space-y-1">
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+          const isActive =
+            location.pathname === to ||
+            (to !== '/user' && location.pathname.startsWith(`${to}/`));
 
-                    {/* Text */}
-                    <span className="flex-1 min-w-0">
-                      <span
-                        className={[
-                          'block text-sm font-medium leading-tight',
-                          isActive ? 'text-primary' : 'text-on-surface',
-                        ].join(' ')}
-                      >
-                        {label}
-                      </span>
-                      <span className="block text-xs text-on-surface-variant truncate">
-                        {description}
-                      </span>
-                    </span>
-
-                    {/* Arrow */}
-                    <ChevronRight
-                      size={14}
-                      className={[
-                        'flex-shrink-0 transition-all duration-150',
-                        isActive
-                          ? 'text-primary opacity-100'
-                          : 'text-on-surface-variant opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5',
-                      ].join(' ')}
-                    />
-
-                    {/* Active left border indicator */}
-                    {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
-                    )}
-                  </>
-                )}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-
-        {/* ── Logout Button ─────────────────────────────────────────────── */}
-        <div className="px-3 py-3 border-t border-surface-container/40">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-error hover:bg-error/5 transition-all duration-150 group"
-          >
-            <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-error/8 group-hover:bg-error/15 transition-colors duration-150">
-              <LogOut size={15} strokeWidth={2} />
-            </span>
-            <span className="text-sm font-medium">Đăng xuất</span>
-          </button>
-        </div>
+          return (
+            <Link
+              key={to}
+              to={to}
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm transition-all duration-150 ${
+                isActive
+                  ? 'bg-blue-600 text-white font-semibold shadow-sm shadow-blue-600/20'
+                  : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50/60 font-medium'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Icon
+                  size={18}
+                  strokeWidth={2}
+                  className={`shrink-0 transition-colors ${
+                    isActive ? 'text-white' : 'text-slate-400'
+                  }`}
+                />
+                <span className="truncate">{label}</span>
+              </div>
+              <ChevronRight
+                size={16}
+                className={`shrink-0 transition-all ${
+                  isActive
+                    ? 'text-white/90'
+                    : 'text-slate-400'
+                }`}
+              />
+            </Link>
+          );
+        })}
       </nav>
 
-      {/* ── Help / Support card ────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-primary/5 to-primary-fixed/10 rounded-2xl border border-primary/10 px-4 py-4">
-        <p className="text-xs font-semibold text-primary mb-0.5">Cần hỗ trợ?</p>
-        <p className="text-xs text-on-surface-variant leading-relaxed">
-          Liên hệ đội ngũ chăm sóc khách hàng qua chat hoặc hotline.
-        </p>
-        <a
-          href="tel:19001234"
-          className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-primary hover:underline"
+      {/* ── Logout Button ── */}
+      <div className="p-3 border-t border-slate-100">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors group cursor-pointer"
         >
-          1900 1234
-          <ChevronRight size={11} />
-        </a>
+          <div className="flex items-center gap-3 min-w-0">
+            <LogOut
+              size={18}
+              strokeWidth={2}
+              className="shrink-0 text-rose-500 group-hover:text-rose-600"
+            />
+            <span className="truncate">Đăng xuất</span>
+          </div>
+        </button>
       </div>
     </aside>
   );
 };
 
 export default AccountSidebar;
-
