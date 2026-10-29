@@ -693,7 +693,7 @@ const OrderHistoryPage = () => {
 
                     {/* 4. Sản phẩm yêu thích */}
                     <Link
-                      to="/profile"
+                      to="/wishlist"
                       className="flex items-center justify-between px-unit-sm py-unit-xs rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors font-body-md text-body-md"
                     >
                       <span className="flex items-center gap-unit-sm">
