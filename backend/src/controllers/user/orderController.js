@@ -481,6 +481,9 @@ const createOrder = async (req, res, next) => {
     if (rawPMethod === 'VNPAY' || rawPMethod === '2' || Number(MaPhuongThucThanhToan) === 2) {
       ptttId = 2;
       paymentMethodCode = 'VNPAY';
+    } else if (rawPMethod === 'ZALOPAY' || rawPMethod === 'ZALO' || rawPMethod === '4' || Number(MaPhuongThucThanhToan) === 4) {
+      ptttId = 4;
+      paymentMethodCode = 'ZALOPAY';
     } else if (rawPMethod === 'MOMO' || rawPMethod === '3' || Number(MaPhuongThucThanhToan) === 3) {
       ptttId = 3;
       paymentMethodCode = 'MOMO';
@@ -490,10 +493,10 @@ const createOrder = async (req, res, next) => {
     }
 
     // Xác định trạng thái ban đầu của đơn hàng:
-    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'MOMO': Đơn hàng giữ trạng thái "Chờ thanh toán"
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY', 'ZALOPAY' HOẶC 'MOMO': Đơn hàng giữ trạng thái "Chờ thanh toán"
     // - NẾU phuongThucThanhToan === 'COD': Trạng thái "Chờ xác nhận" (hoặc trạng thái từ client nếu hợp lệ)
     let initialOrderStatus;
-    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'MOMO') {
+    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'ZALOPAY' || paymentMethodCode === 'MOMO') {
       initialOrderStatus = 'Chờ thanh toán';
     } else {
       initialOrderStatus = (TrangThaiDonHang && TrangThaiDonHang !== 'Chờ thanh toán')
