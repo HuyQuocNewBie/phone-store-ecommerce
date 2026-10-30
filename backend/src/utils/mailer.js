@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const { formatOrderCode } = require('./formatters');
+const { pool } = require('../../config/db');
 
 dotenv.config();
 
@@ -127,7 +128,7 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
         <div style="padding: 24px;">
           <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
             <h3 style="margin: 0; color: #065f46; font-size: 16px;">Xác nhận đơn hàng thành công!</h3>
-            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">${orderSN}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Chờ xác nhận</span></p>
+            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">${orderSN}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">${orderData.TrangThaiDonHang || 'Chờ xác nhận'}</span></p>
           </div>
 
           <!-- Customer Info -->
@@ -221,8 +222,101 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
   }
 };
 
+/**
+ * Gửi email hóa đơn tự động theo orderId
+ * Tự động truy vấn thông tin đơn hàng, chi tiết sản phẩm và email khách hàng từ database
+ * @param {number|string} orderId - ID đơn hàng (hoặc mã đơn SZ...)
+ * @returns {Promise<boolean>} Kết quả gửi email (true/false)
+ */
+const sendInvoiceEmail = async (orderId) => {
+  try {
+    let numericId = Number(orderId);
+    if (isNaN(numericId) && typeof orderId === 'string' && orderId.startsWith('SZ')) {
+      const match = orderId.match(/^SZ\d{8}(\d+)$/);
+      if (match) {
+        numericId = parseInt(match[1], 10);
+      }
+    }
+
+    if (!numericId || isNaN(numericId) || numericId <= 0) {
+      console.warn(`[sendInvoiceEmail] Mã đơn hàng không hợp lệ: ${orderId}`);
+      return false;
+    }
+
+    // 1. Truy vấn thông tin đơn hàng và email khách hàng
+    const [orderRows] = await pool.query(
+      `SELECT d.*, u.Email AS UserEmail, u.TaiKhoan
+       FROM donhang d
+       LEFT JOIN nguoidung u ON d.MaNguoiDung = u.MaNguoiDung
+       WHERE d.MaDonHang = ?
+       LIMIT 1`,
+      [numericId]
+    );
+
+    if (!orderRows || orderRows.length === 0) {
+      console.warn(`[sendInvoiceEmail] Không tìm thấy đơn hàng #${numericId}`);
+      return false;
+    }
+
+    const order = orderRows[0];
+    const targetEmail = order.UserEmail;
+
+    if (!targetEmail) {
+      console.warn(`[sendInvoiceEmail] Không tìm thấy email của khách hàng cho đơn hàng #${numericId}`);
+      return false;
+    }
+
+    // 2. Truy vấn danh sách chi tiết sản phẩm
+    const [itemRows] = await pool.query(
+      `SELECT ct.*, sp.TenSanPham, sp.Anh
+       FROM chitietdonhang ct
+       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       WHERE ct.MaDonHang = ?
+       ORDER BY ct.MaChiTietDonHang ASC`,
+      [numericId]
+    );
+
+    const items = itemRows.map((it) => ({
+      MaSanPham: it.MaSanPham,
+      TenSanPham: it.TenSanPham || `Sản phẩm #${it.MaSanPham}`,
+      DungLuong: it.DungLuong,
+      MauSac: it.MauSac,
+      SoLuong: Number(it.SoLuong) || 1,
+      DonGia: Number(it.DonGia) || 0,
+      TongGia: Number(it.TongGia) || (Number(it.SoLuong) * Number(it.DonGia))
+    }));
+
+    const calculatedSubtotal = items.reduce((sum, it) => sum + it.TongGia, 0);
+
+    const invoiceData = {
+      MaDonHang: order.MaDonHang,
+      NgayMuaHang: order.NgayMuaHang || new Date(),
+      TrangThaiDonHang: order.TrangThaiDonHang || 'Chờ xác nhận',
+      TenNguoiNhan: order.TenNguoiNhan,
+      SoDienThoai: order.SoDienThoai,
+      DiaChiGiaoHang: order.DiaChiGiaoHang,
+      GhiChu: order.GhiChu,
+      items,
+      subtotal: calculatedSubtotal,
+      orderSubtotal: calculatedSubtotal,
+      PhiShip: Number(order.PhiShip || 0),
+      shippingFee: Number(order.PhiShip || 0),
+      SoTienGiam: Number(order.SoTienGiam || 0),
+      voucherDiscount: Number(order.SoTienGiam || 0),
+      TongTien: Number(order.TongTien)
+    };
+
+    console.log(`[sendInvoiceEmail] Bắt đầu gửi email hóa đơn đơn hàng #${order.MaDonHang} tới ${targetEmail} (Trạng thái: ${invoiceData.TrangThaiDonHang})...`);
+    return await sendOrderInvoiceEmail(targetEmail, invoiceData);
+  } catch (error) {
+    console.error(`[sendInvoiceEmail] Lỗi khi gửi hóa đơn đơn hàng #${orderId}:`, error.message);
+    return false;
+  }
+};
+
 module.exports = {
   sendOtpEmail,
-  sendOrderInvoiceEmail
+  sendOrderInvoiceEmail,
+  sendInvoiceEmail
 };
 

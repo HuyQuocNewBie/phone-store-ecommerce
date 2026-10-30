@@ -5,6 +5,7 @@ const {
   verifyMomoSignature
 } = require('../../utils/paymentUtil');
 const { pool } = require('../../../config/db');
+const { sendInvoiceEmail } = require('../../utils/mailer');
 
 /**
  * Helper: Tìm thông tin đơn hàng từ DB nếu cần bổ sung hoặc xác thực
@@ -369,6 +370,11 @@ const verifyPayment = async (req, res, next) => {
         bankCode: verifyResult.bankCode
       });
 
+      // LÚC NÀY MỚI GỌI HÀM sendInvoiceEmail(orderId) để gửi mail hóa đơn cho khách hàng
+      sendInvoiceEmail(processResult.order.MaDonHang).catch((mailErr) => {
+        console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán VNPay đơn hàng #${processResult.order.MaDonHang}:`, mailErr.message);
+      });
+
       return res.status(200).json({
         success: true,
         isSuccess: true,
@@ -434,6 +440,11 @@ const verifyPayment = async (req, res, next) => {
         transactionNo: verifyResult.transId
       });
 
+      // LÚC NÀY MỚI GỌI HÀM sendInvoiceEmail(orderId) để gửi mail hóa đơn cho khách hàng
+      sendInvoiceEmail(processResult.order.MaDonHang).catch((mailErr) => {
+        console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán MoMo đơn hàng #${processResult.order.MaDonHang}:`, mailErr.message);
+      });
+
       return res.status(200).json({
         success: true,
         isSuccess: true,
@@ -493,13 +504,18 @@ const handleVnpayIpn = async (req, res, next) => {
     }
 
     if (verifyResult.isSuccess) {
-      await processSuccessfulPayment({
+      const processResult = await processSuccessfulPayment({
         orderId: verifyResult.orderId,
         amount: verifyResult.amount,
         paymentMethodId: 2, // VNPay
         transactionNo: verifyResult.transactionNo,
         bankCode: verifyResult.bankCode
       });
+      if (processResult.isNewRecord) {
+        sendInvoiceEmail(processResult.order.MaDonHang).catch((err) =>
+          console.error(`[sendInvoiceEmail VNPay IPN] Lỗi:`, err.message)
+        );
+      }
     }
 
     return res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
@@ -530,12 +546,17 @@ const handleMomoIpn = async (req, res, next) => {
     }
 
     if (verifyResult.isSuccess && verifyResult.orderId) {
-      await processSuccessfulPayment({
+      const processResult = await processSuccessfulPayment({
         orderId: verifyResult.orderId,
         amount: verifyResult.amount,
         paymentMethodId: 3, // MoMo
         transactionNo: verifyResult.transId
       });
+      if (processResult.isNewRecord) {
+        sendInvoiceEmail(processResult.order.MaDonHang).catch((err) =>
+          console.error(`[sendInvoiceEmail MoMo IPN] Lỗi:`, err.message)
+        );
+      }
     }
 
     // MoMo yêu cầu phản hồi HTTP 204 No Content khi nhận IPN thành công

@@ -1,5 +1,5 @@
 const { pool } = require('../../../config/db');
-const { sendOrderInvoiceEmail } = require('../../utils/mailer');
+const { sendOrderInvoiceEmail, sendInvoiceEmail } = require('../../utils/mailer');
 const { formatOrderCode } = require('../../utils/formatters');
 
 /**
@@ -147,6 +147,8 @@ const createOrder = async (req, res, next) => {
       trangThai,
       paymentMethod,
       payment_method,
+      phuongThucThanhToan,
+      phuong_thuc_thanh_toan,
       MaPhuongThucThanhToan
     } = req.body;
 
@@ -464,16 +466,39 @@ const createOrder = async (req, res, next) => {
     // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
     const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
-    // Xác định trạng thái ban đầu: mặc định "Chờ thanh toán" hoặc giá trị từ client
-    const initialOrderStatus = String(TrangThaiDonHang || order_status || trangThai || 'Chờ thanh toán').trim();
-
     // Xác định mã phương thức thanh toán: 1 (COD), 2 (VNPay), 3 (MoMo)
+    const rawPMethod = String(
+      phuongThucThanhToan ||
+      phuong_thuc_thanh_toan ||
+      paymentMethod ||
+      payment_method ||
+      ''
+    ).toUpperCase().trim();
+
     let ptttId = 1;
-    const rawPMethod = String(paymentMethod || payment_method || '').toUpperCase();
+    let paymentMethodCode = 'COD';
+
     if (rawPMethod === 'VNPAY' || rawPMethod === '2' || Number(MaPhuongThucThanhToan) === 2) {
       ptttId = 2;
+      paymentMethodCode = 'VNPAY';
     } else if (rawPMethod === 'MOMO' || rawPMethod === '3' || Number(MaPhuongThucThanhToan) === 3) {
       ptttId = 3;
+      paymentMethodCode = 'MOMO';
+    } else {
+      ptttId = 1;
+      paymentMethodCode = 'COD';
+    }
+
+    // Xác định trạng thái ban đầu của đơn hàng:
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'MOMO': Đơn hàng giữ trạng thái "Chờ thanh toán"
+    // - NẾU phuongThucThanhToan === 'COD': Trạng thái "Chờ xác nhận" (hoặc trạng thái từ client nếu hợp lệ)
+    let initialOrderStatus;
+    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'MOMO') {
+      initialOrderStatus = 'Chờ thanh toán';
+    } else {
+      initialOrderStatus = (TrangThaiDonHang && TrangThaiDonHang !== 'Chờ thanh toán')
+        ? String(TrangThaiDonHang).trim()
+        : (order_status || trangThai || 'Chờ xác nhận');
     }
 
     // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = initialOrderStatus ("Chờ thanh toán")
@@ -604,36 +629,15 @@ const createOrder = async (req, res, next) => {
     await connection.commit();
     connection.release();
 
-    // 12. Gửi Email hóa đơn HTML tự động qua Nodemailer
-    let targetEmail = req.user.Email;
-    if (!targetEmail) {
-      // Tìm email người dùng trong bảng nguoidung
-      const [userRows] = await pool.query(
-        `SELECT Email FROM nguoidung WHERE MaNguoiDung = ?`,
-        [MaNguoiDung]
+    // 12. Gửi Email hóa đơn theo phương thức thanh toán:
+    // - NẾU phuongThucThanhToan === 'COD': Tiếp tục gọi hàm sendInvoiceEmail(orderId) ngay lập tức.
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'MOMO': KHÔNG gọi sendInvoiceEmail. Đơn hàng giữ trạng thái "Chờ thanh toán".
+    if (paymentMethodCode === 'COD') {
+      sendInvoiceEmail(maDonHang).catch((err) =>
+        console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn COD cho đơn hàng #${maDonHang}:`, err)
       );
-      if (userRows.length > 0) {
-        targetEmail = userRows[0].Email;
-      }
-    }
-
-    if (targetEmail) {
-      sendOrderInvoiceEmail(targetEmail, {
-        MaDonHang: maDonHang,
-        NgayMuaHang: new Date(),
-        TenNguoiNhan: finalTenNguoiNhan,
-        SoDienThoai: finalSoDienThoai,
-        DiaChiGiaoHang: finalDiaChiGiaoHang,
-        GhiChu: finalGhiChu,
-        items: orderItemsDetails,
-        subtotal: orderSubtotal,
-        orderSubtotal,
-        PhiShip: phiShip,
-        shippingFee: phiShip,
-        SoTienGiam: voucherDiscount,
-        voucherDiscount,
-        TongTien: tongTien
-      }).catch((err) => console.error('Error sending order invoice email async:', err));
+    } else {
+      console.log(`[orderController] Đơn hàng #${maDonHang} (${paymentMethodCode}): Giữ trạng thái "Chờ thanh toán", KHÔNG gọi sendInvoiceEmail tại thời điểm tạo đơn.`);
     }
 
     return res.status(201).json({
@@ -1131,6 +1135,7 @@ module.exports = {
   createOrder,
   getUserOrders,
   reorder,
-  cancelOrder
+  cancelOrder,
+  sendInvoiceEmail
 };
 
