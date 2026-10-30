@@ -10,16 +10,20 @@ router.post('/create-vnpay', paymentController.createVnpayPayment);
 // Nhận { orderId, amount } -> Gọi API MoMo Sandbox và trả về payUrl
 router.post('/create-momo', paymentController.createMomoPayment);
 
-// 3. GET /api/v1/payment/vnpay-return (Redirect URL sau thanh toán VNPay)
+// 3. GET /api/v1/payment/verify-payment (Callback / Return kiểm tra kết quả thanh toán VNPay & MoMo)
+router.get('/verify-payment', paymentController.verifyPayment);
+router.post('/verify-payment', paymentController.verifyPayment);
+
+// 4. GET /api/v1/payment/vnpay-return (Redirect URL sau thanh toán VNPay)
 router.get('/vnpay-return', paymentController.handleVnpayReturn);
 
-// 4. GET /api/v1/payment/vnpay-ipn (Webhook IPN từ VNPay)
+// 5. GET /api/v1/payment/vnpay-ipn (Webhook IPN từ VNPay)
 router.get('/vnpay-ipn', paymentController.handleVnpayIpn);
 
-// 5. GET /api/v1/payment/momo-return (Redirect URL sau thanh toán MoMo)
+// 6. GET /api/v1/payment/momo-return (Redirect URL sau thanh toán MoMo)
 router.get('/momo-return', paymentController.handleMomoReturn);
 
-// 6. POST /api/v1/payment/momo-ipn (Webhook IPN từ MoMo)
+// 7. POST /api/v1/payment/momo-ipn (Webhook IPN từ MoMo)
 router.post('/momo-ipn', paymentController.handleMomoIpn);
 
 module.exports = router;

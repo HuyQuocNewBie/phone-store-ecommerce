@@ -34,6 +34,7 @@ import AccountLayout from '../components/user/AccountLayout';
 
 import RegisterPage from '../pages/user/RegisterPage';
 import VerifyOtpPage from '../pages/user/VerifyOtpPage';
+import PaymentReturnPage from '../pages/user/PaymentReturnPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -49,6 +50,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
+      <Route path="/payment-return" element={<PaymentReturnPage />} />
       <Route path="/dang-ky" element={<Navigate to="/register" replace />} />
       <Route path="/xac-thuc-otp" element={<Navigate to="/verify-otp" replace />} />
       <Route path="/404" element={<NotFoundPage />} />

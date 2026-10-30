@@ -332,6 +332,9 @@ const CheckoutPage = () => {
       const response = await api.post('/orders', orderPayload);
 
       if (response.data && response.data.success) {
+        const orderData = response.data.data;
+        const newOrderId = orderData?.MaDonHang;
+
         // 1. Xóa giỏ hàng
         if (typeof clearCart === 'function') {
           clearCart();
@@ -340,10 +343,47 @@ const CheckoutPage = () => {
           setCartItems([]);
         }
 
-        // 2. Hiệu ứng loading spinner + delay 1s theo yêu cầu
+        // 2. Chuyển hướng thanh toán VNPay
+        if (paymentMethod === 'VNPAY') {
+          toast.loading('Đang chuyển hướng tới cổng thanh toán VNPay...', { id: 'redirect-pay' });
+          try {
+            const vnpRes = await api.post('/payment/create-vnpay', {
+              orderId: newOrderId,
+              amount: totalAmount,
+              orderInfo: `Thanh toan don hang #${newOrderId}`
+            });
+            if (vnpRes.data?.paymentUrl) {
+              window.location.href = vnpRes.data.paymentUrl;
+              return;
+            }
+          } catch (vnpErr) {
+            toast.dismiss('redirect-pay');
+            throw new Error(vnpErr.response?.data?.message || 'Không thể tạo liên kết thanh toán VNPay');
+          }
+        }
+
+        // 3. Chuyển hướng thanh toán MoMo
+        if (paymentMethod === 'MOMO') {
+          toast.loading('Đang chuyển hướng tới cổng thanh toán MoMo...', { id: 'redirect-pay' });
+          try {
+            const momoRes = await api.post('/payment/create-momo', {
+              orderId: newOrderId,
+              amount: totalAmount,
+              orderInfo: `Thanh toan don hang #${newOrderId}`
+            });
+            if (momoRes.data?.payUrl) {
+              window.location.href = momoRes.data.payUrl;
+              return;
+            }
+          } catch (momoErr) {
+            toast.dismiss('redirect-pay');
+            throw new Error(momoErr.response?.data?.message || 'Không thể tạo liên kết thanh toán MoMo');
+          }
+        }
+
+        // 4. Mặc định COD: Hiệu ứng loading spinner + delay 1s và sang /checkout/success
         await new Promise((r) => setTimeout(r, 1000));
 
-        // 3. Thông báo và chuyển hướng sang /checkout/success
         toast.success('Đặt hàng thành công!');
         navigate('/checkout/success', {
           replace: true,
@@ -706,9 +746,9 @@ const CheckoutPage = () => {
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-unit-xs">
-                    {/* Option DUY NHẤT: COD */}
-                    <label className="flex items-start gap-unit-sm p-unit-md rounded-xl bg-primary-fixed/20 shadow-sm ring-2 ring-primary cursor-pointer transition-all">
+                  <div className="flex flex-col gap-unit-sm">
+                    {/* 1. COD */}
+                    <label className={`flex items-start gap-unit-sm p-unit-md rounded-xl transition-all cursor-pointer ${paymentMethod === 'COD' ? 'bg-primary-fixed/20 shadow-sm ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/50'}`}>
                       <input
                         id="payment-cod"
                         type="radio"
@@ -732,6 +772,64 @@ const CheckoutPage = () => {
                         </div>
                         <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
                           Kiểm tra tem niêm phong và ngoại quan máy cẩn thận trước khi thanh toán. An tâm tuyệt đối 100%!
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* 2. VNPay */}
+                    <label className={`flex items-start gap-unit-sm p-unit-md rounded-xl transition-all cursor-pointer ${paymentMethod === 'VNPAY' ? 'bg-primary-fixed/20 shadow-sm ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/50'}`}>
+                      <input
+                        id="payment-vnpay"
+                        type="radio"
+                        checked={paymentMethod === 'VNPAY'}
+                        onChange={() => setPaymentMethod('VNPAY')}
+                        className="mt-1 accent-primary cursor-pointer"
+                        name="payment_method"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-unit-xs">
+                            <span className="material-symbols-outlined text-blue-600 text-xl">qr_code_scanner</span>
+                            <span className="font-body-md text-body-md font-bold text-on-surface">
+                              Cổng thanh toán VNPay
+                            </span>
+                            <span className="font-label-spec text-label-spec bg-blue-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
+                              VNPAY-QR
+                            </span>
+                          </div>
+                          <span className="font-body-sm text-body-sm text-blue-600 font-semibold">ATM / QR / Visa</span>
+                        </div>
+                        <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
+                          Thanh toán an toàn qua VNPAY-QR, Thẻ ATM nội địa hoặc Thẻ quốc tế Visa/Mastercard.
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* 3. MoMo */}
+                    <label className={`flex items-start gap-unit-sm p-unit-md rounded-xl transition-all cursor-pointer ${paymentMethod === 'MOMO' ? 'bg-primary-fixed/20 shadow-sm ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/50'}`}>
+                      <input
+                        id="payment-momo"
+                        type="radio"
+                        checked={paymentMethod === 'MOMO'}
+                        onChange={() => setPaymentMethod('MOMO')}
+                        className="mt-1 accent-primary cursor-pointer"
+                        name="payment_method"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-unit-xs">
+                            <span className="material-symbols-outlined text-pink-600 text-xl">account_balance_wallet</span>
+                            <span className="font-body-md text-body-md font-bold text-on-surface">
+                              Ví điện tử MoMo
+                            </span>
+                            <span className="font-label-spec text-label-spec bg-pink-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
+                              MoMo QR
+                            </span>
+                          </div>
+                          <span className="font-body-sm text-body-sm text-pink-600 font-semibold">Ví điện tử</span>
+                        </div>
+                        <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
+                          Quét mã QR MoMo hoặc thanh toán trực tiếp qua ứng dụng Ví MoMo siêu tốc, bảo mật 100%.
                         </p>
                       </div>
                     </label>

@@ -188,6 +188,53 @@ function createVnpayUrl(orderData = {}) {
 }
 
 /**
+ * Map mã phản hồi VNPay sang thông điệp tiếng Việt dễ hiểu
+ * @param {string} responseCode
+ * @returns {string}
+ */
+function getVnpayErrorMessage(responseCode) {
+  const codeMap = {
+    '00': 'Giao dịch thành công',
+    '07': 'Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).',
+    '09': 'Giao dịch không thành công: Thẻ/Tài khoản chưa đăng ký dịch vụ InternetBanking.',
+    '10': 'Giao dịch không thành công: Khách hàng xác thực thông tin không đúng quá 3 lần.',
+    '11': 'Giao dịch không thành công: Đã hết hạn chờ thanh toán.',
+    '12': 'Giao dịch không thành công: Thẻ/Tài khoản của khách hàng đang bị khóa.',
+    '24': 'Giao dịch không thành công: Khách hàng đã hủy giao dịch.',
+    '51': 'Giao dịch không thành công: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.',
+    '65': 'Giao dịch không thành công: Tài khoản của quý khách đã vượt quá hạn mức giao dịch trong ngày.',
+    '75': 'Ngân hàng thanh toán đang bảo trì.',
+    '79': 'Giao dịch không thành công: Khách hàng nhập sai mật khẩu quá số lần quy định.',
+    '99': 'Các lỗi khác (lỗi phát sinh từ ngân hàng hoặc hệ thống VNPay).'
+  };
+  return codeMap[responseCode] || `Giao dịch không thành công (Mã lỗi VNPay: ${responseCode || 'N/A'})`;
+}
+
+/**
+ * Map mã phản hồi MoMo sang thông điệp tiếng Việt
+ * @param {string|number} resultCode
+ * @returns {string}
+ */
+function getMomoErrorMessage(resultCode) {
+  const code = Number(resultCode);
+  const codeMap = {
+    0: 'Thành công',
+    9000: 'Giao dịch đã được xác nhận thành công.',
+    1000: 'Giao dịch đã được khởi tạo, chờ người dùng xác nhận.',
+    1001: 'Giao dịch thất bại do không đủ số dư.',
+    1002: 'Giao dịch bị từ chối do nhà phát hành tài khoản thanh toán.',
+    1003: 'Giao dịch bị hủy do người dùng không xác thực trong thời gian quy định.',
+    1004: 'Giao dịch thất bại do số tiền vượt quá hạn mức.',
+    1005: 'Giao dịch thất bại do URL hoặc mã QR hết hạn.',
+    1006: 'Người dùng đã hủy giao dịch.',
+    1007: 'Giao dịch bị từ chối do tài khoản người dùng đang bị tạm khóa.',
+    41: 'Giao dịch bị từ chối do thông tin thanh toán không hợp lệ.',
+    99: 'Lỗi không xác định từ hệ thống MoMo.'
+  };
+  return codeMap[code] || `Giao dịch MoMo không thành công (Mã lỗi: ${resultCode ?? 'N/A'})`;
+}
+
+/**
  * Xác thực chữ ký phản hồi từ VNPay (Return URL hoặc IPN Webhook)
  * @param {Object} vnpParams - req.query hoặc req.body
  * @returns {Object} { isValid: boolean, isSuccess: boolean, orderId: string, amount: number, ... }
@@ -199,16 +246,21 @@ function verifyVnpayReturn(vnpParams = {}) {
   }
 
   const secureHash = vnpParams['vnp_SecureHash'];
-  const cloneParams = { ...vnpParams };
-  delete cloneParams['vnp_SecureHash'];
-  delete cloneParams['vnp_SecureHashType'];
+  const cloneParams = {};
+
+  // Chỉ lấy các tham số bắt đầu bằng 'vnp_' (loại bỏ vnp_SecureHash & vnp_SecureHashType và các tham số ngoài như gateway, token...)
+  for (const key of Object.keys(vnpParams)) {
+    if (key.startsWith('vnp_') && key !== 'vnp_SecureHash' && key !== 'vnp_SecureHashType') {
+      cloneParams[key] = vnpParams[key];
+    }
+  }
 
   const sortedParams = sortObject(cloneParams);
   const signData = qs.stringify(sortedParams, { encode: false });
   const hmac = crypto.createHmac('sha512', secretKey);
   const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
-  const isValid = signed.toLowerCase() === String(secureHash || '').toLowerCase();
+  const isValid = Boolean(secureHash) && signed.toLowerCase() === String(secureHash).toLowerCase();
   const responseCode = vnpParams['vnp_ResponseCode'];
   const isSuccess = isValid && responseCode === '00';
 
@@ -221,7 +273,8 @@ function verifyVnpayReturn(vnpParams = {}) {
     transactionNo: vnpParams['vnp_TransactionNo'],
     bankCode: vnpParams['vnp_BankCode'],
     payDate: vnpParams['vnp_PayDate'],
-    orderInfo: vnpParams['vnp_OrderInfo']
+    orderInfo: vnpParams['vnp_OrderInfo'],
+    message: getVnpayErrorMessage(responseCode)
   };
 }
 
@@ -392,7 +445,7 @@ function verifyMomoSignature(momoData = {}) {
     .update(rawSignature)
     .digest('hex');
 
-  const isValid = signature.toLowerCase() === String(momoData.signature || '').toLowerCase();
+  const isValid = Boolean(momoData.signature) && signature.toLowerCase() === String(momoData.signature || '').toLowerCase();
   const isSuccess = isValid && String(momoData.resultCode) === '0';
 
   return {
@@ -401,7 +454,7 @@ function verifyMomoSignature(momoData = {}) {
     orderId: momoData.orderId,
     amount: Number(momoData.amount) || 0,
     resultCode: momoData.resultCode,
-    message: momoData.message,
+    message: momoData.message || getMomoErrorMessage(momoData.resultCode),
     transId: momoData.transId,
     payType: momoData.payType
   };
@@ -412,6 +465,8 @@ module.exports = {
   verifyVnpayReturn,
   createMomoPaymentUrl,
   verifyMomoSignature,
+  getVnpayErrorMessage,
+  getMomoErrorMessage,
   sortObject,
   formatVnpayDate
 };
