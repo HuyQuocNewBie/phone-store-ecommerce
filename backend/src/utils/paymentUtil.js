@@ -279,130 +279,90 @@ function verifyVnpayReturn(vnpParams = {}) {
 }
 
 /**
- * 2. TẠO URL THANH TOÁN MOMO (HMAC-SHA256 & AXIOS.POST)
+ * 2. TẠO URL THANH TOÁN MOMO SANDBOX (HMAC-SHA256 & AXIOS.POST)
+ * Chuẩn chính thức theo tài liệu MoMo API v2
  * 
  * @param {Object} orderData Thông tin đơn hàng
- * @param {string|number} orderData.orderId - Mã đơn hàng (hoặc order_id, MaDonHang)
- * @param {number} orderData.amount - Số tiền thanh toán (VND)
- * @param {string} [orderData.orderInfo] - Thông tin nội dung thanh toán
- * @param {string} [orderData.requestId] - Mã request duy nhất (mặc định `${orderId}_${Date.now()}`)
- * @param {string} [orderData.extraData=''] - Dữ liệu kèm theo (Base64 string)
+ * @param {string|number} [orderData.orderId] - Mã đơn hàng từ DB (hoặc order_id, MaDonHang)
+ * @param {number|string} [orderData.amount] - Số tiền thanh toán (VND)
+ * @param {string} [orderData.orderInfo] - Mô tả đơn hàng (tùy chọn)
+ * @param {string} [orderData.extraData] - Dữ liệu kèm theo (tùy chọn)
  * @param {string} [orderData.redirectUrl] - URL redirect sau thanh toán
- * @param {string} [orderData.ipnUrl] - URL Webhook nhận thông báo giao dịch
- * @param {string} [orderData.requestType='captureWallet'] - Loại yêu cầu MoMo
- * @param {boolean} [orderData.returnFullResponse=false] - Trả về nguyên response object của MoMo thay vì chỉ payUrl
- * @returns {Promise<string|Object>} payUrl (hoặc response data đầy đủ nếu returnFullResponse = true)
+ * @param {string} [orderData.ipnUrl] - URL Webhook nhận IPN
+ * @param {boolean} [orderData.returnFullResponse] - Trả về toàn bộ response object thay vì chỉ payUrl
+ * @returns {Promise<string|Object>} payUrl - Link thanh toán MoMo để chuyển hướng
  */
 async function createMomoPaymentUrl(orderData = {}) {
-  const partnerCode = orderData.partnerCode || process.env.MOMO_PARTNER_CODE;
-  const accessKey = orderData.accessKey || process.env.MOMO_ACCESS_KEY;
-  const secretKey = orderData.secretKey || process.env.MOMO_SECRET_KEY;
-  const endpoint = orderData.endpoint || process.env.MOMO_ENDPOINT || 'https://test-payment.momo.vn/v2/gateway/api/create';
+  // 1. THÔNG TIN CẤU HÌNH & TẠO MÃ UNIQUE:
+  const partnerCode = process.env.MOMO_PARTNER_CODE;
+  const accessKey = process.env.MOMO_ACCESS_KEY;
+  const secretkey = process.env.MOMO_SECRET_KEY;
   const redirectUrl = orderData.redirectUrl || process.env.MOMO_REDIRECT_URL;
-  const ipnUrl = orderData.ipnUrl || process.env.MOMO_IPN_URL || redirectUrl;
+  const ipnUrl = orderData.ipnUrl || process.env.MOMO_IPN_URL;
+  const endpoint = process.env.MOMO_ENDPOINT;
 
-  if (!partnerCode || !accessKey || !secretKey || !endpoint || !redirectUrl) {
-    throw new Error('Thiếu cấu hình MOMO trong biến môi trường (.env)');
-  }
+  const orderIdFromDb = orderData.orderId || orderData.order_id || orderData.MaDonHang || "";
+  const amountFromDb = orderData.amount ?? orderData.TongTien ?? orderData.total ?? orderData.final_total ?? 0;
 
-  const rawAmount = Number(
-    orderData.amount ??
-    orderData.TongTien ??
-    orderData.total ??
-    orderData.final_total ??
-    0
-  );
+  const orderInfo = orderData.orderInfo || `Thanh toan don hang #${orderIdFromDb}`;
+  const amount = Math.round(Number(amountFromDb)).toString(); // Bắt buộc chuỗi số nguyên
+  const requestId = partnerCode + new Date().getTime();
+  const orderId = orderData.uniqueOrderId || (orderIdFromDb ? `${orderIdFromDb}_${new Date().getTime()}` : requestId); // Không bao giờ bị trùng orderId trên MoMo Sandbox
+  const requestType = "captureWallet";
+  const extraData = orderData.extraData !== undefined ? String(orderData.extraData) : "";
 
-  if (isNaN(rawAmount) || rawAmount <= 0) {
-    throw new Error('Số tiền thanh toán MoMo không hợp lệ (phải lớn hơn 0)');
-  }
+  // 2. CHUỖI TẠO CHỮ KÝ (RAW SIGNATURE):
+  const rawSignature = "accessKey=" + accessKey + "&amount=" + amount + "&extraData=" + extraData + "&ipnUrl=" + ipnUrl + "&orderId=" + orderId + "&orderInfo=" + orderInfo + "&partnerCode=" + partnerCode + "&redirectUrl=" + redirectUrl + "&requestId=" + requestId + "&requestType=" + requestType;
 
-  // 3. Số tiền truyền dạng chuỗi số nguyên tròn
-  const amount = Math.round(rawAmount).toString();
-
-  // 3. orderId và requestId tạo duy nhất bằng UUID hoặc Timestamp
-  const timestamp = Date.now();
-  const baseOrderId = orderData.orderId || orderData.order_id || orderData.MaDonHang;
-  const orderId = String(
-    orderData.uniqueOrderId ||
-    (baseOrderId
-      ? (String(baseOrderId).includes('_') ? baseOrderId : `${baseOrderId}_${timestamp}`)
-      : timestamp)
-  );
-
-  const requestId = String(
-    orderData.requestId ||
-    (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${orderId}_${timestamp}`)
-  );
-
-  const orderInfo = String(
-    orderData.orderInfo ||
-    orderData.orderDescription ||
-    `Thanh toan don hang #${baseOrderId || orderId}`
-  );
-
-  const requestType = 'captureWallet';
-  const extraData = String(orderData.extraData || '');
-  const lang = 'vi';
-  const partnerName = orderData.partnerName || 'SmartZone Store';
-  const storeId = orderData.storeId || 'SmartZoneStore';
-
-  // 1. CẤU TRÚC CHỮ KÝ HMAC SHA256 (rawSignature) sắp xếp đúng thứ tự chính xác:
-  // accessKey -> amount -> extraData -> ipnUrl -> orderId -> orderInfo -> partnerCode -> redirectUrl -> requestId -> requestType
-  const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
-
-  // Tạo chữ ký HMAC-SHA256 với secretKey
+  // 3. TẠO SIGNATURE HMAC SHA256 VÀ GỬI REQUEST:
   const signature = crypto
-    .createHmac('sha256', secretKey)
+    .createHmac("sha256", secretkey)
     .update(rawSignature)
-    .digest('hex');
+    .digest("hex");
 
-  // 2. TẠO REQUEST BODY CHO MOMO ENDPOINT (https://test-payment.momo.vn/v2/gateway/api/create)
   const requestBody = {
-    partnerCode,
-    partnerName,
-    storeId,
-    requestId,
-    amount: String(amount),
-    orderId,
-    orderInfo,
-    redirectUrl,
-    ipnUrl,
-    lang,
-    extraData,
-    requestType,
-    signature
+    partnerCode: partnerCode,
+    partnerName: "Test",
+    storeId: "MomoTestStore",
+    requestId: requestId,
+    amount: amount,
+    orderId: orderId,
+    orderInfo: orderInfo,
+    redirectUrl: redirectUrl,
+    ipnUrl: ipnUrl,
+    lang: "vi",
+    extraData: extraData,
+    requestType: requestType,
+    signature: signature
   };
 
   try {
     const response = await axios.post(endpoint, requestBody, {
       headers: {
-        'Content-Type': 'application/json; charset=UTF-8'
+        "Content-Type": "application/json; charset=UTF-8"
       },
       timeout: 10000
     });
 
-    const responseData = response.data;
+    if (orderData.returnFullResponse) {
+      return response.data;
+    }
 
-    // Nếu MoMo trả về resultCode !== 0 và không có payUrl, ghi log và bắn lỗi chi tiết
-    if (responseData.resultCode !== 0 && !responseData.payUrl) {
-      const errMsg = `MoMo declined [code ${responseData.resultCode}]: ${responseData.message || 'Lỗi không xác định'}`;
-      const err = new Error(errMsg);
-      err.momoResponse = responseData;
+    if (response.data && response.data.resultCode !== 0 && !response.data.payUrl) {
+      const errorMsg = `MoMo API declined [code ${response.data.resultCode}]: ${response.data.message || 'Giao dịch bị từ chối'}`;
+      const err = new Error(errorMsg);
+      err.momoResponse = response.data;
       throw err;
     }
 
-    if (orderData.returnFullResponse) {
-      return responseData;
-    }
-
-    return responseData.payUrl;
+    return response.data.payUrl;
   } catch (error) {
     if (error.response) {
       const errData = error.response.data;
       const message = `Lỗi từ MoMo API [HTTP ${error.response.status}]: ${errData?.message || JSON.stringify(errData)}`;
       const customErr = new Error(message);
       customErr.response = error.response;
+      customErr.momoResponse = errData;
       throw customErr;
     }
     throw error;
@@ -415,9 +375,9 @@ async function createMomoPaymentUrl(orderData = {}) {
  * @returns {Object} { isValid: boolean, isSuccess: boolean, orderId: string, amount: number, ... }
  */
 function verifyMomoSignature(momoData = {}) {
-  const secretKey = process.env.MOMO_SECRET_KEY;
-  const accessKey = process.env.MOMO_ACCESS_KEY;
-  const partnerCode = momoData.partnerCode || process.env.MOMO_PARTNER_CODE;
+  const secretKey = process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+  const accessKey = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
+  const partnerCode = momoData.partnerCode || process.env.MOMO_PARTNER_CODE || "MOMO";
 
   if (!secretKey || !accessKey) {
     throw new Error('Thiếu cấu hình MOMO_SECRET_KEY hoặc MOMO_ACCESS_KEY để xác thực chữ ký');
