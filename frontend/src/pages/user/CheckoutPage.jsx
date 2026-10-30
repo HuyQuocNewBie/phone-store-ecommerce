@@ -41,7 +41,7 @@ const CheckoutPage = () => {
 
   // 2. Form Thông tin người nhận hàng
   const [formData, setFormData] = useState({
-    fullName: user?.HoTen || user?.TenNguoiDung || '',
+    fullName: user?.TaiKhoan || user?.HoTen || user?.TenNguoiDung || '',
     phone:    user?.SoDienThoai || '',
     address:  user?.DiaChi || '',
     note:     '',
@@ -54,12 +54,82 @@ const CheckoutPage = () => {
     if (user) {
       setFormData((prev) => ({
         ...prev,
-        fullName: prev.fullName || user.HoTen || user.TenNguoiDung || '',
+        fullName: prev.fullName || user.TaiKhoan || user.HoTen || user.TenNguoiDung || '',
         phone:    prev.phone || user.SoDienThoai || '',
         address:  prev.address || user.DiaChi || '',
       }));
     }
   }, [user]);
+
+  // Sổ địa chỉ người dùng
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+
+  // Tự động gọi API GET /api/v1/addresses để nạp danh sách địa chỉ nhận hàng của user
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAddresses = async () => {
+      try {
+        setLoadingAddresses(true);
+        const res = await api.get('/addresses');
+        if (isMounted && res.data?.success) {
+          setAddresses(res.data.data || []);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách sổ địa chỉ:', err);
+      } finally {
+        if (isMounted) setLoadingAddresses(false);
+      }
+    };
+
+    if (user) {
+      fetchAddresses();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  // Xử lý khi người dùng chọn 1 địa chỉ từ Dropdown
+  const handleAddressSelect = (e) => {
+    const addressId = e.target.value;
+    setSelectedAddressId(addressId);
+    if (!addressId) return;
+
+    const selectedAddr = addresses.find((addr) => String(addr.MaDiaChi) === String(addressId));
+    if (selectedAddr) {
+      // 1. Họ và tên: user.TaiKhoan (hoặc user.HoTen)
+      const recipientName = user?.TaiKhoan || user?.HoTen || selectedAddr.TaiKhoan || '';
+
+      // 2. Số điện thoại: SoDienThoai của địa chỉ đó
+      const recipientPhone = selectedAddr.SoDienThoai || user?.SoDienThoai || '';
+
+      // 3. Địa chỉ giao hàng: Chuỗi địa chỉ chi tiết đầy đủ (DiaChiNha, PhuongXa, QuanHuyen, TinhThanh)
+      const addressParts = [
+        selectedAddr.DiaChiNha,
+        selectedAddr.PhuongXa,
+        selectedAddr.QuanHuyen,
+        selectedAddr.TinhThanh,
+      ].filter((part) => part && String(part).trim() !== '');
+      const fullAddress = addressParts.join(', ');
+
+      setFormData((prev) => ({
+        ...prev,
+        fullName: recipientName || prev.fullName,
+        phone: recipientPhone || prev.phone,
+        address: fullAddress,
+      }));
+
+      // Xoá thông báo lỗi validation nếu có
+      setFormErrors((prev) => ({
+        ...prev,
+        ...(recipientName ? { fullName: null } : {}),
+        ...(recipientPhone ? { phone: null } : {}),
+        ...(fullAddress ? { address: null } : {}),
+      }));
+    }
+  };
 
   // 3. Phương thức thanh toán (DUY NHẤT COD)
   const [paymentMethod, setPaymentMethod] = useState('COD');
@@ -212,6 +282,9 @@ const CheckoutPage = () => {
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'address') {
+      setSelectedAddressId('');
+    }
     if (formErrors[field]) {
       setFormErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -483,9 +556,44 @@ const CheckoutPage = () => {
 
                   {/* Địa chỉ giao hàng */}
                   <div className="flex flex-col gap-unit-2xs">
-                    <label htmlFor="address" className="font-body-sm text-body-sm font-semibold text-on-surface">
-                      Số nhà, tên đường / Địa chỉ giao hàng <span className="text-error">*</span>
-                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor="address" className="font-body-sm text-body-sm font-semibold text-on-surface">
+                        Số nhà, tên đường / Địa chỉ giao hàng <span className="text-error">*</span>
+                      </label>
+
+                      {/* Dropdown chọn từ sổ địa chỉ (gọn gàng, không lặp nhãn) */}
+                      <div className="relative inline-flex items-center">
+                        <select
+                          id="addressBookSelect"
+                          aria-label="Chọn từ sổ địa chỉ"
+                          value={selectedAddressId}
+                          onChange={handleAddressSelect}
+                          disabled={loadingAddresses || addresses.length === 0}
+                          className="text-xs py-1.5 pl-2.5 pr-7 bg-surface-container-low hover:bg-surface-container border border-outline/30 rounded-lg text-on-surface focus:bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer transition-colors max-w-[180px] sm:max-w-[210px] truncate disabled:opacity-60 disabled:cursor-not-allowed shadow-inner"
+                        >
+                          <option value="">
+                            {loadingAddresses
+                              ? 'Đang tải...'
+                              : addresses.length === 0
+                              ? 'Sổ địa chỉ trống'
+                              : 'Chọn từ sổ địa chỉ'}
+                          </option>
+                          {addresses.map((addr) => {
+                            const displayName = addr.TenGoiNho || addr.DiaChiNha || 'Địa chỉ';
+                            const defTag = addr.LaMacDinh ? ' (Mặc định)' : '';
+                            return (
+                              <option key={addr.MaDiaChi} value={addr.MaDiaChi}>
+                                {displayName}{defTag}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <span className="material-symbols-outlined absolute right-1.5 text-outline pointer-events-none text-base">
+                          expand_more
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="relative flex items-center">
                       <span className="material-symbols-outlined absolute left-unit-sm text-outline pointer-events-none text-lg">
                         home
