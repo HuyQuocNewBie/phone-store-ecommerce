@@ -144,7 +144,7 @@ const PaymentReturnPage = () => {
         setResult(resData);
 
         // Kích hoạt pháo hoa & dọn dẹp giỏ hàng nếu thanh toán thành công
-        if (resData?.success && resData?.isSuccess) {
+        if (resData?.success && (resData?.isSuccess !== undefined ? resData?.isSuccess : resData?.success)) {
           if (typeof clearCart === 'function') {
             clearCart();
           }
@@ -172,14 +172,14 @@ const PaymentReturnPage = () => {
     };
   }, [location.search, clearCart]);
 
-  const isSuccess = Boolean(result?.success && result?.isSuccess);
+  const isSuccess = Boolean(result?.success && (result?.isSuccess !== undefined ? result?.isSuccess : result?.success));
   const data = result?.data || {};
-  const gateway = data.gateway || 'Cổng thanh toán';
-  const orderId = data.orderId;
+  const gateway = data.gateway || result?.method || 'Cổng thanh toán';
+  const orderId = data.orderId || result?.orderId;
   const orderInfo = data.order || null;
   const orderCode = orderId ? formatOrderCode(orderId, orderInfo?.NgayMuaHang) : 'N/A';
-  const totalAmount = data.amount || orderInfo?.TongTien || 0;
-  const transactionNo = data.transactionNo || data.transId || null;
+  const totalAmount = data.amount || result?.amount || orderInfo?.TongTien || 0;
+  const transactionNo = data.transactionNo || data.transId || result?.transId || null;
   const orderStatus = data.orderStatus || orderInfo?.TrangThaiDonHang || (isSuccess ? 'Đang xử lý' : 'Chờ thanh toán');
 
   // Danh sách sản phẩm mua

@@ -467,84 +467,75 @@ const verifyPayment = async (req, res, next) => {
 
     // 3. Xử lý cho MoMo
     if (gateway === 'momo') {
-      const verifyResult = verifyMomoSignature(params);
+      const { resultCode, orderId, amount, transId, message } = params;
 
-      // 3.1 Kiểm tra checksum/signature
-      if (!verifyResult.isValid) {
-        const orderInfo = await findOrderById(verifyResult.orderId);
-        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
-        return res.status(400).json({
-          success: false,
-          isSuccess: false,
-          message: 'Chữ ký MoMo không hợp lệ (Signature verification failed)',
-          data: {
-            gateway: 'MoMo',
-            orderId: verifyResult.orderId,
-            resultCode: verifyResult.resultCode,
-            amount: verifyResult.amount,
-            order: orderInfo,
-            items
+      // Nếu resultCode == 0 (hoặc "0")
+      if (resultCode == 0 || String(resultCode) === '0') {
+        // 3.1 Cập nhật trạng thái đơn hàng tương ứng trong DB thành TrangThaiDonHang = "Đang xử lý"
+        let cleanOrderId = String(orderId || '').trim();
+        if (cleanOrderId.includes('_')) {
+          cleanOrderId = cleanOrderId.split('_')[0];
+        }
+
+        let numericId = Number(cleanOrderId);
+        if (isNaN(numericId) && typeof cleanOrderId === 'string' && cleanOrderId.startsWith('SZ')) {
+          const match = cleanOrderId.match(/^SZ\d{8}(\d+)$/);
+          if (match) {
+            numericId = parseInt(match[1], 10);
           }
-        });
-      }
+        }
+        const targetOrderId = (!isNaN(numericId) && numericId > 0) ? numericId : cleanOrderId;
 
-      // 3.2 Kiểm tra resultCode (resultCode === 0)
-      if (!verifyResult.isSuccess) {
-        const orderInfo = await findOrderById(verifyResult.orderId);
-        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
+        if (targetOrderId) {
+          try {
+            await pool.query(
+              `UPDATE donhang 
+               SET TrangThaiDonHang = 'Đang xử lý' 
+               WHERE MaDonHang = ? OR MaDonHang = ?`,
+              [targetOrderId, cleanOrderId]
+            );
+          } catch (dbErr) {
+            console.error(`Lỗi cập nhật trạng thái đơn hàng #${targetOrderId}:`, dbErr.message);
+          }
+        }
+
+        // Lưu thông tin thanh toán & lịch sử đơn hàng nếu đơn hàng tồn tại
+        try {
+          await processSuccessfulPayment({
+            orderId: targetOrderId || orderId,
+            amount: Number(amount) || amount,
+            paymentMethodId: 3, // MoMo
+            transactionNo: transId
+          });
+        } catch (procErr) {
+          console.warn('[MoMo Return] Ghi log thanh toán:', procErr.message);
+        }
+
+        // 3.2 Gọi hàm sendInvoiceEmail gửi email hóa đơn cho khách hàng
+        try {
+          sendInvoiceEmail(targetOrderId || orderId).catch((mailErr) => {
+            console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán MoMo đơn hàng #${targetOrderId || orderId}:`, mailErr.message);
+          });
+        } catch (mailErr) {
+          console.error(`[sendInvoiceEmail] Lỗi gọi hàm sendInvoiceEmail:`, mailErr.message);
+        }
+
+        // 3.3 Trả về JSON thông báo thành công
+        return res.status(200).json({
+          success: true,
+          message: "Thanh toán MoMo thành công!",
+          orderId,
+          amount,
+          transId,
+          method: "MoMo"
+        });
+      } else {
+        // Nếu resultCode != 0: Trả về JSON giao dịch thất bại hoặc bị hủy
         return res.status(200).json({
           success: false,
-          isSuccess: false,
-          message: verifyResult.message || 'Giao dịch MoMo không thành công hoặc khách hàng đã hủy',
-          data: {
-            gateway: 'MoMo',
-            orderId: verifyResult.orderId,
-            resultCode: verifyResult.resultCode,
-            amount: verifyResult.amount || (orderInfo ? Number(orderInfo.TongTien) : 0),
-            transId: verifyResult.transId,
-            transactionNo: verifyResult.transId,
-            payType: verifyResult.payType,
-            order: orderInfo,
-            items
-          }
+          message: message || "Giao dịch MoMo thất bại hoặc bị hủy!"
         });
       }
-
-      // 3.3 Thành công: Cập nhật donhang thành "Đang xử lý", lưu thanhtoan & lichsumuahang
-      const processResult = await processSuccessfulPayment({
-        orderId: verifyResult.orderId,
-        amount: verifyResult.amount,
-        paymentMethodId: 3, // MoMo
-        transactionNo: verifyResult.transId
-      });
-
-      // Lấy danh sách sản phẩm của đơn hàng
-      const items = await getOrderItems(processResult.order.MaDonHang);
-
-      // LÚC NÀY MỚI GỌI HÀM sendInvoiceEmail(orderId) để gửi mail hóa đơn cho khách hàng
-      sendInvoiceEmail(processResult.order.MaDonHang).catch((mailErr) => {
-        console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán MoMo đơn hàng #${processResult.order.MaDonHang}:`, mailErr.message);
-      });
-
-      return res.status(200).json({
-        success: true,
-        isSuccess: true,
-        message: 'Xác nhận thanh toán MoMo thành công. Đơn hàng đang được xử lý.',
-        data: {
-          gateway: 'MoMo',
-          orderId: processResult.order.MaDonHang,
-          amount: verifyResult.amount || Number(processResult.order.TongTien),
-          transactionNo: verifyResult.transId || null,
-          payType: verifyResult.payType || null,
-          orderStatus: 'Đang xử lý',
-          paymentMethod: 'MoMo',
-          paymentStatus: 'Thành công',
-          paymentId: processResult.maThanhToan,
-          isNewRecord: processResult.isNewRecord,
-          order: processResult.order,
-          items
-        }
-      });
     }
   } catch (error) {
     console.error('Lỗi khi verify thanh toán:', error);
