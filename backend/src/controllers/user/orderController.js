@@ -141,7 +141,13 @@ const createOrder = async (req, res, next) => {
       MaVoucher,
       voucher_code,
       cart_item_ids,
-      items: rawItems
+      items: rawItems,
+      TrangThaiDonHang,
+      order_status,
+      trangThai,
+      paymentMethod,
+      payment_method,
+      MaPhuongThucThanhToan
     } = req.body;
 
     const finalTenNguoiNhan = String(TenNguoiNhan || receiver_name || '').trim();
@@ -352,7 +358,19 @@ const createOrder = async (req, res, next) => {
     // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
     const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
-    // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = "Chờ xác nhận"
+    // Xác định trạng thái ban đầu: mặc định "Chờ thanh toán" hoặc giá trị từ client
+    const initialOrderStatus = String(TrangThaiDonHang || order_status || trangThai || 'Chờ thanh toán').trim();
+
+    // Xác định mã phương thức thanh toán: 1 (COD), 2 (VNPay), 3 (MoMo)
+    let ptttId = 1;
+    const rawPMethod = String(paymentMethod || payment_method || '').toUpperCase();
+    if (rawPMethod === 'VNPAY' || rawPMethod === '2' || Number(MaPhuongThucThanhToan) === 2) {
+      ptttId = 2;
+    } else if (rawPMethod === 'MOMO' || rawPMethod === '3' || Number(MaPhuongThucThanhToan) === 3) {
+      ptttId = 3;
+    }
+
+    // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = initialOrderStatus ("Chờ thanh toán")
     // Lưu giá trị shippingFee vào cột `PhiShip` trong bảng `donhang`
     const [donHangResult] = await connection.query(
       `INSERT INTO donhang 
@@ -360,7 +378,7 @@ const createOrder = async (req, res, next) => {
        VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         MaNguoiDung,
-        'Chờ xác nhận',
+        initialOrderStatus,
         appliedVoucherId,
         finalDiaChiGiaoHang,
         finalGhiChu,
@@ -382,22 +400,23 @@ const createOrder = async (req, res, next) => {
       );
     }
 
-    // 7. Thêm bản ghi giao dịch trong bảng `thanhtoan` (MaPhuongThucThanhToan = 1, MaTrangThaiThanhToan = 1)
+    // 7. Thêm bản ghi giao dịch trong bảng `thanhtoan` (COD = 1 thành công, online = 2 chờ thanh toán xác nhận qua callback)
+    const initialPaymentStatus = ptttId === 1 ? 1 : 2;
     const [thanhToanResult] = await connection.query(
       `INSERT INTO thanhtoan 
         (MaDonHang, MaNguoiDung, SoLuongMua, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan)
-       VALUES (?, ?, ?, CURDATE(), 1, 1)`,
-      [maDonHang, MaNguoiDung, tongTien]
+       VALUES (?, ?, ?, CURDATE(), ?, ?)`,
+      [maDonHang, MaNguoiDung, tongTien, initialPaymentStatus, ptttId]
     );
 
     const maThanhToan = thanhToanResult.insertId;
 
-    // 8. Tạo bản ghi trong `lichsumuahang` (MaPhuongThucThanhToan = 1, MaTrangThaiThanhToan = 1)
+    // 8. Tạo bản ghi trong `lichsumuahang`
     await connection.query(
       `INSERT INTO lichsumuahang 
         (MaNguoiDung, MaDonHang, NgayMua, TongTien, TrangThai, MaPhuongThucThanhToan, MaThanhToan)
-       VALUES (?, ?, CURDATE(), ?, ?, 1, ?)`,
-      [MaNguoiDung, maDonHang, tongTien, 'Chờ xác nhận', maThanhToan]
+       VALUES (?, ?, CURDATE(), ?, ?, ?, ?)`,
+      [MaNguoiDung, maDonHang, tongTien, initialOrderStatus, ptttId, maThanhToan]
     );
 
     // 9. Ghi lịch sử sử dụng voucher nếu có
@@ -518,7 +537,7 @@ const createOrder = async (req, res, next) => {
         MaDonHang: maDonHang,
         CodeDonHang: formatOrderCode(maDonHang, new Date()),
         NgayMuaHang: new Date(),
-        TrangThaiDonHang: 'Chờ xác nhận',
+        TrangThaiDonHang: initialOrderStatus,
         TongTien: tongTien,
         PhiShip: phiShip,
         shippingFee: phiShip,
@@ -874,12 +893,12 @@ const cancelOrder = async (req, res, next) => {
 
     const order = orders[0];
 
-    // 2. Kiểm tra trạng thái đơn hàng (chỉ cho phép hủy khi TrangThaiDonHang === "Chờ xác nhận")
-    if (order.TrangThaiDonHang !== 'Chờ xác nhận') {
+    // 2. Kiểm tra trạng thái đơn hàng (cho phép hủy khi TrangThaiDonHang === "Chờ xác nhận" hoặc "Chờ thanh toán")
+    if (order.TrangThaiDonHang !== 'Chờ xác nhận' && order.TrangThaiDonHang !== 'Chờ thanh toán') {
       connection.release();
       return res.status(400).json({
         success: false,
-        message: `Chỉ có thể hủy đơn hàng khi ở trạng thái "Chờ xác nhận". Đơn hàng hiện tại: "${order.TrangThaiDonHang}".`
+        message: `Chỉ có thể hủy đơn hàng khi ở trạng thái chờ duyệt hoặc chờ thanh toán. Đơn hàng hiện tại: "${order.TrangThaiDonHang}".`
       });
     }
 

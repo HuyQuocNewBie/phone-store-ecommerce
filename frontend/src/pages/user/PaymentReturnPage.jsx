@@ -19,11 +19,13 @@ import {
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
+import { useCart } from '../../context/CartContext';
 import { formatOrderCode, formatVND } from '../../utils/formatters';
 
 const PaymentReturnPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { clearCart } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState(null);
@@ -53,8 +55,11 @@ const PaymentReturnPage = () => {
 
         setResult(resData);
 
-        // Kích hoạt pháo hoa nếu thanh toán thành công
+        // Kích hoạt pháo hoa & dọn dẹp giỏ hàng nếu thanh toán thành công
         if (resData?.success && resData?.isSuccess) {
+          if (typeof clearCart === 'function') {
+            clearCart();
+          }
           triggerConfetti();
         }
       } catch (err) {
@@ -71,7 +76,7 @@ const PaymentReturnPage = () => {
     };
 
     verify();
-  }, [location.search]);
+  }, [location.search, clearCart]);
 
   const triggerConfetti = () => {
     try {
@@ -197,7 +202,7 @@ const PaymentReturnPage = () => {
                   className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 active:scale-[0.99] transition shadow-md hover:shadow-blue-200"
                 >
                   <Package className="w-4 h-4" />
-                  Xem chi tiết đơn hàng
+                  Xem đơn hàng của tôi
                 </Link>
                 <Link
                   to="/products"
@@ -265,7 +270,7 @@ const PaymentReturnPage = () => {
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 active:scale-[0.99] transition"
                 >
                   <Package className="w-4 h-4" />
-                  Đơn hàng của tôi
+                  Xem đơn hàng của tôi
                 </Link>
               </div>
             </div>

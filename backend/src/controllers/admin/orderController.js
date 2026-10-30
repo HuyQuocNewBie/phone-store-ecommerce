@@ -179,8 +179,8 @@ const updateOrderStatus = async (req, res, next) => {
       });
     }
 
-    // Validate chỉ nhận 5 trạng thái chuẩn
-    const VALID_STATUSES = ['Chờ xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
+    // Validate trạng thái chuẩn
+    const VALID_STATUSES = ['Chờ xác nhận', 'Chờ thanh toán', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
     if (!VALID_STATUSES.includes(statusToUpdate)) {
       return res.status(400).json({
         success: false,

@@ -179,9 +179,11 @@ const createVnpayPayment = async (req, res, next) => {
       success: true,
       message: 'Tạo URL thanh toán VNPay thành công',
       paymentUrl,
+      payUrl: paymentUrl,
       url: paymentUrl,
       data: {
         paymentUrl,
+        payUrl: paymentUrl,
         orderId,
         amount: finalAmount
       }
@@ -243,6 +245,7 @@ const createMomoPayment = async (req, res, next) => {
       // Hỗ trợ fallback sandbox URL khi MoMo test server từ chối tài khoản test công khai (resultCode 99)
       const allowFallback =
         req.query.fallback === 'true' ||
+        req.body.fallback === true ||
         req.body.fallback === 'true' ||
         process.env.MOMO_SANDBOX_FALLBACK === 'true';
 

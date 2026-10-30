@@ -322,6 +322,9 @@ const CheckoutPage = () => {
         MaVoucher:      appliedVoucher?.MaCode || appliedVoucher?.code || null,
         shippingFee:    shippingFee ?? 0,
         shipping_method: 'Giao hàng tiêu chuẩn',
+        paymentMethod:  paymentMethod,
+        payment_method: paymentMethod,
+        TrangThaiDonHang: 'Chờ thanh toán',
         items: items.map((it) => ({
           MaSanPham: it.MaSanPham,
           SoLuong:   it.SoLuong,
@@ -334,8 +337,9 @@ const CheckoutPage = () => {
       if (response.data && response.data.success) {
         const orderData = response.data.data;
         const newOrderId = orderData?.MaDonHang;
+        const payAmount = Number(orderData?.TongTien) > 0 ? Number(orderData.TongTien) : totalAmount;
 
-        // 1. Xóa giỏ hàng
+        // 1. Xóa giỏ hàng sau khi tạo đơn hàng thành công
         if (typeof clearCart === 'function') {
           clearCart();
         }
@@ -349,16 +353,19 @@ const CheckoutPage = () => {
           try {
             const vnpRes = await api.post('/payment/create-vnpay', {
               orderId: newOrderId,
-              amount: totalAmount,
+              amount: payAmount,
               orderInfo: `Thanh toan don hang #${newOrderId}`
             });
-            if (vnpRes.data?.paymentUrl) {
-              window.location.href = vnpRes.data.paymentUrl;
+            const payUrl = vnpRes.data?.payUrl || vnpRes.data?.paymentUrl || vnpRes.data?.data?.payUrl || vnpRes.data?.url;
+            if (payUrl) {
+              window.location.href = payUrl;
               return;
+            } else {
+              throw new Error('Không nhận được đường dẫn thanh toán từ cổng VNPay');
             }
           } catch (vnpErr) {
             toast.dismiss('redirect-pay');
-            throw new Error(vnpErr.response?.data?.message || 'Không thể tạo liên kết thanh toán VNPay');
+            throw new Error(vnpErr.response?.data?.message || vnpErr.message || 'Không thể tạo liên kết thanh toán VNPay');
           }
         }
 
@@ -368,21 +375,25 @@ const CheckoutPage = () => {
           try {
             const momoRes = await api.post('/payment/create-momo', {
               orderId: newOrderId,
-              amount: totalAmount,
-              orderInfo: `Thanh toan don hang #${newOrderId}`
+              amount: payAmount,
+              orderInfo: `Thanh toan don hang #${newOrderId}`,
+              fallback: true
             });
-            if (momoRes.data?.payUrl) {
-              window.location.href = momoRes.data.payUrl;
+            const payUrl = momoRes.data?.payUrl || momoRes.data?.paymentUrl || momoRes.data?.data?.payUrl;
+            if (payUrl) {
+              window.location.href = payUrl;
               return;
+            } else {
+              throw new Error('Không nhận được đường dẫn thanh toán từ cổng MoMo');
             }
           } catch (momoErr) {
             toast.dismiss('redirect-pay');
-            throw new Error(momoErr.response?.data?.message || 'Không thể tạo liên kết thanh toán MoMo');
+            throw new Error(momoErr.response?.data?.message || momoErr.message || 'Không thể tạo liên kết thanh toán MoMo');
           }
         }
 
-        // 4. Mặc định COD: Hiệu ứng loading spinner + delay 1s và sang /checkout/success
-        await new Promise((r) => setTimeout(r, 1000));
+        // 4. Nếu chọn COD -> Điều hướng thẳng sang trang Hoàn tất đơn hàng.
+        await new Promise((r) => setTimeout(r, 600));
 
         toast.success('Đặt hàng thành công!');
         navigate('/checkout/success', {
@@ -395,7 +406,7 @@ const CheckoutPage = () => {
               shippingFee,
               shippingMethod: 'Giao hàng tiêu chuẩn',
               discount: discountAmount,
-              total: totalAmount,
+              total: payAmount,
               paymentMethod: 'COD (Thanh toán khi nhận hàng)',
               formData: { ...formData, fullAddress: fullAddressString },
             },
@@ -762,7 +773,7 @@ const CheckoutPage = () => {
                           <div className="flex items-center gap-unit-xs">
                             <span className="material-symbols-outlined text-primary text-xl">payments</span>
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              Thanh toán khi nhận hàng (COD)
+                              COD (Thanh toán khi nhận hàng)
                             </span>
                             <span className="font-label-spec text-label-spec bg-primary text-on-primary px-unit-xs py-unit-2xs rounded font-bold uppercase">
                               Mặc định
@@ -791,7 +802,7 @@ const CheckoutPage = () => {
                           <div className="flex items-center gap-unit-xs">
                             <span className="material-symbols-outlined text-blue-600 text-xl">qr_code_scanner</span>
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              Cổng thanh toán VNPay
+                              VNPay (Thanh toán qua VNPAY QR / Thẻ ATM)
                             </span>
                             <span className="font-label-spec text-label-spec bg-blue-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
                               VNPAY-QR
@@ -820,7 +831,7 @@ const CheckoutPage = () => {
                           <div className="flex items-center gap-unit-xs">
                             <span className="material-symbols-outlined text-pink-600 text-xl">account_balance_wallet</span>
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              Ví điện tử MoMo
+                              MoMo (Thanh toán qua Ví MoMo)
                             </span>
                             <span className="font-label-spec text-label-spec bg-pink-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
                               MoMo QR
@@ -1056,7 +1067,7 @@ const CheckoutPage = () => {
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-xl">shield</span>
-                        <span>XÁC NHẬN ĐẶT HÀNG ({formatVND(totalAmount)})</span>
+                        <span>ĐẶT HÀNG ({formatVND(totalAmount)})</span>
                       </>
                     )}
                   </button>

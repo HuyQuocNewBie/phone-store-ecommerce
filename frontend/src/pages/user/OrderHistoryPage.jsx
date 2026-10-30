@@ -26,6 +26,13 @@ const getStatusInfo = (status) => {
         badgeClass: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
         dotClass: 'bg-amber-500 animate-pulse',
       };
+    case 'Chờ thanh toán':
+      return {
+        label: 'Chờ thanh toán',
+        icon: 'credit_card',
+        badgeClass: 'bg-purple-500/10 text-purple-600 border border-purple-500/20',
+        dotClass: 'bg-purple-500 animate-pulse',
+      };
     case 'Đang xử lý':
       return {
         label: 'Đang xử lý',
@@ -478,7 +485,7 @@ const OrderHistoryPage = () => {
     const counts = { ALL: allOrdersForCounts.length, PENDING: 0, PROCESSING: 0, SHIPPING: 0, DELIVERED: 0, CANCELLED: 0 };
     allOrdersForCounts.forEach((o) => {
       const st = o.TrangThaiDonHang;
-      if (st === 'Chờ xác nhận') counts.PENDING++;
+      if (st === 'Chờ xác nhận' || st === 'Chờ thanh toán') counts.PENDING++;
       else if (st === 'Đang xử lý') counts.PROCESSING++;
       else if (st === 'Đang giao') counts.SHIPPING++;
       else if (st === 'Đã giao') counts.DELIVERED++;
@@ -498,7 +505,12 @@ const OrderHistoryPage = () => {
       CANCELLED: 'Đã hủy',
     };
     const targetStatus = statusMap[activeTab];
-    return orders.filter((o) => !targetStatus || o.TrangThaiDonHang === targetStatus);
+    return orders.filter((o) => {
+      if (activeTab === 'PENDING') {
+        return o.TrangThaiDonHang === 'Chờ xác nhận' || o.TrangThaiDonHang === 'Chờ thanh toán';
+      }
+      return !targetStatus || o.TrangThaiDonHang === targetStatus;
+    });
   }, [orders, activeTab]);
 
   const filteredOrders = useMemo(() => {
@@ -847,8 +859,8 @@ const OrderHistoryPage = () => {
                           {/* Utility Action Bar Under Current Order (ĐÃ XÓA nút 'Xem hóa đơn chi tiết') */}
                           <div className="flex flex-wrap items-center justify-between gap-unit-md pt-unit-xs">
                             <div className="flex items-center gap-unit-sm">
-                              {/* Hủy đơn khi Chờ xác nhận */}
-                              {currentFeaturedOrder.TrangThaiDonHang === 'Chờ xác nhận' && (
+                              {/* Hủy đơn khi Chờ xác nhận hoặc Chờ thanh toán */}
+                              {(currentFeaturedOrder.TrangThaiDonHang === 'Chờ xác nhận' || currentFeaturedOrder.TrangThaiDonHang === 'Chờ thanh toán') && (
                                 <button
                                   type="button"
                                   onClick={() => setCancelTargetOrder(currentFeaturedOrder)}
@@ -1010,8 +1022,8 @@ const OrderHistoryPage = () => {
                                     Xem chi tiết
                                   </button>
 
-                                  {/* Hủy đơn khi Chờ xác nhận */}
-                                  {order.TrangThaiDonHang === 'Chờ xác nhận' && (
+                                  {/* Hủy đơn khi Chờ xác nhận hoặc Chờ thanh toán */}
+                                  {(order.TrangThaiDonHang === 'Chờ xác nhận' || order.TrangThaiDonHang === 'Chờ thanh toán') && (
                                     <button
                                       type="button"
                                       onClick={() => setCancelTargetOrder(order)}
