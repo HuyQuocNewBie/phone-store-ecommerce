@@ -3,6 +3,8 @@
  * Supports HMAC-SHA512 (VNPay) and HMAC-SHA256 (MoMo) signature generation.
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
 const crypto = require('crypto');
 const qs = require('qs');

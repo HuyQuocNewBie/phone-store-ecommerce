@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const { testConnection } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
-// Load environment variables
+// Load environment variables (supports running from root or backend directory)
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 const app = express();
@@ -27,6 +29,7 @@ const userReviewRoutes = require('./src/routes/user/reviewRoutes');
 const userWishlistRoutes = require('./src/routes/user/wishlistRoutes');
 const userAddressRoutes = require('./src/routes/user/addressRoutes');
 const userProfileRoutes = require('./src/routes/user/profileRoutes');
+const paymentRoutes = require('./src/routes/user/paymentRoutes');
 const { verifyToken } = require('./src/middlewares/authMiddleware');
 const { uploadAvatar } = require('./src/controllers/user/profileController');
 
@@ -53,6 +56,7 @@ app.use('/api/v1/reviews', userReviewRoutes);
 app.use('/api/v1/wishlist', userWishlistRoutes);
 app.use('/api/v1/addresses', userAddressRoutes);
 app.use('/api/v1/profile', userProfileRoutes);
+app.use('/api/v1/payment', paymentRoutes);
 // POST /api/v1/upload/avatar – upload ảnh đại diện (yêu cầu JWT)
 app.post('/api/v1/upload/avatar', verifyToken, ...uploadAvatar);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
