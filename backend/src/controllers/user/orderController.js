@@ -2,6 +2,13 @@ const { pool } = require('../../../config/db');
 const { sendOrderInvoiceEmail, sendInvoiceEmail } = require('../../utils/mailer');
 const { formatOrderCode } = require('../../utils/formatters');
 
+// Bảng ánh xạ phương thức thanh toán chuẩn số integer
+const METHOD_MAP = {
+  'COD': 1,
+  'VNPAY': 2,
+  'ZALOPAY': 3
+};
+
 /**
  * Helper kiểm tra xem tỉnh thành có thuộc TP.HCM hay không
  */
@@ -466,26 +473,30 @@ const createOrder = async (req, res, next) => {
     // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
     const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
-    // Xác định mã phương thức thanh toán: 1 (COD), 2 (VNPay), 4 (ZaloPay)
-    const rawPMethod = String(
+    // Lấy chuỗi phương thức thanh toán từ request body, chuyển thành chữ hoa và map sang ID chuẩn số integer
+    const rawMethod = String(
       phuongThucThanhToan ||
-      phuong_thuc_thanh_toan ||
       paymentMethod ||
+      req.body.phuongThucThanhToan ||
+      req.body.paymentMethod ||
+      phuong_thuc_thanh_toan ||
       payment_method ||
+      MaPhuongThucThanhToan ||
       ''
     ).toUpperCase().trim();
 
-    let ptttId = 1;
-    let paymentMethodCode = 'COD';
+    // Map sang ID chuẩn: COD: 1, VNPAY: 2, ZALOPAY: 3. Fallback mặc định 1 (COD) nếu không khớp
+    const maPhuongThucId = Number(
+      METHOD_MAP[rawMethod] ||
+      (rawMethod === 'ZALO' || rawMethod === '4' ? 3 : (rawMethod === 'VN PAY' || rawMethod === '2' ? 2 : 1))
+    );
 
-    if (rawPMethod === 'VNPAY' || rawPMethod === '2' || Number(MaPhuongThucThanhToan) === 2) {
-      ptttId = 2;
+    let paymentMethodCode = 'COD';
+    if (maPhuongThucId === 2) {
       paymentMethodCode = 'VNPAY';
-    } else if (rawPMethod === 'ZALOPAY' || rawPMethod === 'ZALO' || rawPMethod === '4' || Number(MaPhuongThucThanhToan) === 4) {
-      ptttId = 4;
+    } else if (maPhuongThucId === 3) {
       paymentMethodCode = 'ZALOPAY';
     } else {
-      ptttId = 1;
       paymentMethodCode = 'COD';
     }
 
@@ -532,12 +543,15 @@ const createOrder = async (req, res, next) => {
     }
 
     // 7. Thêm bản ghi giao dịch trong bảng `thanhtoan` (COD = 1 thành công, online = 2 chờ thanh toán xác nhận qua callback)
-    const initialPaymentStatus = ptttId === 1 ? 1 : 2;
+    const initialPaymentStatus = maPhuongThucId === 1 ? 1 : 2;
+
+    console.log("-> Processing Payment Method:", rawMethod, "Mapped ID:", maPhuongThucId);
+
     const [thanhToanResult] = await connection.query(
       `INSERT INTO thanhtoan 
         (MaDonHang, MaNguoiDung, SoLuongMua, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan)
        VALUES (?, ?, ?, CURDATE(), ?, ?)`,
-      [maDonHang, MaNguoiDung, tongTien, initialPaymentStatus, ptttId]
+      [maDonHang, MaNguoiDung, tongTien, initialPaymentStatus, maPhuongThucId]
     );
 
     const maThanhToan = thanhToanResult.insertId;
@@ -547,7 +561,7 @@ const createOrder = async (req, res, next) => {
       `INSERT INTO lichsumuahang 
         (MaNguoiDung, MaDonHang, NgayMua, TongTien, TrangThai, MaPhuongThucThanhToan, MaThanhToan)
        VALUES (?, ?, CURDATE(), ?, ?, ?, ?)`,
-      [MaNguoiDung, maDonHang, tongTien, initialOrderStatus, ptttId, maThanhToan]
+      [MaNguoiDung, maDonHang, tongTien, initialOrderStatus, maPhuongThucId, maThanhToan]
     );
 
     // 9. Ghi lịch sử sử dụng voucher nếu có

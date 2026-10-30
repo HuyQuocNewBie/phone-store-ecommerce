@@ -7,6 +7,13 @@ const { pool } = require('../../../config/db');
 const { sendInvoiceEmail } = require('../../utils/mailer');
 const crypto = require('crypto');
 
+// Bảng ánh xạ phương thức thanh toán chuẩn số integer
+const METHOD_MAP = {
+  'COD': 1,
+  'VNPAY': 2,
+  'ZALOPAY': 3
+};
+
 /**
  * Helper: Bóc tách mã đơn hàng gốc từ chuỗi nhận diện cổng thanh toán
  * Hỗ trợ định dạng ZaloPay: YYMMDD_orderId_timestamp
@@ -135,16 +142,43 @@ const getPaymentMethodId = async (name = 'Zalo', fallbackId = 3) => {
  * @param {Object} params
  * @param {string|number} params.orderId - Mã đơn hàng
  * @param {number} [params.amount] - Số tiền thực tế thanh toán
- * @param {number} [params.paymentMethodId=4] - 2 (VNPay), 4 (ZaloPay)
+ * @param {number|string} [params.paymentMethodId] - 1 (COD), 2 (VNPay), 3 (ZaloPay)
+ * @param {string} [params.phuongThucThanhToan] - Chuỗi phương thức thanh toán từ client
+ * @param {string} [params.paymentMethod] - Chuỗi phương thức thanh toán từ client
  * @param {string} [params.transactionNo] - Mã giao dịch cổng thanh toán
  * @param {string} [params.bankCode] - Mã ngân hàng
  * @returns {Promise<Object>} { order, isNewRecord, maThanhToan }
  */
-const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, transactionNo, bankCode }) => {
+const processSuccessfulPayment = async (params) => {
+  const {
+    orderId,
+    amount,
+    paymentMethodId,
+    transactionNo,
+    bankCode,
+    phuongThucThanhToan,
+    paymentMethod
+  } = params || {};
+
   const order = await findOrderById(orderId);
   if (!order) {
     throw new Error(`Không tìm thấy đơn hàng #${orderId} trong hệ thống`);
   }
+
+  // Lấy chuỗi phương thức thanh toán từ request body / params
+  const rawMethod = String(
+    phuongThucThanhToan ||
+    paymentMethod ||
+    (paymentMethodId === 2 ? 'VNPAY' : (paymentMethodId === 3 || paymentMethodId === 4 ? 'ZALOPAY' : (paymentMethodId === 1 ? 'COD' : ''))) ||
+    paymentMethodId ||
+    ''
+  ).toUpperCase().trim();
+
+  // Chuyển thành chữ hoa và map sang ID chuẩn số integer (Fallback mặc định 1 (COD) nếu không khớp)
+  const maPhuongThucId = Number(
+    METHOD_MAP[rawMethod] ||
+    (rawMethod === 'ZALO' || rawMethod === '4' ? 3 : (rawMethod === 'VN PAY' || rawMethod === '2' ? 2 : (typeof paymentMethodId === 'number' && [1, 2, 3].includes(paymentMethodId) ? paymentMethodId : 1)))
+  );
 
   // 1. Kiểm tra Idempotency: nếu đơn hàng đã có bản ghi thanh toán thành công với phương thức này
   const [existingPayments] = await pool.query(
@@ -152,7 +186,7 @@ const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, 
      FROM thanhtoan 
      WHERE MaDonHang = ? AND MaPhuongThucThanhToan = ? AND MaTrangThaiThanhToan = 1 
      LIMIT 1`,
-    [order.MaDonHang, paymentMethodId]
+    [order.MaDonHang, maPhuongThucId]
   );
 
   // Đảm bảo trạng thái đơn hàng trong bảng donhang luôn là 'Đang xử lý'
@@ -201,6 +235,10 @@ const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, 
     );
 
     let maThanhToan;
+
+    // Log debug kiểm tra Terminal
+    console.log("-> Processing Payment Method:", rawMethod, "Mapped ID:", maPhuongThucId);
+
     if (pendingPayments.length > 0) {
       maThanhToan = pendingPayments[0].MaThanhToan;
       await connection.query(
@@ -210,7 +248,7 @@ const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, 
              NgayThanhToan = CURDATE(),
              MaPhuongThucThanhToan = ?
          WHERE MaThanhToan = ?`,
-        [finalAmount, paymentMethodId, maThanhToan]
+        [finalAmount, maPhuongThucId, maThanhToan]
       );
     } else {
       // Lưu bản ghi mới vào bảng thanhtoan (MaTrangThaiThanhToan = 1: Thành công)
@@ -218,7 +256,7 @@ const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, 
         `INSERT INTO thanhtoan 
           (MaDonHang, MaNguoiDung, SoLuongMua, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan)
          VALUES (?, ?, ?, CURDATE(), 1, ?)`,
-        [order.MaDonHang, userId, finalAmount, paymentMethodId]
+        [order.MaDonHang, userId, finalAmount, maPhuongThucId]
       );
       maThanhToan = insertThanhToan.insertId;
     }
@@ -237,14 +275,14 @@ const processSuccessfulPayment = async ({ orderId, amount, paymentMethodId = 4, 
              MaThanhToan = ?,
              TongTien = ?
          WHERE MaLichSuMuaHang = ?`,
-        [paymentMethodId, maThanhToan, Number(order.TongTien), existingHistory[0].MaLichSuMuaHang]
+        [maPhuongThucId, maThanhToan, Number(order.TongTien), existingHistory[0].MaLichSuMuaHang]
       );
     } else {
       await connection.query(
         `INSERT INTO lichsumuahang 
           (MaNguoiDung, MaDonHang, NgayMua, TongTien, TrangThai, MaPhuongThucThanhToan, MaThanhToan)
          VALUES (?, ?, CURDATE(), ?, 'Đang xử lý', ?, ?)`,
-        [userId, order.MaDonHang, Number(order.TongTien), paymentMethodId, maThanhToan]
+        [userId, order.MaDonHang, Number(order.TongTien), maPhuongThucId, maThanhToan]
       );
     }
 
@@ -510,6 +548,8 @@ const verifyPayment = async (req, res, next) => {
         orderId: verifyResult.orderId,
         amount: verifyResult.amount,
         paymentMethodId: 2, // VNPay
+        phuongThucThanhToan: 'VNPAY',
+        paymentMethod: 'VNPAY',
         transactionNo: verifyResult.transactionNo,
         bankCode: verifyResult.bankCode
       });
@@ -591,6 +631,8 @@ const verifyPayment = async (req, res, next) => {
             orderId: finalOrderId || currentAppTransId,
             amount: Number(amount) || (orderInfo ? Number(orderInfo.TongTien) : 0),
             paymentMethodId: zalopayMethodId,
+            phuongThucThanhToan: 'ZALOPAY',
+            paymentMethod: 'ZALOPAY',
             transactionNo: currentAppTransId,
             bankCode: params.bankcode || params.bankCode || 'ZALOPAY'
           });
@@ -716,6 +758,8 @@ const handleVnpayIpn = async (req, res, next) => {
         orderId: verifyResult.orderId,
         amount: verifyResult.amount,
         paymentMethodId: 2, // VNPay
+        phuongThucThanhToan: 'VNPAY',
+        paymentMethod: 'VNPAY',
         transactionNo: verifyResult.transactionNo,
         bankCode: verifyResult.bankCode
       });
@@ -786,6 +830,8 @@ const handleZalopayIpn = async (req, res, next) => {
         orderId,
         amount,
         paymentMethodId: zalopayMethodId,
+        phuongThucThanhToan: 'ZALOPAY',
+        paymentMethod: 'ZALOPAY',
         transactionNo: dataJson.zp_trans_id || apptransid
       });
 
