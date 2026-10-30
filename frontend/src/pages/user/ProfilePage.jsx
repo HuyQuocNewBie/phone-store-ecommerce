@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProfileEditModal from '../../components/user/ProfileEditModal';
+import ChangePasswordDrawer from '../../components/user/ChangePasswordDrawer';
 import { profileService } from '../../services/profileService';
 
 /**
@@ -38,14 +39,7 @@ const ProfilePage = () => {
   const { user: authUser, updateUser } = useAuth();
   const [profileData, setProfileData] = useState(authUser || {});
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Tải thông tin hồ sơ mới nhất từ API backend
   const fetchProfile = useCallback(async () => {
@@ -65,49 +59,6 @@ const ProfilePage = () => {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
-
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSavePassword = async (e) => {
-    e.preventDefault();
-    if (!passwordData.currentPassword || !passwordData.newPassword) {
-      toast.error('Vui lòng nhập đầy đủ thông tin mật khẩu!');
-      return;
-    }
-    if (passwordData.newPassword.length < 6) {
-      toast.error('Mật khẩu mới phải có tối thiểu 6 ký tự!');
-      return;
-    }
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Mật khẩu xác nhận không trùng khớp!');
-      return;
-    }
-    if (passwordData.currentPassword === passwordData.newPassword) {
-      toast.error('Mật khẩu mới không được trùng với mật khẩu hiện tại!');
-      return;
-    }
-
-    setPasswordSubmitting(true);
-    try {
-      await profileService.changePassword({
-        matKhauCu: passwordData.currentPassword,
-        matKhauMoi: passwordData.newPassword,
-        xacNhanMatKhauMoi: passwordData.confirmPassword,
-      });
-
-      toast.success('Đổi mật khẩu thành công!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setIsChangingPassword(false);
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại!';
-      toast.error(msg);
-    } finally {
-      setPasswordSubmitting(false);
-    }
-  };
 
   const user = profileData || authUser;
   const displayName = user?.HoTen || user?.TaiKhoan || 'Người dùng';
@@ -289,102 +240,27 @@ const ProfilePage = () => {
 
       {/* ── Security / Password Card ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Lock size={18} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Lock size={20} />
             </div>
             <div>
               <h2 className="text-base font-semibold text-slate-800">Bảo mật & Đổi mật khẩu</h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Nên đổi mật khẩu định kỳ để bảo vệ tài khoản tốt hơn
               </p>
             </div>
           </div>
-          {!isChangingPassword && (
-            <button
-              type="button"
-              onClick={() => setIsChangingPassword(true)}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-            >
-              Đổi mật khẩu
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsChangePasswordOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-blue-200 hover:border-blue-600 hover:bg-blue-50 text-blue-600 rounded-xl text-sm font-semibold transition-all cursor-pointer shadow-xs shrink-0"
+          >
+            <Lock size={15} />
+            <span>Đổi mật khẩu</span>
+          </button>
         </div>
-
-        {isChangingPassword && (
-          <form onSubmit={handleSavePassword} className="mt-5 space-y-4 max-w-lg">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mật khẩu hiện tại
-              </label>
-              <input
-                type="password"
-                name="currentPassword"
-                value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm outline-none transition-all font-medium"
-                placeholder="Nhập mật khẩu cũ"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Mật khẩu mới
-              </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm outline-none transition-all font-medium"
-                placeholder="Tối thiểu 6 ký tự"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Xác nhận mật khẩu mới
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm outline-none transition-all font-medium"
-                placeholder="Nhập lại mật khẩu mới"
-                required
-              />
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsChangingPassword(false)}
-                disabled={passwordSubmitting}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold transition-colors cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={passwordSubmitting}
-                className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 cursor-pointer"
-              >
-                {passwordSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang cập nhật...</span>
-                  </>
-                ) : (
-                  <span>Cập nhật mật khẩu</span>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
       </div>
 
       {/* ── Modal Chỉnh sửa hồ sơ ── */}
@@ -395,6 +271,12 @@ const ProfilePage = () => {
         onSuccess={(updatedUser) => {
           setProfileData(updatedUser);
         }}
+      />
+
+      {/* ── Drawer Đổi Mật Khẩu ── */}
+      <ChangePasswordDrawer
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
       />
     </div>
   );
