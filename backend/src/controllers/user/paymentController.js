@@ -15,9 +15,17 @@ const { sendInvoiceEmail } = require('../../utils/mailer');
  */
 const findOrderById = async (orderId) => {
   try {
-    let numericId = Number(orderId);
-    if (isNaN(numericId) && typeof orderId === 'string' && orderId.startsWith('SZ')) {
-      const match = orderId.match(/^SZ\d{8}(\d+)$/);
+    if (!orderId && orderId !== 0) return null;
+
+    let cleanId = String(orderId).trim();
+    // Hỗ trợ bóc tách orderId gốc nếu MoMo/cổng thanh toán trả về dạng orderId_timestamp hoặc orderId_uuid
+    if (cleanId.includes('_')) {
+      cleanId = cleanId.split('_')[0];
+    }
+
+    let numericId = Number(cleanId);
+    if (isNaN(numericId) && typeof cleanId === 'string' && cleanId.startsWith('SZ')) {
+      const match = cleanId.match(/^SZ\d{8}(\d+)$/);
       if (match) {
         numericId = parseInt(match[1], 10);
       }
@@ -26,9 +34,9 @@ const findOrderById = async (orderId) => {
     const [rows] = await pool.query(
       `SELECT MaDonHang, MaNguoiDung, TongTien, TrangThaiDonHang, TenNguoiNhan, SoDienThoai
        FROM donhang
-       WHERE MaDonHang = ?
+       WHERE MaDonHang = ? OR MaDonHang = ?
        LIMIT 1`,
-      [isNaN(numericId) ? orderId : numericId]
+      [cleanId, isNaN(numericId) ? cleanId : numericId]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (err) {
@@ -261,10 +269,13 @@ const createMomoPayment = async (req, res, next) => {
       success: true,
       message: 'Tạo link thanh toán MoMo thành công',
       payUrl,
+      paymentUrl: payUrl,
+      url: payUrl,
       data: {
         payUrl,
+        paymentUrl: payUrl,
         orderId,
-        amount: finalAmount
+        amount: Math.round(finalAmount).toString()
       }
     });
   } catch (error) {
