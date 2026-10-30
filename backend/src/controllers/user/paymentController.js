@@ -32,7 +32,7 @@ const findOrderById = async (orderId) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT MaDonHang, MaNguoiDung, TongTien, TrangThaiDonHang, TenNguoiNhan, SoDienThoai
+      `SELECT MaDonHang, MaNguoiDung, TongTien, TrangThaiDonHang, TenNguoiNhan, SoDienThoai, DiaChiGiaoHang, PhiShip, SoTienGiam, NgayMuaHang
        FROM donhang
        WHERE MaDonHang = ? OR MaDonHang = ?
        LIMIT 1`,
@@ -42,6 +42,51 @@ const findOrderById = async (orderId) => {
   } catch (err) {
     console.error(`Lỗi truy vấn đơn hàng #${orderId}:`, err.message);
     return null;
+  }
+};
+
+/**
+ * Helper: Lấy danh sách sản phẩm chi tiết của đơn hàng kèm thông tin phân loại và hình ảnh
+ * @param {string|number} orderId
+ * @returns {Promise<Array>}
+ */
+const getOrderItems = async (orderId) => {
+  try {
+    if (!orderId && orderId !== 0) return [];
+    let cleanId = String(orderId).trim();
+    if (cleanId.includes('_')) {
+      cleanId = cleanId.split('_')[0];
+    }
+    let numericId = Number(cleanId);
+    if (isNaN(numericId) && typeof cleanId === 'string' && cleanId.startsWith('SZ')) {
+      const match = cleanId.match(/^SZ\d{8}(\d+)$/);
+      if (match) {
+        numericId = parseInt(match[1], 10);
+      }
+    }
+
+    const [rows] = await pool.query(
+      `SELECT 
+         ct.MaChiTietDonHang,
+         ct.MaDonHang,
+         ct.MaSanPham,
+         ct.SoLuong,
+         ct.DonGia,
+         ct.DungLuong,
+         ct.MauSac,
+         (ct.SoLuong * ct.DonGia) AS TongGia,
+         sp.TenSanPham,
+         sp.Anh
+       FROM chitietdonhang ct
+       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       WHERE ct.MaDonHang = ? OR ct.MaDonHang = ?
+       ORDER BY ct.MaChiTietDonHang ASC`,
+      [cleanId, isNaN(numericId) ? cleanId : numericId]
+    );
+    return rows;
+  } catch (err) {
+    console.error(`Lỗi lấy chi tiết sản phẩm đơn hàng #${orderId}:`, err.message);
+    return [];
   }
 };
 
@@ -341,6 +386,8 @@ const verifyPayment = async (req, res, next) => {
 
       // 2.1 Kiểm tra checksum/signature
       if (!verifyResult.isValid) {
+        const orderInfo = await findOrderById(verifyResult.orderId);
+        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
         return res.status(400).json({
           success: false,
           isSuccess: false,
@@ -349,13 +396,17 @@ const verifyPayment = async (req, res, next) => {
             gateway: 'VNPay',
             orderId: verifyResult.orderId,
             responseCode: verifyResult.responseCode,
-            amount: verifyResult.amount
+            amount: verifyResult.amount,
+            order: orderInfo,
+            items
           }
         });
       }
 
       // 2.2 Kiểm tra responseCode (vnp_ResponseCode === '00')
       if (!verifyResult.isSuccess) {
+        const orderInfo = await findOrderById(verifyResult.orderId);
+        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
         return res.status(200).json({
           success: false,
           isSuccess: false,
@@ -364,10 +415,12 @@ const verifyPayment = async (req, res, next) => {
             gateway: 'VNPay',
             orderId: verifyResult.orderId,
             responseCode: verifyResult.responseCode,
-            amount: verifyResult.amount,
+            amount: verifyResult.amount || (orderInfo ? Number(orderInfo.TongTien) : 0),
             bankCode: verifyResult.bankCode,
             transactionNo: verifyResult.transactionNo,
-            orderInfo: verifyResult.orderInfo
+            orderInfo: verifyResult.orderInfo,
+            order: orderInfo,
+            items
           }
         });
       }
@@ -380,6 +433,9 @@ const verifyPayment = async (req, res, next) => {
         transactionNo: verifyResult.transactionNo,
         bankCode: verifyResult.bankCode
       });
+
+      // Lấy danh sách sản phẩm của đơn hàng
+      const items = await getOrderItems(processResult.order.MaDonHang);
 
       // LÚC NÀY MỚI GỌI HÀM sendInvoiceEmail(orderId) để gửi mail hóa đơn cho khách hàng
       sendInvoiceEmail(processResult.order.MaDonHang).catch((mailErr) => {
@@ -402,7 +458,9 @@ const verifyPayment = async (req, res, next) => {
           paymentMethod: 'VNPay',
           paymentStatus: 'Thành công',
           paymentId: processResult.maThanhToan,
-          isNewRecord: processResult.isNewRecord
+          isNewRecord: processResult.isNewRecord,
+          order: processResult.order,
+          items
         }
       });
     }
@@ -413,6 +471,8 @@ const verifyPayment = async (req, res, next) => {
 
       // 3.1 Kiểm tra checksum/signature
       if (!verifyResult.isValid) {
+        const orderInfo = await findOrderById(verifyResult.orderId);
+        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
         return res.status(400).json({
           success: false,
           isSuccess: false,
@@ -421,13 +481,17 @@ const verifyPayment = async (req, res, next) => {
             gateway: 'MoMo',
             orderId: verifyResult.orderId,
             resultCode: verifyResult.resultCode,
-            amount: verifyResult.amount
+            amount: verifyResult.amount,
+            order: orderInfo,
+            items
           }
         });
       }
 
       // 3.2 Kiểm tra resultCode (resultCode === 0)
       if (!verifyResult.isSuccess) {
+        const orderInfo = await findOrderById(verifyResult.orderId);
+        const items = orderInfo ? await getOrderItems(orderInfo.MaDonHang) : [];
         return res.status(200).json({
           success: false,
           isSuccess: false,
@@ -436,9 +500,12 @@ const verifyPayment = async (req, res, next) => {
             gateway: 'MoMo',
             orderId: verifyResult.orderId,
             resultCode: verifyResult.resultCode,
-            amount: verifyResult.amount,
+            amount: verifyResult.amount || (orderInfo ? Number(orderInfo.TongTien) : 0),
             transId: verifyResult.transId,
-            payType: verifyResult.payType
+            transactionNo: verifyResult.transId,
+            payType: verifyResult.payType,
+            order: orderInfo,
+            items
           }
         });
       }
@@ -450,6 +517,9 @@ const verifyPayment = async (req, res, next) => {
         paymentMethodId: 3, // MoMo
         transactionNo: verifyResult.transId
       });
+
+      // Lấy danh sách sản phẩm của đơn hàng
+      const items = await getOrderItems(processResult.order.MaDonHang);
 
       // LÚC NÀY MỚI GỌI HÀM sendInvoiceEmail(orderId) để gửi mail hóa đơn cho khách hàng
       sendInvoiceEmail(processResult.order.MaDonHang).catch((mailErr) => {
@@ -470,7 +540,9 @@ const verifyPayment = async (req, res, next) => {
           paymentMethod: 'MoMo',
           paymentStatus: 'Thành công',
           paymentId: processResult.maThanhToan,
-          isNewRecord: processResult.isNewRecord
+          isNewRecord: processResult.isNewRecord,
+          order: processResult.order,
+          items
         }
       });
     }
