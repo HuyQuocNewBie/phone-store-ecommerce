@@ -11,8 +11,6 @@ import {
   Package,
   Copy,
   Check,
-  ChevronRight,
-  Home,
   RotateCcw,
   Tag,
   CreditCard,
@@ -400,48 +398,20 @@ const PaymentReturnPage = () => {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <Navbar />
 
-      {/* ── Breadcrumb Container độc lập nằm ngay dưới Header/Navbar ── */}
-      <div className="w-full bg-white/60 border-b border-slate-200/60 mb-6">
-        <div className="max-w-container-max mx-auto px-gutter-desktop py-4">
-          <nav aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2 text-sm text-slate-500 font-medium flex-wrap">
-              <li className="flex items-center">
-                <Link
-                  to="/"
-                  className="flex items-center gap-1.5 text-slate-500 hover:text-blue-600 transition-colors"
-                >
-                  <Home className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
-                  <span>Trang chủ</span>
-                </Link>
-              </li>
-
-              <li className="flex items-center text-slate-400 select-none" aria-hidden="true">
-                <ChevronRight className="w-3.5 h-3.5" />
-              </li>
-
-              <li className="flex items-center">
-                <Link
-                  to="/checkout"
-                  className="text-slate-500 hover:text-blue-600 transition-colors"
-                >
-                  Thanh toán
-                </Link>
-              </li>
-
-              <li className="flex items-center text-slate-400 select-none" aria-hidden="true">
-                <ChevronRight className="w-3.5 h-3.5" />
-              </li>
-
-              <li className="flex items-center text-slate-900 font-semibold truncate" aria-current="page">
-                Kết quả thanh toán
-              </li>
-            </ol>
+      <main className="flex-1 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 pb-16">
+        {/* ── Breadcrumb: Trang chủ > Thanh toán > Kết quả thanh toán ── */}
+        <div className="max-w-container-max mx-auto w-full pb-unit-sm mb-6">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
+            <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
+              <span className="material-symbols-outlined text-base leading-none">home</span>
+              Trang chủ
+            </Link>
+            <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+            <Link to="/checkout" className="hover:text-primary transition-colors">Thanh toán</Link>
+            <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
+            <span className="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs">Kết quả thanh toán</span>
           </nav>
         </div>
-      </div>
-
-      {/* ── Khối Nội dung Chính: Card kết quả thanh toán ── */}
-      <main className="flex-1 w-full pb-16 px-4 sm:px-6 lg:px-8">
         {/* ── 1. TRẠNG THÁI LOADING ── */}
         {loading && (
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 max-w-2xl mx-auto p-8 sm:p-12 text-center">
