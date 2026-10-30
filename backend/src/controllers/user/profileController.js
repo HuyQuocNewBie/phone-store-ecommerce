@@ -52,73 +52,85 @@ const getProfile = async (req, res, next) => {
   try {
     const { MaNguoiDung } = req.user;
 
-    const sql = `
+    // Truy vấn thông tin người dùng
+    const userSql = `
       SELECT
-        nd.MaNguoiDung,
-        nd.TaiKhoan,
-        nd.Email,
-        nd.HoTen,
-        nd.GioiTinh,
-        nd.NgaySinh,
-        nd.SoDienThoai,
-        nd.AnhDaiDien,
-        nd.MaVaiTro,
-        nd.NgayTao,
-        sd.MaDiaChi,
-        sd.TenGoiNho,
-        sd.TinhThanh,
-        sd.QuanHuyen,
-        sd.PhuongXa,
-        sd.DiaChiNha
-      FROM nguoidung nd
-      LEFT JOIN sodiachi sd
-        ON sd.MaNguoiDung = nd.MaNguoiDung
-        AND sd.LaMacDinh = 1
-      WHERE nd.MaNguoiDung = ?
+        MaNguoiDung,
+        TaiKhoan,
+        Email,
+        AnhDaiDien,
+        GioiTinh,
+        NgaySinh,
+        SoDienThoai,
+        DiaChi,
+        MaVaiTro,
+        NgayCapNhatMatKhau
+      FROM nguoidung
+      WHERE MaNguoiDung = ?
       LIMIT 1
     `;
 
-    const [rows] = await pool.query(sql, [MaNguoiDung]);
+    // Subquery: lấy địa chỉ mặc định (LaMacDinh = 1)
+    const addressSql = `
+      SELECT *
+      FROM sodiachi s
+      WHERE s.MaNguoiDung = ? AND s.LaMacDinh = 1
+      LIMIT 1
+    `;
 
-    if (rows.length === 0) {
+    const [[userRows], [addressRows]] = await Promise.all([
+      pool.query(userSql, [MaNguoiDung]),
+      pool.query(addressSql, [MaNguoiDung])
+    ]);
+
+    if (userRows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy thông tin người dùng'
       });
     }
 
-    const row = rows[0];
+    const user = userRows[0];
+    const addr = addressRows.length > 0 ? addressRows[0] : null;
 
-    // Tách thông tin user và địa chỉ mặc định
-    const user = {
-      MaNguoiDung: row.MaNguoiDung,
-      TaiKhoan: row.TaiKhoan,
-      Email: row.Email,
-      HoTen: row.HoTen,
-      GioiTinh: row.GioiTinh,
-      NgaySinh: row.NgaySinh,
-      SoDienThoai: row.SoDienThoai,
-      AnhDaiDien: row.AnhDaiDien,
-      MaVaiTro: row.MaVaiTro,
-      NgayTao: row.NgayTao
-    };
+    // Ghép chuỗi địa chỉ đầy đủ: [DiaChiNha], [PhuongXa], [QuanHuyen], [TinhThanh]
+    let DiaChiMacDinh = null;
+    let diaChiMacDinh = null;
 
-    const diaChiMacDinh = row.MaDiaChi
-      ? {
-          MaDiaChi: row.MaDiaChi,
-          TenGoiNho: row.TenGoiNho,
-          TinhThanh: row.TinhThanh,
-          QuanHuyen: row.QuanHuyen,
-          PhuongXa: row.PhuongXa,
-          DiaChiNha: row.DiaChiNha
-        }
-      : null;
+    if (addr) {
+      const parts = [addr.DiaChiNha, addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh]
+        .filter((p) => p && String(p).trim() !== '');
+
+      DiaChiMacDinh = parts.length > 0
+        ? parts.join(', ')
+        : 'Chưa thiết lập địa chỉ';
+
+      diaChiMacDinh = {
+        MaDiaChi: addr.MaDiaChi,
+        TenGoiNho: addr.TenGoiNho,
+        TinhThanh: addr.TinhThanh,
+        QuanHuyen: addr.QuanHuyen,
+        PhuongXa: addr.PhuongXa,
+        DiaChiNha: addr.DiaChiNha,
+        DiaChiMacDinh
+      };
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Lấy thông tin hồ sơ thành công',
       data: {
-        ...user,
+        MaNguoiDung: user.MaNguoiDung,
+        TaiKhoan: user.TaiKhoan,
+        Email: user.Email,
+        AnhDaiDien: user.AnhDaiDien,
+        GioiTinh: user.GioiTinh,
+        NgaySinh: user.NgaySinh,
+        SoDienThoai: user.SoDienThoai,
+        DiaChi: user.DiaChi,
+        MaVaiTro: user.MaVaiTro,
+        NgayCapNhatMatKhau: user.NgayCapNhatMatKhau,
+        DiaChiMacDinh: diaChiMacDinh ? DiaChiMacDinh : null,
         diaChiMacDinh
       }
     });
@@ -129,28 +141,26 @@ const getProfile = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. PUT /api/v1/profile
-//    Cập nhật GioiTinh, NgaySinh, SoDienThoai, AnhDaiDien, HoTen
-//    KHÔNG cho phép sửa TaiKhoan và Email
+//    Cập nhật GioiTinh, NgaySinh, SoDienThoai, AnhDaiDien, DiaChi
+//    KHÔNG cho phép sửa TaiKhoan, Email, MatKhau, MaVaiTro
 // ─────────────────────────────────────────────────────────────────────────────
 const updateProfile = async (req, res, next) => {
   try {
     const { MaNguoiDung } = req.user;
 
-    // Chỉ lấy các trường được phép cập nhật, bỏ qua TaiKhoan và Email
+    // Các cột được phép cập nhật theo đúng schema bảng nguoidung
     const {
-      HoTen,
       GioiTinh,
       NgaySinh,
       SoDienThoai,
-      AnhDaiDien
+      AnhDaiDien,
+      DiaChi
     } = req.body;
 
-    // Xây dựng object cập nhật động (chỉ cập nhật field có giá trị)
+    // Xây dựng object cập nhật động (chỉ cập nhật field được gửi lên)
     const updates = {};
 
-    if (HoTen !== undefined) updates.HoTen = String(HoTen).trim() || null;
     if (GioiTinh !== undefined) {
-      const validGenders = ['Nam', 'Nữ', 'Khác', null, ''];
       if (GioiTinh !== null && GioiTinh !== '' && !['Nam', 'Nữ', 'Khác'].includes(GioiTinh)) {
         return res.status(400).json({
           success: false,
@@ -196,6 +206,9 @@ const updateProfile = async (req, res, next) => {
     if (AnhDaiDien !== undefined) {
       updates.AnhDaiDien = AnhDaiDien || null;
     }
+    if (DiaChi !== undefined) {
+      updates.DiaChi = DiaChi ? String(DiaChi).trim() || null : null;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
@@ -215,9 +228,9 @@ const updateProfile = async (req, res, next) => {
       [...values, MaNguoiDung]
     );
 
-    // Trả về bản ghi mới nhất
+    // Trả về bản ghi mới nhất với đúng các cột theo schema
     const [rows] = await pool.query(
-      `SELECT MaNguoiDung, TaiKhoan, Email, HoTen, GioiTinh, NgaySinh, SoDienThoai, AnhDaiDien, MaVaiTro, NgayTao
+      `SELECT MaNguoiDung, TaiKhoan, Email, AnhDaiDien, GioiTinh, NgaySinh, SoDienThoai, DiaChi, MaVaiTro, NgayCapNhatMatKhau
        FROM nguoidung WHERE MaNguoiDung = ?`,
       [MaNguoiDung]
     );

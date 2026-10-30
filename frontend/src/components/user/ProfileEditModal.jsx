@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import {
@@ -15,55 +15,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { profileService } from '../../services/profileService';
-
-/* ─── Helper tính năm từ hiện tại trở về 1920 ────────────────────────────── */
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: CURRENT_YEAR - 1920 + 1 }, (_, i) => CURRENT_YEAR - i);
-
-const MONTHS = [
-  { value: 1, label: 'Tháng 1' },
-  { value: 2, label: 'Tháng 2' },
-  { value: 3, label: 'Tháng 3' },
-  { value: 4, label: 'Tháng 4' },
-  { value: 5, label: 'Tháng 5' },
-  { value: 6, label: 'Tháng 6' },
-  { value: 7, label: 'Tháng 7' },
-  { value: 8, label: 'Tháng 8' },
-  { value: 9, label: 'Tháng 9' },
-  { value: 10, label: 'Tháng 10' },
-  { value: 11, label: 'Tháng 11' },
-  { value: 12, label: 'Tháng 12' },
-];
-
-/**
- * Kiểm tra năm nhuận
- */
-const isLeapYear = (year) => {
-  if (!year) return false;
-  const y = parseInt(year, 10);
-  return (y % 400 === 0) || (y % 4 === 0 && y % 100 !== 0);
-};
-
-/**
- * LOGIC TÍNH NGÀY ĐỘNG:
- * Tính số ngày tối đa trong tháng dựa trên Tháng và Năm được chọn
- * - Tháng 2 năm nhuận (VD 2004): 29 ngày
- * - Tháng 2 năm thường (VD 2003): 28 ngày (nếu chưa chọn năm mặc định 29)
- * - Tháng 4, 6, 9, 11: 30 ngày
- * - Tháng 1, 3, 5, 7, 8, 10, 12: 31 ngày
- */
-const getDaysInMonth = (month, year) => {
-  if (!month) return 31;
-  const m = parseInt(month, 10);
-  if (m === 2) {
-    if (!year) return 29;
-    return isLeapYear(year) ? 29 : 28;
-  }
-  if ([4, 6, 9, 11].includes(m)) {
-    return 30;
-  }
-  return 31;
-};
 
 /**
  * Kiểm tra định dạng số điện thoại Việt Nam
@@ -93,15 +44,9 @@ const ProfileEditModal = ({
 
   // Form states
   const [formData, setFormData] = useState({
-    hoTen: '',
     gioiTinh: '',
     soDienThoai: '',
-  });
-
-  const [dob, setDob] = useState({
-    day: '',
-    month: '',
-    year: '',
+    ngaySinh: '',
   });
 
   // Avatar states
@@ -134,35 +79,20 @@ const ProfileEditModal = ({
       setIsRendered(true);
       document.body.style.overflow = 'hidden';
 
-      // Trích xuất dữ liệu ngày sinh từ user
-      let initDay = '';
-      let initMonth = '';
-      let initYear = '';
-
+      // Trích xuất dữ liệu ngày sinh từ user (định dạng YYYY-MM-DD)
+      let initNgaySinh = '';
       if (currentUser?.NgaySinh) {
         try {
-          const rawDate = String(currentUser.NgaySinh).split('T')[0];
-          const [y, m, d] = rawDate.split('-');
-          if (y && m && d) {
-            initYear = String(parseInt(y, 10));
-            initMonth = String(parseInt(m, 10));
-            initDay = String(parseInt(d, 10));
-          }
+          initNgaySinh = String(currentUser.NgaySinh).split('T')[0];
         } catch (e) {
           console.error('Lỗi phân tích ngày sinh:', e);
         }
       }
 
       setFormData({
-        hoTen: currentUser?.HoTen || '',
         gioiTinh: currentUser?.GioiTinh || '',
         soDienThoai: currentUser?.SoDienThoai || '',
-      });
-
-      setDob({
-        day: initDay,
-        month: initMonth,
-        year: initYear,
+        ngaySinh: initNgaySinh,
       });
 
       setAvatarPreview(currentUser?.AnhDaiDien || null);
@@ -221,28 +151,6 @@ const ProfileEditModal = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Tính số ngày tối đa của tháng và năm hiện tại
-  const maxDays = useMemo(() => {
-    return getDaysInMonth(dob.month, dob.year);
-  }, [dob.month, dob.year]);
-
-  // Xử lý thay đổi ngày/tháng/năm sinh với logic điều chỉnh ngày tự động
-  const handleDobChange = (field, value) => {
-    setDob((prev) => {
-      const next = { ...prev, [field]: value };
-      const currentMonth = field === 'month' ? value : next.month;
-      const currentYear = field === 'year' ? value : next.year;
-      const newMaxDays = getDaysInMonth(currentMonth, currentYear);
-
-      // Nếu ngày đã chọn vượt quá số ngày tối đa mới, tự động điều chỉnh về ngày tối đa
-      if (next.day && parseInt(next.day, 10) > newMaxDays) {
-        next.day = String(newMaxDays);
-      }
-
-      return next;
-    });
-  };
-
   // Xử lý validation và preview khi chọn file ảnh avatar
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -276,48 +184,25 @@ const ProfileEditModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Kiểm tra họ và tên
-    if (!formData.hoTen.trim()) {
-      toast.error('Vui lòng nhập họ và tên!');
-      return;
-    }
-
-    // 2. Kiểm tra số điện thoại Việt Nam
+    // 1. Kiểm tra số điện thoại Việt Nam
     if (formData.soDienThoai && !isValidVietnamesePhone(formData.soDienThoai)) {
       toast.error('Số điện thoại không hợp lệ! Vui lòng nhập số điện thoại Việt Nam (VD: 0912345678).');
       return;
     }
 
-    // 3. Xử lý ngày sinh
-    let formattedNgaySinh = null;
-    const hasAnyDobField = dob.day || dob.month || dob.year;
+    // 2. Xử lý ngày sinh
+    let formattedNgaySinh = formData.ngaySinh || null;
 
-    if (hasAnyDobField) {
-      if (!dob.day || !dob.month || !dob.year) {
-        toast.error('Vui lòng chọn đầy đủ ngày, tháng và năm sinh!');
-        return;
-      }
-
-      const dayNum = parseInt(dob.day, 10);
-      const monthNum = parseInt(dob.month, 10);
-      const yearNum = parseInt(dob.year, 10);
-
-      const dateObj = new Date(yearNum, monthNum - 1, dayNum);
-      if (
-        dateObj.getFullYear() !== yearNum ||
-        dateObj.getMonth() !== monthNum - 1 ||
-        dateObj.getDate() !== dayNum
-      ) {
+    if (formattedNgaySinh) {
+      const dateObj = new Date(formattedNgaySinh);
+      if (isNaN(dateObj.getTime())) {
         toast.error('Ngày sinh không hợp lệ!');
         return;
       }
-
       if (dateObj > new Date()) {
         toast.error('Ngày sinh không được lớn hơn ngày hiện tại!');
         return;
       }
-
-      formattedNgaySinh = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     }
 
     setSubmitting(true);
@@ -344,7 +229,6 @@ const ProfileEditModal = ({
 
       // Gọi API PUT /api/v1/profile cập nhật thông tin cá nhân
       const updatePayload = {
-        HoTen: formData.hoTen.trim(),
         GioiTinh: formData.gioiTinh || null,
         NgaySinh: formattedNgaySinh,
         SoDienThoai: formData.soDienThoai.trim() || null,
@@ -482,16 +366,16 @@ const ProfileEditModal = ({
 
             {/* ── Grid các trường thông tin ── */}
             <div className="space-y-4">
-              {/* Input Tài khoản: Vô hiệu hóa (disabled nền xám) */}
+              {/* Input Họ và tên: Cố định theo tài khoản, không cho phép chỉnh sửa */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
                   <User size={14} className="text-slate-400" />
-                  <span>Tên tài khoản</span>
+                  <span>Họ và tên</span>
                 </label>
                 <div className="relative">
                   <input
                     type="text"
-                    value={currentUser?.TaiKhoan || ''}
+                    value={currentUser?.HoTen || currentUser?.TaiKhoan || ''}
                     disabled
                     aria-disabled="true"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-sm cursor-not-allowed select-none font-medium pr-10"
@@ -499,25 +383,8 @@ const ProfileEditModal = ({
                   <Lock size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Tên tài khoản cố định và không thể thay đổi
+                  Họ và tên cố định theo tài khoản và không thể thay đổi
                 </p>
-              </div>
-
-              {/* Input Họ và tên */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Họ và tên <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="hoTen"
-                  value={formData.hoTen}
-                  onChange={handleInputChange}
-                  placeholder="Nhập họ và tên đầy đủ"
-                  required
-                  disabled={submitting}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 font-medium"
-                />
               </div>
 
               {/* Select Giới tính: Dropdown Chọn Nam / Nữ */}
@@ -548,64 +415,18 @@ const ProfileEditModal = ({
                   <Calendar size={14} className="text-slate-400" />
                   <span>Ngày sinh</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  {/* Ngày (tính động dựa trên Tháng & Năm) */}
-                  <div className="relative">
-                    <select
-                      value={dob.day}
-                      onChange={(e) => handleDobChange('day', e.target.value)}
-                      disabled={submitting}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm text-slate-800 outline-none transition-all font-medium appearance-none bg-white pr-8 cursor-pointer disabled:bg-slate-50"
-                    >
-                      <option value="">Ngày</option>
-                      {Array.from({ length: maxDays }, (_, i) => i + 1).map((dayNum) => (
-                        <option key={dayNum} value={dayNum}>
-                          {dayNum}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-
-                  {/* Tháng */}
-                  <div className="relative">
-                    <select
-                      value={dob.month}
-                      onChange={(e) => handleDobChange('month', e.target.value)}
-                      disabled={submitting}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm text-slate-800 outline-none transition-all font-medium appearance-none bg-white pr-8 cursor-pointer disabled:bg-slate-50"
-                    >
-                      <option value="">Tháng</option>
-                      {MONTHS.map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-
-                  {/* Năm */}
-                  <div className="relative">
-                    <select
-                      value={dob.year}
-                      onChange={(e) => handleDobChange('year', e.target.value)}
-                      disabled={submitting}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm text-slate-800 outline-none transition-all font-medium appearance-none bg-white pr-8 cursor-pointer disabled:bg-slate-50"
-                    >
-                      <option value="">Năm</option>
-                      {YEARS.map((yearNum) => (
-                        <option key={yearNum} value={yearNum}>
-                          {yearNum}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="ngaySinh"
+                    value={formData.ngaySinh}
+                    onChange={handleInputChange}
+                    max={new Date().toISOString().split('T')[0]}
+                    min="1920-01-01"
+                    disabled={submitting}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm text-slate-800 outline-none transition-all font-medium bg-white cursor-pointer disabled:bg-slate-50"
+                  />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Số ngày hiển thị tự động cập nhật theo tháng và năm nhuận
-                </p>
               </div>
 
               {/* Input Số điện thoại: Cho phép sửa + Validation SĐT Việt Nam */}

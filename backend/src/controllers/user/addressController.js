@@ -1,6 +1,36 @@
 const { pool } = require('../../../config/db');
 
 /**
+ * Helper: Tự động đồng bộ địa chỉ mặc định từ sodiachi sang cột DiaChi của bảng nguoidung
+ * Đảm bảo dữ liệu trong bảng nguoidung luôn nhất quán với sổ địa chỉ
+ */
+const syncDefaultAddressToUser = async (MaNguoiDung) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT DiaChiNha, PhuongXa, QuanHuyen, TinhThanh
+       FROM sodiachi
+       WHERE MaNguoiDung = ? AND LaMacDinh = 1
+       LIMIT 1`,
+      [MaNguoiDung]
+    );
+
+    let fullAddress = null;
+    if (rows.length > 0) {
+      const parts = [rows[0].DiaChiNha, rows[0].PhuongXa, rows[0].QuanHuyen, rows[0].TinhThanh]
+        .filter((p) => p && String(p).trim() !== '');
+      fullAddress = parts.length > 0 ? parts.join(', ') : null;
+    }
+
+    await pool.query(
+      'UPDATE nguoidung SET DiaChi = ? WHERE MaNguoiDung = ?',
+      [fullAddress, MaNguoiDung]
+    );
+  } catch (err) {
+    console.error('Lỗi đồng bộ địa chỉ mặc định sang bảng nguoidung:', err);
+  }
+};
+
+/**
  * 1. GET /api/v1/addresses
  * Lấy danh sách địa chỉ của người dùng đang đăng nhập.
  * Sắp xếp: LaMacDinh = 1 lên đầu, sau đó theo MaDiaChi giảm dần.
@@ -77,6 +107,11 @@ const createAddress = async (req, res, next) => {
       [MaNguoiDung, TenGoiNho, TinhThanh, QuanHuyen, PhuongXa, DiaChiNha, laMacDinh]
     );
 
+    // Đồng bộ sang cột DiaChi của bảng nguoidung nếu đây là địa chỉ mặc định
+    if (laMacDinh === 1) {
+      await syncDefaultAddressToUser(MaNguoiDung);
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Thêm địa chỉ mới thành công',
@@ -152,6 +187,9 @@ const updateAddress = async (req, res, next) => {
        WHERE MaDiaChi = ? AND MaNguoiDung = ?`,
       [TenGoiNho, TinhThanh, QuanHuyen, PhuongXa, DiaChiNha, laMacDinh, maDiaChi, MaNguoiDung]
     );
+
+    // Tự động đồng bộ địa chỉ mặc định sang cột DiaChi của bảng nguoidung
+    await syncDefaultAddressToUser(MaNguoiDung);
 
     return res.status(200).json({
       success: true,

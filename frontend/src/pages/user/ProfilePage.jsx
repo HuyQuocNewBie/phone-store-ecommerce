@@ -62,21 +62,13 @@ const ProfilePage = () => {
   const initialLetter = displayName.charAt(0).toUpperCase();
 
   // Địa chỉ mặc định (nếu có từ profile)
-  const hasDefaultAddress = Boolean(
-    user?.diaChiMacDinh?.DiaChiNha ||
-    user?.diaChiMacDinh?.TinhThanh ||
-    user?.DiaChi
-  );
-  const defaultAddressStr = user?.diaChiMacDinh
-    ? [
-        user.diaChiMacDinh.DiaChiNha,
-        user.diaChiMacDinh.PhuongXa,
-        user.diaChiMacDinh.QuanHuyen,
-        user.diaChiMacDinh.TinhThanh,
-      ]
-        .filter(Boolean)
-        .join(', ')
-    : user?.DiaChi || '';
+  // Ưu tiên: DiaChiMacDinh (string ghép từ sodiachi) → DiaChi (cột cũ) → null
+  const defaultAddressStr =
+    user?.DiaChiMacDinh ||
+    user?.DiaChi ||
+    '';
+
+  const hasDefaultAddress = Boolean(defaultAddressStr);
 
   return (
     <div className="space-y-6">
