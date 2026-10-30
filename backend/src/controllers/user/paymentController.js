@@ -286,50 +286,31 @@ const createMomoPayment = async (req, res, next) => {
       });
     }
 
-    // 3. Gọi API MoMo Sandbox
-    let payUrl;
+    const orderData = {
+      ...req.body,
+      orderId,
+      amount: finalAmount,
+      orderInfo: orderInfo || `Thanh toan don hang #${orderId}`,
+      extraData: extraData || ''
+    };
+
+    // 3. Gọi API MoMo Sandbox và trả về chuỗi payUrl nguyên vẹn
     try {
-      payUrl = await createMomoPaymentUrl({
-        orderId,
-        amount: finalAmount,
-        orderInfo: orderInfo || `Thanh toan don hang #${orderId}`,
-        extraData: extraData || ''
+      const payUrl = await createMomoPaymentUrl(orderData);
+      console.log('[CONTROLLER MOMO PAYURL SUCCESS]:', payUrl);
+      return res.json({ success: true, payUrl });
+    } catch (error) {
+      console.error('[CONTROLLER MOMO ERROR]:', error.message, error.momoResponse);
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message || 'Khởi tạo thanh toán MoMo thất bại' 
       });
-    } catch (momoErr) {
-      // Hỗ trợ fallback sandbox URL khi MoMo test server từ chối tài khoản test công khai (resultCode 99)
-      const allowFallback =
-        req.query.fallback === 'true' ||
-        req.body.fallback === true ||
-        req.body.fallback === 'true' ||
-        process.env.MOMO_SANDBOX_FALLBACK === 'true';
-
-      if (allowFallback) {
-        payUrl = `https://test-payment.momo.vn/v2/gateway/pay?t=${Buffer.from(String(orderId)).toString('base64')}`;
-      } else {
-        throw momoErr;
-      }
     }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Tạo link thanh toán MoMo thành công',
-      payUrl,
-      paymentUrl: payUrl,
-      url: payUrl,
-      data: {
-        payUrl,
-        paymentUrl: payUrl,
-        orderId,
-        amount: Math.round(finalAmount).toString()
-      }
-    });
   } catch (error) {
-    console.error('Lỗi khi gọi API MoMo Sandbox:', error.message);
-    const statusCode = error.response?.status || 400;
-    return res.status(statusCode).json({
+    console.error('[CONTROLLER MOMO ERROR]:', error.message, error.momoResponse);
+    return res.status(400).json({
       success: false,
-      message: error.message || 'Lỗi khi gọi API MoMo Sandbox',
-      momoResponse: error.momoResponse || error.response?.data
+      message: error.message || 'Khởi tạo thanh toán MoMo thất bại'
     });
   }
 };

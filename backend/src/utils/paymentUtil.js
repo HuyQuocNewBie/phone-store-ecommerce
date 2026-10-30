@@ -378,7 +378,9 @@ async function createMomoPaymentUrl(orderData = {}) {
     });
 
     if (!response.data || Number(response.data.resultCode) !== 0) {
-      throw new Error(`MoMo API declined [code ${response.data?.resultCode}]: ${response.data?.message || 'Giao dịch bị từ chối'}`);
+      const declinedErr = new Error(`MoMo API declined [code ${response.data?.resultCode}]: ${response.data?.message || 'Giao dịch bị từ chối'}`);
+      declinedErr.momoResponse = response.data;
+      throw declinedErr;
     }
 
     if (typeof response.data.payUrl !== 'string' || !response.data.payUrl.startsWith('https://test-payment.momo.vn/')) {
