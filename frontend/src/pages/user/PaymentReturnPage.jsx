@@ -21,7 +21,8 @@ import {
   Sparkles,
   MapPin,
   Truck,
-  HelpCircle
+  HelpCircle,
+  Home
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
@@ -262,24 +263,49 @@ const PaymentReturnPage = () => {
 
       <Navbar />
 
-      <main className="flex-1 py-10 pb-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── Breadcrumb Container độc lập nằm ngay dưới Header/Navbar ── */}
+      <div className="w-full bg-white/60 border-b border-slate-200/60 mb-6">
+        <div className="max-w-container-max mx-auto px-gutter-desktop py-4">
+          <nav aria-label="Breadcrumb">
+            <ol className="flex items-center gap-2 text-sm text-slate-500 font-medium flex-wrap">
+              <li className="flex items-center">
+                <Link
+                  to="/"
+                  className="flex items-center gap-1.5 text-slate-500 hover:text-blue-600 transition-colors"
+                >
+                  <Home className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  <span>Trang chủ</span>
+                </Link>
+              </li>
 
-          {/* ── Breadcrumb: Trang chủ > Giỏ hàng > Kết quả thanh toán ── */}
-          <div className="max-w-container-max mx-auto w-full pb-unit-sm">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
-              <Link to="/" className="hover:text-primary transition-colors flex items-center gap-unit-2xs">
-                <span className="material-symbols-outlined text-base leading-none">home</span>
-                Trang chủ
-              </Link>
-              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
-              <Link to="/cart" className="hover:text-primary transition-colors">Giỏ hàng</Link>
-              <span className="material-symbols-outlined text-xs text-outline leading-none">chevron_right</span>
-              <span className="text-on-surface font-semibold">
-                {loading ? 'Kiểm tra thanh toán' : isSuccess ? 'Thanh toán thành công' : 'Thanh toán thất bại'}
-              </span>
-            </nav>
-          </div>
+              <li className="flex items-center text-slate-400 select-none" aria-hidden="true">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </li>
+
+              <li className="flex items-center">
+                <Link
+                  to="/checkout"
+                  className="text-slate-500 hover:text-blue-600 transition-colors"
+                >
+                  Thanh toán
+                </Link>
+              </li>
+
+              <li className="flex items-center text-slate-400 select-none" aria-hidden="true">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </li>
+
+              <li className="flex items-center text-slate-900 font-semibold truncate" aria-current="page">
+                Kết quả thanh toán
+              </li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+
+      {/* ── Khối Nội dung Chính: Card kết quả thanh toán ── */}
+      <main className="flex-1 w-full pb-16">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 mb-12">
 
           {/* ── 1. TRẠNG THÁI LOADING ── */}
           {loading && (
