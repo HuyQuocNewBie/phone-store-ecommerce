@@ -466,7 +466,7 @@ const createOrder = async (req, res, next) => {
     // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
     const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
-    // Xác định mã phương thức thanh toán: 1 (COD), 2 (VNPay), 3 (MoMo)
+    // Xác định mã phương thức thanh toán: 1 (COD), 2 (VNPay), 4 (ZaloPay)
     const rawPMethod = String(
       phuongThucThanhToan ||
       phuong_thuc_thanh_toan ||
@@ -484,19 +484,16 @@ const createOrder = async (req, res, next) => {
     } else if (rawPMethod === 'ZALOPAY' || rawPMethod === 'ZALO' || rawPMethod === '4' || Number(MaPhuongThucThanhToan) === 4) {
       ptttId = 4;
       paymentMethodCode = 'ZALOPAY';
-    } else if (rawPMethod === 'MOMO' || rawPMethod === '3' || Number(MaPhuongThucThanhToan) === 3) {
-      ptttId = 3;
-      paymentMethodCode = 'MOMO';
     } else {
       ptttId = 1;
       paymentMethodCode = 'COD';
     }
 
     // Xác định trạng thái ban đầu của đơn hàng:
-    // - NẾU phuongThucThanhToan LÀ 'VNPAY', 'ZALOPAY' HOẶC 'MOMO': Đơn hàng giữ trạng thái "Chờ thanh toán"
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': Đơn hàng giữ trạng thái "Chờ thanh toán"
     // - NẾU phuongThucThanhToan === 'COD': Trạng thái "Chờ xác nhận" (hoặc trạng thái từ client nếu hợp lệ)
     let initialOrderStatus;
-    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'ZALOPAY' || paymentMethodCode === 'MOMO') {
+    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'ZALOPAY') {
       initialOrderStatus = 'Chờ thanh toán';
     } else {
       initialOrderStatus = (TrangThaiDonHang && TrangThaiDonHang !== 'Chờ thanh toán')
@@ -634,7 +631,7 @@ const createOrder = async (req, res, next) => {
 
     // 12. Gửi Email hóa đơn theo phương thức thanh toán:
     // - NẾU phuongThucThanhToan === 'COD': Tiếp tục gọi hàm sendInvoiceEmail(orderId) ngay lập tức.
-    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'MOMO': KHÔNG gọi sendInvoiceEmail. Đơn hàng giữ trạng thái "Chờ thanh toán".
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': KHÔNG gọi sendInvoiceEmail. Đơn hàng giữ trạng thái "Chờ thanh toán".
     if (paymentMethodCode === 'COD') {
       sendInvoiceEmail(maDonHang).catch((err) =>
         console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn COD cho đơn hàng #${maDonHang}:`, err)

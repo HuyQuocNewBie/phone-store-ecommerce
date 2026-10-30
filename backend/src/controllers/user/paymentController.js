@@ -9,7 +9,7 @@ const crypto = require('crypto');
 
 /**
  * Helper: Bóc tách mã đơn hàng gốc từ chuỗi nhận diện cổng thanh toán
- * Hỗ trợ định dạng ZaloPay: YYMMDD_orderId_timestamp hoặc MoMo: orderId_timestamp
+ * Hỗ trợ định dạng ZaloPay: YYMMDD_orderId_timestamp
  * @param {string|number} orderId 
  * @returns {string|null}
  */
@@ -135,7 +135,7 @@ const getPaymentMethodId = async (name = 'Zalo', fallbackId = 3) => {
  * @param {Object} params
  * @param {string|number} params.orderId - Mã đơn hàng
  * @param {number} [params.amount] - Số tiền thực tế thanh toán
- * @param {number} [params.paymentMethodId=4] - 2 (VNPay), 3 (MoMo), 4 (ZaloPay)
+ * @param {number} [params.paymentMethodId=4] - 2 (VNPay), 4 (ZaloPay)
  * @param {string} [params.transactionNo] - Mã giao dịch cổng thanh toán
  * @param {string} [params.bankCode] - Mã ngân hàng
  * @returns {Promise<Object>} { order, isNewRecord, maThanhToan }
@@ -411,7 +411,7 @@ const createZalopayPayment = async (req, res, next) => {
  * 3. GET/POST /api/v1/payment/verify-payment
  * Endpoint Callback / Return kiểm tra kết quả thanh toán từ VNPay & ZaloPay:
  * 
- * - Nhận diện cổng thanh toán (VNPay, ZaloPay, hoặc MoMo).
+ * - Nhận diện cổng thanh toán (VNPay hoặc ZaloPay).
  * - Với ZaloPay: Nhận các tham số trả về từ URL/Callback (status, apptransid, amount).
  *   * Nếu status == 1 (Thanh toán thành công):
  *     - Cập nhật TrangThaiDonHang = "Đang xử lý".
@@ -425,7 +425,7 @@ const verifyPayment = async (req, res, next) => {
   try {
     const params = { ...req.query, ...req.body };
 
-    // 1. Nhận diện cổng thanh toán (VNPay vs ZaloPay vs MoMo)
+    // 1. Nhận diện cổng thanh toán (VNPay vs ZaloPay)
     let gateway = '';
     const specifiedGateway = String(params.gateway || '').toLowerCase().trim();
 
@@ -444,14 +444,6 @@ const verifyPayment = async (req, res, next) => {
       (params.status !== undefined && (params.appid !== undefined || params.pmcid !== undefined || params.checksum !== undefined))
     ) {
       gateway = 'zalopay';
-    } else if (
-      specifiedGateway === 'momo' ||
-      params.partnerCode !== undefined ||
-      params.resultCode !== undefined ||
-      params.transId !== undefined ||
-      params.signature !== undefined
-    ) {
-      gateway = 'momo';
     }
 
     if (!gateway) {
@@ -679,74 +671,6 @@ const verifyPayment = async (req, res, next) => {
         });
       }
     }
-
-    // 4. Xử lý cho MoMo (đảm bảo tương thích ngược)
-    if (gateway === 'momo') {
-      const { resultCode, orderId, amount, transId, message } = params;
-
-      if (resultCode == 0 || String(resultCode) === '0') {
-        const orderInfo = await findOrderById(orderId);
-        const finalOrderId = orderInfo ? orderInfo.MaDonHang : orderId;
-        const items = finalOrderId ? await getOrderItems(finalOrderId) : [];
-
-        if (finalOrderId) {
-          try {
-            await pool.query(
-              `UPDATE donhang 
-               SET TrangThaiDonHang = 'Đang xử lý' 
-               WHERE MaDonHang = ?`,
-              [finalOrderId]
-            );
-          } catch (dbErr) {
-            console.error(`Lỗi cập nhật trạng thái đơn hàng #${finalOrderId}:`, dbErr.message);
-          }
-        }
-
-        let processResult = null;
-        try {
-          processResult = await processSuccessfulPayment({
-            orderId: finalOrderId || orderId,
-            amount: Number(amount) || (orderInfo ? Number(orderInfo.TongTien) : 0),
-            paymentMethodId: 3, // MoMo
-            transactionNo: transId
-          });
-        } catch (procErr) {
-          console.warn('[MoMo Return] Ghi log thanh toán:', procErr.message);
-        }
-
-        if (finalOrderId) {
-          sendInvoiceEmail(finalOrderId).catch((mailErr) => {
-            console.error(`[sendInvoiceEmail] Lỗi gửi email:`, mailErr.message);
-          });
-        }
-
-        return res.status(200).json({
-          success: true,
-          isSuccess: true,
-          message: 'Thanh toán MoMo thành công!',
-          orderId: finalOrderId,
-          amount: Number(amount) || 0,
-          transId,
-          method: 'MoMo',
-          gateway: 'MoMo',
-          data: {
-            gateway: 'MoMo',
-            orderId: finalOrderId,
-            amount: Number(amount) || 0,
-            transactionNo: transId,
-            orderStatus: 'Đang xử lý',
-            order: orderInfo,
-            items
-          }
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          isSuccess: false,
-          message: message || 'Giao dịch MoMo thất bại hoặc bị hủy!'
-        });
-      }
-    }
   } catch (error) {
     console.error('Lỗi khi verify thanh toán:', error);
     return res.status(500).json({
@@ -889,12 +813,9 @@ const handleZalopayIpn = async (req, res, next) => {
 module.exports = {
   createVnpayPayment,
   createZalopayPayment,
-  createMomoPayment: createZalopayPayment, // Tương thích ngược
   verifyPayment,
   handleVnpayReturn,
   handleVnpayIpn,
   handleZalopayReturn,
-  handleZalopayIpn,
-  handleMomoReturn: handleZalopayReturn,   // Tương thích ngược
-  handleMomoIpn: handleZalopayIpn         // Tương thích ngược
+  handleZalopayIpn
 };

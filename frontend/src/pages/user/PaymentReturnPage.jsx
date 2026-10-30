@@ -268,7 +268,6 @@ const PaymentReturnPage = () => {
       const str = String(gw).toUpperCase();
       if (str.includes('ZALO')) return 'ZaloPay';
       if (str.includes('VNPAY')) return 'VNPay';
-      if (str.includes('MOMO')) return 'MoMo';
       return gw;
     }
     return 'ZaloPay';

@@ -6,10 +6,9 @@ const paymentController = require('../../controllers/user/paymentController');
 // Nhận { orderId, amount } -> Tạo URL thanh toán VNPay
 router.post('/create-vnpay', paymentController.createVnpayPayment);
 
-// 2. POST /api/v1/payment/create-zalopay (và /create-momo alias tương thích ngược)
+// 2. POST /api/v1/payment/create-zalopay
 // Nhận { orderId, amount } -> Gọi API ZaloPay Sandbox và trả về payUrl
 router.post('/create-zalopay', paymentController.createZalopayPayment);
-router.post('/create-momo', paymentController.createZalopayPayment);
 
 // 3. GET & POST /api/v1/payment/verify-payment (Callback / Return kiểm tra kết quả thanh toán VNPay & ZaloPay)
 router.get('/verify-payment', paymentController.verifyPayment);
@@ -23,11 +22,9 @@ router.get('/vnpay-ipn', paymentController.handleVnpayIpn);
 
 // 6. GET /api/v1/payment/zalopay-return (Redirect URL sau thanh toán ZaloPay)
 router.get('/zalopay-return', paymentController.handleZalopayReturn);
-router.get('/momo-return', paymentController.handleZalopayReturn);
 
 // 7. POST /api/v1/payment/zalopay-ipn (Webhook IPN từ ZaloPay)
 router.post('/zalopay-ipn', paymentController.handleZalopayIpn);
 router.post('/zalopay-callback', paymentController.handleZalopayIpn);
-router.post('/momo-ipn', paymentController.handleZalopayIpn);
 
 module.exports = router;
