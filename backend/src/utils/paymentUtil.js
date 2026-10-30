@@ -1,6 +1,6 @@
 /**
- * Payment Utility Module for VNPay & MoMo Payment Gateways
- * Supports HMAC-SHA512 (VNPay) and HMAC-SHA256 (MoMo) signature generation.
+ * Payment Utility Module for VNPay & ZaloPay Payment Gateways
+ * Supports HMAC-SHA512 (VNPay) and HMAC-SHA256 (ZaloPay) signature generation.
  */
 
 const path = require('path');
@@ -211,30 +211,6 @@ function getVnpayErrorMessage(responseCode) {
 }
 
 /**
- * Map mã phản hồi MoMo sang thông điệp tiếng Việt
- * @param {string|number} resultCode
- * @returns {string}
- */
-function getMomoErrorMessage(resultCode) {
-  const code = Number(resultCode);
-  const codeMap = {
-    0: 'Thành công',
-    9000: 'Giao dịch đã được xác nhận thành công.',
-    1000: 'Giao dịch đã được khởi tạo, chờ người dùng xác nhận.',
-    1001: 'Giao dịch thất bại do không đủ số dư.',
-    1002: 'Giao dịch bị từ chối do nhà phát hành tài khoản thanh toán.',
-    1003: 'Giao dịch bị hủy do người dùng không xác thực trong thời gian quy định.',
-    1004: 'Giao dịch thất bại do số tiền vượt quá hạn mức.',
-    1005: 'Giao dịch thất bại do URL hoặc mã QR hết hạn.',
-    1006: 'Người dùng đã hủy giao dịch.',
-    1007: 'Giao dịch bị từ chối do tài khoản người dùng đang bị tạm khóa.',
-    41: 'Giao dịch bị từ chối do thông tin thanh toán không hợp lệ.',
-    99: 'Lỗi không xác định từ hệ thống MoMo.'
-  };
-  return codeMap[code] || `Giao dịch MoMo không thành công (Mã lỗi: ${resultCode ?? 'N/A'})`;
-}
-
-/**
  * Xác thực chữ ký phản hồi từ VNPay (Return URL hoặc IPN Webhook)
  * @param {Object} vnpParams - req.query hoặc req.body
  * @returns {Object} { isValid: boolean, isSuccess: boolean, orderId: string, amount: number, ... }
@@ -279,189 +255,182 @@ function verifyVnpayReturn(vnpParams = {}) {
 }
 
 /**
- * 2. TẠO URL THANH TOÁN MOMO SANDBOX (HMAC-SHA256 & AXIOS.POST)
- * Chuẩn chính thức theo tài liệu MoMo API v2
+ * 2. TẠO LINK THANH TOÁN ZALOPAY SANDBOX (HMAC-SHA256 & AXIOS.POST)
+ * Chuẩn API v2 ZaloPay Create Order (https://sb-openapi.zalopay.vn/v2/create)
  * 
  * @param {Object} orderData Thông tin đơn hàng
- * @param {string|number} [orderData.orderId] - Mã đơn hàng từ DB (hoặc order_id, MaDonHang)
- * @param {number|string} [orderData.amount] - Số tiền thanh toán (VND)
- * @param {string} [orderData.orderInfo] - Mô tả đơn hàng (tùy chọn)
- * @param {string} [orderData.extraData] - Dữ liệu kèm theo (tùy chọn)
- * @param {string} [orderData.redirectUrl] - URL redirect sau thanh toán
- * @param {string} [orderData.ipnUrl] - URL Webhook nhận IPN
- * @param {boolean} [orderData.returnFullResponse] - Trả về toàn bộ response object thay vì chỉ payUrl
- * @returns {Promise<string|Object>} payUrl - Link thanh toán MoMo để chuyển hướng
+ * @param {string|number} orderData.orderId - Mã đơn hàng (hoặc order_id, MaDonHang, txnRef)
+ * @param {number|string} orderData.amount - Số tiền thanh toán (VND, số nguyên)
+ * @param {string} [orderData.app_user] - Định danh người dùng thanh toán (hoặc appUser, userId)
+ * @param {string} [orderData.orderInfo] - Mô tả đơn hàng (hoặc description)
+ * @param {Array|string} [orderData.item] - Mảng sản phẩm hoặc chuỗi JSON mảng sản phẩm (hoặc items)
+ * @param {Object|string} [orderData.embed_data] - Dữ liệu kèm theo hoặc chuỗi JSON (hoặc embedData)
+ * @param {string} [orderData.bankCode] - Mã ngân hàng hoặc phương thức (tùy chọn)
+ * @param {string} [orderData.redirectUrl] - URL chuyển hướng sau thanh toán
+ * @returns {Promise<string>} order_url - URL thanh toán ZaloPay để chuyển hướng người dùng
  */
-async function createMomoPaymentUrl(orderData = {}) {
-  // 1. KIỂM TRA BIẾN MÔI TRƯỜNG BẮT BUỘC (ENV CHECK)
-  const requiredEnv = [
-    'MOMO_PARTNER_CODE',
-    'MOMO_ACCESS_KEY',
-    'MOMO_SECRET_KEY',
-    'MOMO_REDIRECT_URL',
-    'MOMO_IPN_URL',
-    'MOMO_ENDPOINT'
-  ];
+async function createZalopayPaymentUrl(orderData = {}) {
+  const endpoint = process.env.ZALOPAY_ENDPOINT || 'https://sb-openapi.zalopay.vn/v2/create';
+  const appId = process.env.ZALOPAY_APP_ID;
+  const key1 = process.env.ZALOPAY_KEY1;
+  const redirectUrl = orderData.redirectUrl || process.env.ZALOPAY_REDIRECT_URL;
 
-  const missingEnv = requiredEnv.filter((key) => !process.env[key]);
-  if (missingEnv.length > 0) {
-    throw new Error(`Thiếu cấu hình MoMo: ${missingEnv.join(', ')}`);
+  if (!appId || !key1) {
+    throw new Error('Thiếu cấu hình ZALOPAY_APP_ID hoặc ZALOPAY_KEY1 trong biến môi trường');
   }
 
-  const partnerCode = process.env.MOMO_PARTNER_CODE;
-  const accessKey = process.env.MOMO_ACCESS_KEY;
-  const secretKey = process.env.MOMO_SECRET_KEY;
-  const redirectUrl = orderData.redirectUrl || process.env.MOMO_REDIRECT_URL;
-  const ipnUrl = orderData.ipnUrl || process.env.MOMO_IPN_URL;
-  const endpoint = process.env.MOMO_ENDPOINT;
+  // 1. Chuẩn hóa mã đơn hàng & số tiền
+  const orderId = String(
+    orderData.orderId ||
+    orderData.order_id ||
+    orderData.MaDonHang ||
+    orderData.txnRef ||
+    Date.now()
+  );
 
-  // 2. CẢI TIẾN TẠO MÃ REQUESTID & ORDERID:
-  const orderIdFromDb = orderData.orderId || orderData.order_id || orderData.MaDonHang || '';
-  const amountFromDb = orderData.amount ?? orderData.TongTien ?? orderData.total ?? orderData.final_total ?? 0;
+  const rawAmount = Number(
+    orderData.amount ??
+    orderData.TongTien ??
+    orderData.total ??
+    orderData.final_total ??
+    0
+  );
 
-  const requestId = crypto.randomUUID();
-  const orderId = `${orderIdFromDb}_${Date.now()}`;
-  const amount = Math.round(Number(amountFromDb)).toString();
+  if (isNaN(rawAmount) || rawAmount <= 0) {
+    throw new Error('Số tiền thanh toán ZaloPay không hợp lệ (phải lớn hơn 0)');
+  }
 
-  const orderInfo = orderData.orderInfo || `Thanh toan don hang #${orderIdFromDb}`;
-  const requestType = 'captureWallet';
-  const extraData = orderData.extraData !== undefined ? String(orderData.extraData) : '';
+  const amount = Math.round(rawAmount);
 
-  // Chuỗi tạo chữ ký (raw signature)
-  const rawSignature =
-    'accessKey=' + accessKey +
-    '&amount=' + amount +
-    '&extraData=' + extraData +
-    '&ipnUrl=' + ipnUrl +
-    '&orderId=' + orderId +
-    '&orderInfo=' + orderInfo +
-    '&partnerCode=' + partnerCode +
-    '&redirectUrl=' + redirectUrl +
-    '&requestId=' + requestId +
-    '&requestType=' + requestType;
+  // 2. app_trans_id: Phải bắt đầu bằng YYMMDD của ngày hiện tại kèm mã đơn hàng
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type) => parts.find((p) => p.type === type)?.value || '';
+  const transDate = `${getPart('year')}${getPart('month')}${getPart('day')}`;
+  const app_trans_id = `${transDate}_${orderId}_${Date.now()}`;
 
-  // Tạo signature HMAC-SHA256
-  const signature = crypto
-    .createHmac('sha256', secretKey)
-    .update(rawSignature)
+  // 3. app_time & app_user
+  const app_time = Date.now();
+  const app_id = Number(appId);
+  const app_user = String(
+    orderData.app_user ||
+    orderData.appUser ||
+    orderData.userId ||
+    orderData.MaNguoiDung ||
+    'User'
+  );
+
+  // 4. embed_data: JSON string chứa redirecturl: process.env.ZALOPAY_REDIRECT_URL
+  let embedDataObj = { redirecturl: redirectUrl };
+  if (orderData.embed_data) {
+    if (typeof orderData.embed_data === 'object') {
+      embedDataObj = { ...embedDataObj, ...orderData.embed_data };
+    } else if (typeof orderData.embed_data === 'string') {
+      try {
+        const parsed = JSON.parse(orderData.embed_data);
+        embedDataObj = { ...embedDataObj, ...parsed };
+      } catch (e) {
+        // keep default
+      }
+    }
+  } else if (orderData.embedData && typeof orderData.embedData === 'object') {
+    embedDataObj = { ...embedDataObj, ...orderData.embedData };
+  }
+  const embed_data = JSON.stringify(embedDataObj);
+
+  // 5. item: JSON string đại diện cho mảng sản phẩm trong đơn hàng
+  let item = '[]';
+  const rawItems = orderData.item || orderData.items;
+  if (Array.isArray(rawItems)) {
+    item = JSON.stringify(rawItems);
+  } else if (typeof rawItems === 'string' && rawItems.trim() !== '') {
+    item = rawItems;
+  } else {
+    item = JSON.stringify([]);
+  }
+
+  // 6. Chuỗi Data băm MAC: app_id|app_trans_id|app_user|amount|app_time|embed_data|item
+  const dataMac = `${app_id}|${app_trans_id}|${app_user}|${amount}|${app_time}|${embed_data}|${item}`;
+
+  // 7. Băm MAC: Dùng crypto.createHmac('sha256', process.env.ZALOPAY_KEY1).update(dataMac).digest('hex')
+  const mac = crypto
+    .createHmac('sha256', key1)
+    .update(dataMac)
     .digest('hex');
 
-  const requestBody = {
-    partnerCode: partnerCode,
-    partnerName: 'Test',
-    storeId: 'MomoTestStore',
-    requestId: requestId,
-    amount: amount,
-    orderId: orderId,
-    orderInfo: orderInfo,
-    redirectUrl: redirectUrl,
-    ipnUrl: ipnUrl,
-    lang: 'vi',
-    extraData: extraData,
-    requestType: requestType,
-    signature: signature
+  const description = String(
+    orderData.description ||
+    orderData.orderInfo ||
+    `Thanh toán đơn hàng #${orderId}`
+  );
+
+  const payload = {
+    app_id,
+    app_user,
+    app_trans_id,
+    app_time,
+    amount,
+    item,
+    description,
+    embed_data,
+    bank_code: orderData.bankCode || orderData.bank_code || '',
+    mac
   };
 
   try {
-    const response = await axios.post(endpoint, requestBody, {
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8'
-      },
-      timeout: 10000
+    const response = await axios.post(endpoint, null, {
+      params: payload,
+      timeout: 15000
     });
 
-    console.log('[MOMO CREATE PAYMENT RESPONSE]', {
-      status: response.status,
-      resultCode: response.data?.resultCode,
-      message: response.data?.message,
-      payUrl: response.data?.payUrl
+    console.log('[ZALOPAY CREATE PAYMENT RESPONSE]', {
+      return_code: response.data?.return_code,
+      return_message: response.data?.return_message,
+      sub_return_code: response.data?.sub_return_code,
+      sub_return_message: response.data?.sub_return_message,
+      order_url: response.data?.order_url
     });
 
-    if (!response.data || Number(response.data.resultCode) !== 0) {
-      const declinedErr = new Error(`MoMo API declined [code ${response.data?.resultCode}]: ${response.data?.message || 'Giao dịch bị từ chối'}`);
-      declinedErr.momoResponse = response.data;
+    if (!response.data || response.data.return_code !== 1) {
+      const errorMsg =
+        response.data?.sub_return_message ||
+        response.data?.return_message ||
+        'Khởi tạo đơn hàng ZaloPay thất bại';
+      const declinedErr = new Error(`ZaloPay API declined [code ${response.data?.return_code} / ${response.data?.sub_return_code}]: ${errorMsg}`);
+      declinedErr.zalopayResponse = response.data;
       throw declinedErr;
     }
 
-    if (typeof response.data.payUrl !== 'string' || !response.data.payUrl.startsWith('https://test-payment.momo.vn/')) {
-      throw new Error('MoMo không trả về payUrl Sandbox hợp lệ');
+    const orderUrl = response.data?.order_url || response.data?.orderurl;
+    if (!orderUrl) {
+      throw new Error('ZaloPay không trả về order_url hợp lệ');
     }
 
-    return response.data.payUrl;
+    return orderUrl;
   } catch (error) {
     if (error.response) {
       const errData = error.response.data;
-      const message = `Lỗi từ MoMo API [HTTP ${error.response.status}]: ${errData?.message || JSON.stringify(errData)}`;
+      const message = `Lỗi từ ZaloPay API [HTTP ${error.response.status}]: ${errData?.return_message || errData?.message || JSON.stringify(errData)}`;
       const customErr = new Error(message);
       customErr.response = error.response;
-      customErr.momoResponse = errData;
+      customErr.zalopayResponse = errData;
       throw customErr;
     }
     throw error;
   }
 }
 
-/**
- * Xác thực chữ ký phản hồi từ MoMo (IPN Webhook hoặc Return URL)
- * @param {Object} momoData - req.body (IPN) hoặc req.query (Redirect)
- * @returns {Object} { isValid: boolean, isSuccess: boolean, orderId: string, amount: number, ... }
- */
-function verifyMomoSignature(momoData = {}) {
-  const secretKey = process.env.MOMO_SECRET_KEY;
-  const accessKey = process.env.MOMO_ACCESS_KEY;
-  const partnerCode = process.env.MOMO_PARTNER_CODE;
-
-  const missingEnv = ['MOMO_SECRET_KEY', 'MOMO_ACCESS_KEY', 'MOMO_PARTNER_CODE'].filter(
-    (key) => !process.env[key]
-  );
-  if (missingEnv.length > 0) {
-    throw new Error(`Thiếu cấu hình MoMo: ${missingEnv.join(', ')}`);
-  }
-
-  // Chuỗi chữ ký trả về của MoMo:
-  // accessKey -> amount -> extraData -> message -> orderId -> orderInfo -> orderType -> partnerCode -> payType -> requestId -> responseTime -> resultCode -> transId
-  const rawSignature =
-    `accessKey=${accessKey}` +
-    `&amount=${momoData.amount}` +
-    `&extraData=${momoData.extraData || ''}` +
-    `&message=${momoData.message || ''}` +
-    `&orderId=${momoData.orderId}` +
-    `&orderInfo=${momoData.orderInfo}` +
-    `&orderType=${momoData.orderType || ''}` +
-    `&partnerCode=${partnerCode}` +
-    `&payType=${momoData.payType || ''}` +
-    `&requestId=${momoData.requestId}` +
-    `&responseTime=${momoData.responseTime}` +
-    `&resultCode=${momoData.resultCode}` +
-    `&transId=${momoData.transId}`;
-
-  const signature = crypto
-    .createHmac('sha256', secretKey)
-    .update(rawSignature)
-    .digest('hex');
-
-  const isValid = Boolean(momoData.signature) && signature.toLowerCase() === String(momoData.signature || '').toLowerCase();
-  const isSuccess = isValid && String(momoData.resultCode) === '0';
-
-  return {
-    isValid,
-    isSuccess,
-    orderId: momoData.orderId,
-    amount: Number(momoData.amount) || 0,
-    resultCode: momoData.resultCode,
-    message: momoData.message || getMomoErrorMessage(momoData.resultCode),
-    transId: momoData.transId,
-    payType: momoData.payType
-  };
-}
-
 module.exports = {
   createVnpayUrl,
   verifyVnpayReturn,
-  createMomoPaymentUrl,
-  verifyMomoSignature,
+  createZalopayPaymentUrl,
   getVnpayErrorMessage,
-  getMomoErrorMessage,
   sortObject,
   formatVnpayDate
 };
