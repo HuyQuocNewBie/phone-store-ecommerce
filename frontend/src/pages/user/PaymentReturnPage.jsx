@@ -219,10 +219,10 @@ const PaymentReturnPage = () => {
 
               <li className="flex items-center">
                 <Link
-                  to="/cart"
+                  to="/checkout"
                   className="text-slate-500 hover:text-blue-600 transition-colors"
                 >
-                  Giỏ hàng
+                  Thanh toán
                 </Link>
               </li>
 
