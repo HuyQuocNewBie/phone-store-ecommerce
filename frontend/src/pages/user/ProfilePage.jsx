@@ -96,52 +96,10 @@ const ProfilePage = () => {
         </button>
       </div>
 
-      {/* ── Avatar Banner Card ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-5">
-        <div
-          onClick={() => setIsEditModalOpen(true)}
-          className="relative w-24 h-24 rounded-full cursor-pointer group shrink-0 ring-4 ring-blue-50 shadow-md select-none"
-          title="Nhấp để đổi avatar"
-        >
-          {user?.AnhDaiDien ? (
-            <img
-              src={user.AnhDaiDien}
-              alt={displayName}
-              className="w-full h-full object-cover rounded-full"
-            />
-          ) : (
-            <div className="w-full h-full rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-bold flex items-center justify-center text-3xl shadow-inner">
-              {initialLetter}
-            </div>
-          )}
-          <div className="absolute inset-0 rounded-full bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity duration-200">
-            <Camera size={20} />
-          </div>
-          <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md border-2 border-white group-hover:scale-110 transition-transform">
-            <Camera size={12} />
-          </div>
-        </div>
-
-        <div className="text-center sm:text-left flex-1 min-w-0">
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-            <h2 className="text-xl font-bold text-slate-800 truncate">{displayName}</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-              {user?.MaVaiTro === 1 ? 'Quản trị viên' : 'Khách hàng'}
-            </span>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            {user?.Email || 'Chưa cập nhật email'}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            Nhấp vào nút <span className="font-semibold text-blue-600">"Chỉnh sửa thông tin"</span> hoặc ảnh đại diện để cập nhật thông tin cá nhân.
-          </p>
-        </div>
-      </div>
-
       {/* ── Main Profile Details Grid ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
         <h3 className="text-base font-bold text-slate-800 pb-3 mb-5 border-b border-slate-100">
-          Chi tiết thông tin cá nhân
+          Thông tin cá nhân
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
