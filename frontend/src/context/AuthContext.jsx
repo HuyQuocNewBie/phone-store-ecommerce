@@ -96,8 +96,21 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   }, []);
 
+  /**
+   * Cập nhật thông tin người dùng trong state & localStorage
+   */
+  const updateUser = useCallback((updatedUserData) => {
+    setUser((prev) => {
+      const merged = { ...prev, ...updatedUserData };
+      localStorage.setItem('user', JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
+
   const value = {
     user,
+    setUser,
+    updateUser,
     token,
     loading,
     error,
