@@ -375,9 +375,9 @@ async function createMomoPaymentUrl(orderData = {}) {
  * @returns {Object} { isValid: boolean, isSuccess: boolean, orderId: string, amount: number, ... }
  */
 function verifyMomoSignature(momoData = {}) {
-  const secretKey = process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
-  const accessKey = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
-  const partnerCode = momoData.partnerCode || process.env.MOMO_PARTNER_CODE || "MOMO";
+  const secretKey = process.env.MOMO_SECRET_KEY;
+  const accessKey = process.env.MOMO_ACCESS_KEY;
+  const partnerCode = momoData.partnerCode || process.env.MOMO_PARTNER_CODE;
 
   if (!secretKey || !accessKey) {
     throw new Error('Thiếu cấu hình MOMO_SECRET_KEY hoặc MOMO_ACCESS_KEY để xác thực chữ ký');

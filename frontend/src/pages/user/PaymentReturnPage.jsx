@@ -1,38 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
 import {
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   Loader2,
   ArrowRight,
   ShoppingBag,
   Package,
-  Calendar,
-  CreditCard,
-  ShieldCheck,
-  RotateCcw,
-  ExternalLink,
-  ChevronRight,
   Copy,
   Check,
-  Sparkles,
-  MapPin,
-  Truck,
-  HelpCircle,
+  ChevronRight,
   Home
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
-import { formatOrderCode, formatVND } from '../../utils/formatters';
+import { formatOrderCode } from '../../utils/formatters';
 
 const PaymentReturnPage = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { clearCart } = useCart();
 
   const [loading, setLoading] = useState(true);
@@ -173,27 +162,24 @@ const PaymentReturnPage = () => {
     };
   }, [location.search, clearCart]);
 
+  const getGatewayDisplayName = (gw) => {
+    if (!gw) return 'VNPay';
+    const str = String(gw).toUpperCase();
+    if (str.includes('VNPAY')) return 'VNPay';
+    if (str.includes('MOMO')) return 'MoMo';
+    if (str.includes('ZALO')) return 'ZaloPay';
+    return gw;
+  };
+
   const isSuccess = Boolean(result?.success && (result?.isSuccess !== undefined ? result?.isSuccess : result?.success));
   const data = result?.data || {};
-  const gateway = data.gateway || result?.method || 'Cổng thanh toán';
+  const gatewayRaw = data.gateway || result?.method || 'VNPay';
+  const gateway = getGatewayDisplayName(gatewayRaw);
   const orderId = data.orderId || result?.orderId;
   const orderInfo = data.order || null;
-  const orderCode = orderId ? formatOrderCode(orderId, orderInfo?.NgayMuaHang) : 'N/A';
-  const totalAmount = data.amount || result?.amount || orderInfo?.TongTien || 0;
-  const transactionNo = data.transactionNo || data.transId || result?.transId || null;
-  const orderStatus = data.orderStatus || orderInfo?.TrangThaiDonHang || (isSuccess ? 'Đang xử lý' : 'Chờ thanh toán');
-
-  // Danh sách sản phẩm mua
-  const items = (data.items && Array.isArray(data.items) && data.items.length > 0)
-    ? data.items
-    : (orderInfo?.items || location.state?.orderSummary?.items || location.state?.orderData?.items || []);
-
-  // Thông tin nhận hàng nếu có
-  const receiverName = orderInfo?.TenNguoiNhan || location.state?.orderSummary?.formData?.fullName || '';
-  const receiverPhone = orderInfo?.SoDienThoai || location.state?.orderSummary?.formData?.phone || '';
-  const shippingAddress = orderInfo?.DiaChiGiaoHang || location.state?.orderSummary?.formData?.fullAddress || '';
-  const shippingFee = orderInfo?.PhiShip ?? location.state?.orderSummary?.shippingFee ?? null;
-  const discountAmount = orderInfo?.SoTienGiam ?? location.state?.orderSummary?.discount ?? null;
+  const orderCode = orderId ? formatOrderCode(orderId, orderInfo?.NgayMuaHang) : (data.orderCode || 'N/A');
+  const transactionNo = data.transactionNo || data.transId || result?.transId || 'N/A';
+  const orderStatus = data.orderStatus || orderInfo?.TrangThaiDonHang || (isSuccess ? 'Đang xử lý' : 'Thất bại');
 
   // Sao chép mã đơn hàng
   const handleCopyOrderId = () => {
@@ -210,57 +196,6 @@ const PaymentReturnPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
-      {/* Keyframe animations */}
-      <style>{`
-        @keyframes successBounceIn {
-          0% {
-            opacity: 0;
-            transform: scale(0.25);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1.15);
-          }
-          75% {
-            transform: scale(0.94);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes pulseGlow {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35);
-          }
-          50% {
-            box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
-          }
-        }
-
-        @keyframes pulseGlowRed {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.35);
-          }
-          50% {
-            box-shadow: 0 0 0 16px rgba(244, 63, 94, 0);
-          }
-        }
-
-        .animate-success-bounce {
-          animation: successBounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
-        .animate-pulse-glow {
-          animation: pulseGlow 2.4s infinite;
-        }
-
-        .animate-pulse-glow-red {
-          animation: pulseGlowRed 2.4s infinite;
-        }
-      `}</style>
-
       <Navbar />
 
       {/* ── Breadcrumb Container độc lập nằm ngay dưới Header/Navbar ── */}
@@ -284,10 +219,10 @@ const PaymentReturnPage = () => {
 
               <li className="flex items-center">
                 <Link
-                  to="/checkout"
+                  to="/cart"
                   className="text-slate-500 hover:text-blue-600 transition-colors"
                 >
-                  Thanh toán
+                  Giỏ hàng
                 </Link>
               </li>
 
@@ -304,545 +239,135 @@ const PaymentReturnPage = () => {
       </div>
 
       {/* ── Khối Nội dung Chính: Card kết quả thanh toán ── */}
-      <main className="flex-1 w-full pb-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 mb-12">
-
-          {/* ── 1. TRẠNG THÁI LOADING ── */}
-          {loading && (
-            <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-8 sm:p-14 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute -top-24 -right-24 w-56 h-56 bg-blue-50 rounded-full blur-3xl pointer-events-none -z-0 opacity-70" />
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-6 shadow-inner animate-pulse">
-                  <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
-                  Đang xác thực kết quả thanh toán...
-                </h2>
-                <p className="text-sm text-slate-500 max-w-md leading-relaxed">
-                  Hệ thống đang tiến hành đối soát chữ ký bảo mật từ cổng thanh toán. Vui lòng không đóng hoặc tải lại trang.
-                </p>
-              </div>
+      <main className="flex-1 w-full pb-16 px-4 sm:px-6 lg:px-8">
+        {/* ── 1. TRẠNG THÁI LOADING ── */}
+        {loading && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 max-w-2xl mx-auto p-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
             </div>
-          )}
+            <h2 className="text-xl font-bold text-slate-900 mb-2">
+              Đang xác thực kết quả thanh toán...
+            </h2>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              Hệ thống đang đối soát dữ liệu với cổng thanh toán. Vui lòng không đóng trang.
+            </p>
+          </div>
+        )}
 
-          {/* ── 2. TRẠNG THÁI THÀNH CÔNG ── */}
-          {!loading && isSuccess && (
-            <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 sm:p-10 space-y-8 relative overflow-hidden">
-              {/* Background gradient blobs */}
-              <div className="absolute -top-24 -right-24 w-56 h-56 bg-emerald-50 rounded-full blur-3xl pointer-events-none -z-0 opacity-70" />
-              <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-blue-50 rounded-full blur-3xl pointer-events-none -z-0 opacity-70" />
+        {/* ── 2. CARD NỘI DUNG KẾT QUẢ THANH TOÁN (THÀNH CÔNG HOẶC THẤT BẠI) ── */}
+        {!loading && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 max-w-2xl mx-auto p-8 text-center">
+            {/* Vùng Icon trạng thái */}
+            {isSuccess ? (
+              <div className="flex flex-col items-center justify-center mb-6">
+                <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 stroke-[2.2]" />
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>Giao dịch {gateway} hoàn tất</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center mb-6">
+                <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                  <XCircle className="w-10 h-10 text-red-500 stroke-[2.2]" />
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>Thanh toán không thành công</span>
+                </div>
+              </div>
+            )}
 
-              {/* Header: Icon Tích xanh có vòng tròn mờ bao quanh */}
-              <div className="text-center space-y-4 relative z-10">
-                <div className="relative inline-flex items-center justify-center">
-                  {/* Vòng tròn mờ bao quanh */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-emerald-100/60 animate-pulse-glow flex items-center justify-center">
-                    {/* Icon Check chính */}
-                    <div
-                      onClick={triggerCelebration}
-                      title="Nhấn để chúc mừng lại!"
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-200/80 animate-success-bounce cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+            {/* Tiêu đề & Thông điệp phụ */}
+            <h1 className="text-2xl font-extrabold text-slate-900 mb-2">
+              {isSuccess ? 'Thanh Toán Thành Công!' : 'Thanh Toán Thất Bại'}
+            </h1>
+            <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">
+              {isSuccess
+                ? 'Cảm ơn bạn đã lựa chọn SmartZone. Giao dịch đã được xác nhận và đơn hàng đang được xử lý.'
+                : (failureReason || 'Giao dịch không thành công hoặc đã bị hủy. Đơn hàng của bạn vẫn được lưu lại.')}
+            </p>
+
+            {/* Khối thông tin chi tiết */}
+            <div className="bg-slate-50/80 rounded-2xl border border-slate-100 p-5 sm:p-6 mb-8 text-left space-y-3.5">
+              {/* MÃ ĐƠN HÀNG (có nút bấm copy mã) */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+                <span className="text-xs sm:text-sm font-medium text-slate-500">Mã đơn hàng</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                    {orderCode}
+                  </span>
+                  {orderCode && orderCode !== 'N/A' && (
+                    <button
+                      type="button"
+                      onClick={handleCopyOrderId}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:scale-95 transition-all"
+                      title="Sao chép mã đơn hàng"
                     >
-                      <CheckCircle2 className="w-11 h-11 sm:w-14 sm:h-14 stroke-[2.5]" />
-                    </div>
-                  </div>
-
-                  {/* Badge tia sáng góc */}
-                  <div className="absolute -top-1 -right-1 bg-amber-400 text-white p-1.5 rounded-full shadow-md animate-bounce">
-                    <Sparkles className="w-4 h-4 fill-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {/* Badge phương thức */}
-                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-                    Giao dịch {gateway} hoàn tất
-                  </div>
-
-                  {/* Tiêu đề */}
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    Thanh Toán Thành Công!
-                  </h1>
-
-                  <p className="text-sm sm:text-base text-slate-500 max-w-md mx-auto leading-relaxed">
-                    Cảm ơn bạn đã lựa chọn SmartZone. Giao dịch thanh toán trực tuyến của bạn đã hoàn tất và đơn hàng đang được xử lý.
-                  </p>
-                </div>
-
-                {/* Mã Đơn Hàng Box */}
-                {orderCode !== 'N/A' && (
-                  <div className="pt-2 inline-flex items-center justify-center">
-                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-2.5 shadow-xs">
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Mã đơn hàng:</span>
-                      <span className="font-mono font-bold text-base text-blue-600 tracking-wide">
-                        {orderCode}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCopyOrderId}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="Sao chép mã đơn hàng"
-                      >
-                        {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3 Thẻ thống kê nổi bật */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 relative z-10">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
-                    <Package className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] text-slate-400 font-medium">Trạng thái đơn</p>
-                    <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">{orderStatus}</p>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
-                    <CreditCard className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] text-slate-400 font-medium">Hình thức</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">Cổng {gateway}</p>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 shrink-0">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] text-slate-400 font-medium">Giao dự kiến</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">1 - 3 ngày</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── BẢNG TÓM TẮT ĐƠN HÀNG ── */}
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 sm:p-6 space-y-4 relative z-10">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    Tóm tắt đơn hàng & thanh toán
-                  </span>
-                  {receiverName && (
-                    <span className="text-xs font-medium text-slate-500">
-                      {receiverName} {receiverPhone ? `• ${receiverPhone}` : ''}
-                    </span>
+                      {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
                   )}
                 </div>
-
-                {/* Bảng chi tiết tóm tắt */}
-                <div className="space-y-2.5 text-xs sm:text-sm">
-                  {/* Mã đơn hàng */}
-                  <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                    <span className="text-slate-500 font-medium">Mã đơn hàng:</span>
-                    <span className="font-mono font-bold text-slate-900 text-sm">{orderCode}</span>
-                  </div>
-
-                  {/* Mã giao dịch */}
-                  {transactionNo && (
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                      <span className="text-slate-500 font-medium">Mã giao dịch:</span>
-                      <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                        {transactionNo}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Phương thức thanh toán */}
-                  <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                    <span className="text-slate-500 font-medium">Phương thức thanh toán:</span>
-                    <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
-                      Cổng thanh toán {gateway}
-                    </span>
-                  </div>
-
-                  {/* Trạng thái đơn */}
-                  <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                    <span className="text-slate-500 font-medium">Trạng thái đơn:</span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      {orderStatus}
-                    </span>
-                  </div>
-
-                  {/* Phí ship nếu có */}
-                  {shippingFee !== null && (
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/40 text-xs text-slate-500">
-                      <span>Phí vận chuyển:</span>
-                      <span className={shippingFee === 0 ? 'text-emerald-600 font-medium' : 'text-slate-700 font-medium'}>
-                        {shippingFee === 0 ? 'Miễn phí giao hàng' : formatVND(shippingFee)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Giảm giá nếu có */}
-                  {discountAmount !== null && Number(discountAmount) > 0 && (
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/40 text-xs text-emerald-600 font-medium">
-                      <span>Mã giảm giá đã áp dụng:</span>
-                      <span>-{formatVND(discountAmount)}</span>
-                    </div>
-                  )}
-
-                  {/* Tổng tiền */}
-                  <div className="flex items-center justify-between pt-2 text-sm sm:text-base font-bold text-slate-900">
-                    <span className="text-slate-700 font-semibold">Tổng tiền thanh toán:</span>
-                    <span className="text-lg sm:text-xl font-extrabold text-blue-600">
-                      {formatVND(totalAmount)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Thông tin địa chỉ nhận hàng nếu có */}
-                {shippingAddress && (
-                  <div className="pt-3 border-t border-slate-200/60 text-xs text-slate-600 flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <span><strong className="text-slate-700">Địa chỉ giao:</strong> {shippingAddress}</span>
-                  </div>
-                )}
               </div>
 
-              {/* ── DANH SÁCH SẢN PHẨM TRONG ĐƠN HÀNG ── */}
-              {items.length > 0 && (
-                <div className="space-y-3 relative z-10">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                      <Package className="w-4 h-4 text-blue-600" />
-                      Sản phẩm trong đơn hàng ({items.length})
-                    </h3>
-                  </div>
-
-                  <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/70 bg-white overflow-hidden shadow-xs">
-                    {items.map((item, idx) => {
-                      const itemImg = item.Anh || item.HinhAnh || item.image || item.img;
-                      const variantDetails = [];
-                      if (item.MauSac) variantDetails.push(`Màu: ${item.MauSac}`);
-                      if (item.DungLuong) variantDetails.push(`Dung lượng: ${item.DungLuong}`);
-                      const variantString = variantDetails.join(' | ') || 'Phiên bản tiêu chuẩn';
-
-                      const unitPrice = item.DonGia || item.Gia || 0;
-                      const quantity = item.SoLuong || 1;
-                      const totalPrice = item.TongGia || (unitPrice * quantity);
-
-                      return (
-                        <div
-                          key={item.MaChiTietDonHang || item.MaSanPham || idx}
-                          className="p-3.5 sm:p-4 flex items-center gap-3 sm:gap-4 hover:bg-slate-50/70 transition-colors"
-                        >
-                          {/* Thumbnail */}
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-50 p-1.5 border border-slate-100 shrink-0 flex items-center justify-center overflow-hidden">
-                            {itemImg ? (
-                              <img
-                                src={itemImg}
-                                alt={item.TenSanPham || 'Sản phẩm'}
-                                className="w-full h-full object-contain"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <Package className="w-6 h-6 text-slate-300" />
-                            )}
-                          </div>
-
-                          {/* Tên sản phẩm & Phân loại */}
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={item.MaSanPham ? `/products/${item.MaSanPham}` : '#'}
-                              className="text-xs sm:text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors line-clamp-1"
-                            >
-                              {item.TenSanPham || 'Sản phẩm SmartZone'}
-                            </Link>
-                            
-                            {/* Phân loại (Màu sắc | Dung lượng) */}
-                            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
-                              {variantString}
-                            </p>
-
-                            {/* Số lượng & Đơn giá */}
-                            <div className="text-[11px] sm:text-xs text-slate-400 mt-1 flex items-center gap-2">
-                              <span>Đơn giá: <strong className="font-semibold text-slate-600">{formatVND(unitPrice)}</strong></span>
-                              <span>•</span>
-                              <span>Số lượng: <strong className="font-semibold text-slate-700">x{quantity}</strong></span>
-                            </div>
-                          </div>
-
-                          {/* Thành tiền */}
-                          <div className="text-right shrink-0">
-                            <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
-                              {formatVND(totalPrice)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Banner hỗ trợ giao hàng */}
-              <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100 flex items-center gap-3 relative z-10">
-                <Truck className="w-5 h-5 text-blue-600 shrink-0" />
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Nhân viên giao nhận sẽ liên hệ với số điện thoại <strong className="text-slate-800">{receiverPhone || 'của bạn'}</strong> trước khi giao. Hãy chú ý giữ liên lạc nhé!
-                </p>
+              {/* Phương thức thanh toán */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+                <span className="text-xs sm:text-sm font-medium text-slate-500">Phương thức thanh toán</span>
+                <span className="text-xs sm:text-sm font-semibold text-slate-800">
+                  {gateway}
+                </span>
               </div>
 
-              {/* ── 2 NÚT HÀNH ĐỘNG CỦA TRANG (THÀNH CÔNG) ── */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 relative z-10">
-                {/* Nút 1: "Tiếp tục mua sắm" (Nút viền outline điều hướng về /products) */}
-                <Link
-                  to="/products"
-                  id="continue-shopping-btn"
-                  className="w-full sm:w-auto min-w-[200px] px-8 py-3.5 rounded-xl font-bold text-sm border-2 border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 transition-all flex items-center justify-center gap-2 group shadow-2xs"
-                >
-                  <ShoppingBag className="w-4 h-4 text-slate-500 transition-transform group-hover:rotate-12" />
-                  <span>Tiếp tục mua sắm</span>
-                </Link>
-
-                {/* Nút 2: "Xem lịch sử đơn hàng" (Nút màu xanh primary điều hướng về /user/orders) */}
-                <Link
-                  to="/user/orders"
-                  id="order-history-btn"
-                  className="w-full sm:w-auto min-w-[200px] px-8 py-3.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-lg shadow-blue-500/25 transition-all text-center flex items-center justify-center gap-2 group"
-                >
-                  <Package className="w-4 h-4 transition-transform group-hover:scale-110" />
-                  <span>Xem lịch sử đơn hàng</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </Link>
+              {/* Mã giao dịch */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+                <span className="text-xs sm:text-sm font-medium text-slate-500">Mã giao dịch</span>
+                <span className="font-mono text-xs sm:text-sm font-semibold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-2xs">
+                  {transactionNo}
+                </span>
               </div>
 
+              {/* Trạng thái đơn hàng */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-medium text-slate-500">Trạng thái đơn hàng</span>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  isSuccess
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isSuccess ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                  {orderStatus}
+                </span>
+              </div>
             </div>
-          )}
 
-          {/* ── 3. TRẠNG THÁI THẤT BẠI / BỊ HỦY / LỖI CHỮ KÝ ── */}
-          {!loading && !isSuccess && (
-            <div className="bg-white border border-slate-100 shadow-sm rounded-3xl p-6 sm:p-10 space-y-8 relative overflow-hidden">
-              {/* Background decoration elements */}
-              <div className="absolute -top-24 -right-24 w-56 h-56 bg-rose-50 rounded-full blur-3xl pointer-events-none -z-0 opacity-70" />
-              <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-amber-50 rounded-full blur-3xl pointer-events-none -z-0 opacity-60" />
+            {/* Hàng nút bấm phía dưới */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
+              {/* Nút 1: "Tiếp tục mua sắm" (chuyển về /products) */}
+              <Link
+                to="/products"
+                id="continue-shopping-btn"
+                className="w-full sm:w-1/2 py-3 px-6 rounded-xl font-semibold text-sm border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 group shadow-2xs active:scale-[0.99]"
+              >
+                <ShoppingBag className="w-4 h-4 text-slate-500 group-hover:scale-110 transition-transform" />
+                <span>Tiếp tục mua sắm</span>
+              </Link>
 
-              {/* Header: Icon X màu đỏ có vòng tròn mờ bao quanh */}
-              <div className="text-center space-y-4 relative z-10">
-                <div className="relative inline-flex items-center justify-center">
-                  {/* Vòng tròn mờ bao quanh */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-rose-100/60 animate-pulse-glow-red flex items-center justify-center">
-                    {/* Icon X chính */}
-                    <div
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 ring-4 ring-rose-200/80 animate-success-bounce"
-                    >
-                      <XCircle className="w-11 h-11 sm:w-14 sm:h-14 stroke-[2.5]" />
-                    </div>
-                  </div>
-
-                  {/* Badge tia cảnh báo góc */}
-                  <div className="absolute -top-1 -right-1 bg-rose-500 text-white p-1.5 rounded-full shadow-md">
-                    <AlertTriangle className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {/* Badge phương thức thất bại */}
-                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                    Giao dịch {gateway} chưa hoàn thành
-                  </div>
-
-                  {/* Tiêu đề */}
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    Thanh Toán Thất Bại!
-                  </h1>
-
-                  <p className="text-sm sm:text-base text-slate-500 max-w-md mx-auto leading-relaxed">
-                    Giao dịch trực tuyến chưa thể hoàn tất. Đừng lo lắng, giỏ hàng hoặc đơn hàng của bạn vẫn được lưu lại để thử lại bất cứ lúc nào.
-                  </p>
-                </div>
-
-                {/* Hộp Lý do thất bại nổi bật */}
-                <div className="pt-2 max-w-lg mx-auto">
-                  <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 text-rose-800 text-left flex items-start gap-3 shadow-2xs">
-                    <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                    <div className="text-xs sm:text-sm">
-                      <p className="font-bold text-rose-900 mb-0.5">Lý do thất bại:</p>
-                      <p className="text-rose-700 leading-relaxed">{failureReason}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mã Đơn Hàng Box nếu có */}
-                {orderCode !== 'N/A' && (
-                  <div className="pt-1 inline-flex items-center justify-center">
-                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-2.5 shadow-xs">
-                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Mã đơn hàng:</span>
-                      <span className="font-mono font-bold text-base text-slate-800 tracking-wide">
-                        {orderCode}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCopyOrderId}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="Sao chép mã đơn hàng"
-                      >
-                        {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Bảng Tóm Tắt Đơn Hàng Thất Bại */}
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 sm:p-6 space-y-4 relative z-10">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-rose-500" />
-                    Thông tin đơn hàng chưa thanh toán
-                  </span>
-                  <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
-                    Chưa thanh toán
-                  </span>
-                </div>
-
-                <div className="space-y-2.5 text-xs sm:text-sm">
-                  {orderCode !== 'N/A' && (
-                    <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                      <span className="text-slate-500 font-medium">Mã đơn hàng:</span>
-                      <span className="font-mono font-bold text-slate-900">{orderCode}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                    <span className="text-slate-500 font-medium">Cổng thanh toán:</span>
-                    <span className="font-semibold text-slate-800">{gateway}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between py-1 border-b border-slate-200/40">
-                    <span className="text-slate-500 font-medium">Trạng thái giao dịch:</span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      Không thành công / Đã hủy
-                    </span>
-                  </div>
-
-                  {totalAmount > 0 && (
-                    <div className="flex items-center justify-between pt-2 text-sm sm:text-base font-bold text-slate-900">
-                      <span className="text-slate-700 font-semibold">Số tiền cần thanh toán:</span>
-                      <span className="text-lg sm:text-xl font-extrabold text-rose-600">
-                        {formatVND(totalAmount)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Danh sách sản phẩm nếu có */}
-              {items.length > 0 && (
-                <div className="space-y-3 relative z-10">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <Package className="w-4 h-4 text-slate-500" />
-                    Sản phẩm trong đơn hàng ({items.length})
-                  </h3>
-
-                  <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/70 bg-white overflow-hidden shadow-xs">
-                    {items.map((item, idx) => {
-                      const itemImg = item.Anh || item.HinhAnh || item.image || item.img;
-                      const variantDetails = [];
-                      if (item.MauSac) variantDetails.push(`Màu: ${item.MauSac}`);
-                      if (item.DungLuong) variantDetails.push(`Dung lượng: ${item.DungLuong}`);
-                      const variantString = variantDetails.join(' | ') || 'Phiên bản tiêu chuẩn';
-
-                      const unitPrice = item.DonGia || item.Gia || 0;
-                      const quantity = item.SoLuong || 1;
-                      const totalPrice = item.TongGia || (unitPrice * quantity);
-
-                      return (
-                        <div
-                          key={item.MaChiTietDonHang || item.MaSanPham || idx}
-                          className="p-3.5 sm:p-4 flex items-center gap-3 sm:gap-4 hover:bg-slate-50/70 transition-colors"
-                        >
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-50 p-1.5 border border-slate-100 shrink-0 flex items-center justify-center overflow-hidden">
-                            {itemImg ? (
-                              <img
-                                src={itemImg}
-                                alt={item.TenSanPham || 'Sản phẩm'}
-                                className="w-full h-full object-contain"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <Package className="w-6 h-6 text-slate-300" />
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={item.MaSanPham ? `/products/${item.MaSanPham}` : '#'}
-                              className="text-xs sm:text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors line-clamp-1"
-                            >
-                              {item.TenSanPham || 'Sản phẩm SmartZone'}
-                            </Link>
-                            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
-                              {variantString}
-                            </p>
-                            <div className="text-[11px] sm:text-xs text-slate-400 mt-1 flex items-center gap-2">
-                              <span>Đơn giá: <strong className="font-semibold text-slate-600">{formatVND(unitPrice)}</strong></span>
-                              <span>•</span>
-                              <span>Số lượng: <strong className="font-semibold text-slate-700">x{quantity}</strong></span>
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
-                              {formatVND(totalPrice)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Hướng dẫn trợ giúp */}
-              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/70 flex items-center gap-3 relative z-10">
-                <HelpCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  Quý khách có thể chọn <strong>Thử thanh toán lại</strong> để kiểm tra lại tài khoản hoặc chuyển sang phương thức thanh toán COD khi nhận hàng.
-                </p>
-              </div>
-
-              {/* ── NÚT HÀNH ĐỘNG KHI THẤT BẠI ── */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 relative z-10">
-                {/* Nút "Thử thanh toán lại" điều hướng về Giỏ hàng / Checkout */}
-                <Link
-                  to="/cart"
-                  id="retry-payment-btn"
-                  className="w-full sm:w-auto min-w-[200px] px-8 py-3.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group"
-                >
-                  <RotateCcw className="w-4 h-4 transition-transform group-hover:-rotate-45" />
-                  <span>Thử thanh toán lại</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-
-                {/* Nút "Xem lịch sử đơn hàng" điều hướng về /user/orders */}
-                <Link
-                  to="/user/orders"
-                  id="failed-order-history-btn"
-                  className="w-full sm:w-auto min-w-[200px] px-8 py-3.5 rounded-xl font-bold text-sm border-2 border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 transition-all text-center flex items-center justify-center gap-2 group shadow-2xs"
-                >
-                  <Package className="w-4 h-4 text-slate-500 transition-transform group-hover:scale-110" />
-                  <span>Xem lịch sử đơn hàng</span>
-                </Link>
-              </div>
-
+              {/* Nút 2: "Xem lịch sử đơn hàng" (chuyển về /user/orders) */}
+              <Link
+                to="/user/orders"
+                id="order-history-btn"
+                className="w-full sm:w-1/2 py-3 px-6 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group active:scale-[0.99]"
+              >
+                <Package className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <span>Xem lịch sử đơn hàng</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
-          )}
-
-        </div>
+          </div>
+        )}
       </main>
 
       <Footer />
