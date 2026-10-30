@@ -383,12 +383,15 @@ const CheckoutPage = () => {
               orderInfo: `Thanh toan don hang #${newOrderId}`,
               fallback: true
             });
-            const payUrl = momoRes.data?.payUrl || momoRes.data?.paymentUrl || momoRes.data?.data?.payUrl;
-            if (payUrl) {
-              window.location.href = payUrl;
+            toast.dismiss('redirect-pay');
+            if (momoRes.data && momoRes.data.success && momoRes.data.payUrl) {
+              console.log('[FRONTEND REDIRECTING TO MOMO]:', momoRes.data.payUrl);
+              window.location.href = momoRes.data.payUrl;
               return;
             } else {
-              throw new Error('Không nhận được đường dẫn thanh toán từ cổng MoMo');
+              toast.error(momoRes.data?.message || 'Không thể tạo link thanh toán MoMo');
+              setIsSubmitting(false);
+              return;
             }
           } catch (momoErr) {
             toast.dismiss('redirect-pay');
