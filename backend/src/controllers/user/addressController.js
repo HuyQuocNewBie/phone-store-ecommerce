@@ -11,17 +11,20 @@ const getAddresses = async (req, res, next) => {
 
     const sql = `
       SELECT
-        MaDiaChi,
-        MaNguoiDung,
-        TenGoiNho,
-        TinhThanh,
-        QuanHuyen,
-        PhuongXa,
-        DiaChiNha,
-        LaMacDinh
-      FROM sodiachi
-      WHERE MaNguoiDung = ?
-      ORDER BY LaMacDinh DESC, MaDiaChi DESC
+        s.MaDiaChi,
+        s.MaNguoiDung,
+        s.TenGoiNho,
+        s.TinhThanh,
+        s.QuanHuyen,
+        s.PhuongXa,
+        s.DiaChiNha,
+        s.LaMacDinh,
+        u.TaiKhoan,
+        u.SoDienThoai
+      FROM sodiachi s
+      LEFT JOIN nguoidung u ON s.MaNguoiDung = u.MaNguoiDung
+      WHERE s.MaNguoiDung = ?
+      ORDER BY s.LaMacDinh DESC, s.MaDiaChi DESC
     `;
 
     const [rows] = await pool.query(sql, [MaNguoiDung]);
