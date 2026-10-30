@@ -25,6 +25,7 @@ const userManufacturerRoutes = require('./src/routes/user/manufacturerRoutes');
 const userVoucherRoutes = require('./src/routes/user/voucherRoutes');
 const userReviewRoutes = require('./src/routes/user/reviewRoutes');
 const userWishlistRoutes = require('./src/routes/user/wishlistRoutes');
+const userAddressRoutes = require('./src/routes/user/addressRoutes');
 
 // Basic status route
 app.get('/', (req, res) => {
@@ -47,6 +48,7 @@ app.use('/api/v1/manufacturers', userManufacturerRoutes);
 app.use('/api/v1/vouchers', userVoucherRoutes);
 app.use('/api/v1/reviews', userReviewRoutes);
 app.use('/api/v1/wishlist', userWishlistRoutes);
+app.use('/api/v1/addresses', userAddressRoutes);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
 
 // Centralized error handling middleware
