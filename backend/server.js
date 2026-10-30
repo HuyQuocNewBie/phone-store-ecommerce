@@ -26,6 +26,9 @@ const userVoucherRoutes = require('./src/routes/user/voucherRoutes');
 const userReviewRoutes = require('./src/routes/user/reviewRoutes');
 const userWishlistRoutes = require('./src/routes/user/wishlistRoutes');
 const userAddressRoutes = require('./src/routes/user/addressRoutes');
+const userProfileRoutes = require('./src/routes/user/profileRoutes');
+const { verifyToken } = require('./src/middlewares/authMiddleware');
+const { uploadAvatar } = require('./src/controllers/user/profileController');
 
 // Basic status route
 app.get('/', (req, res) => {
@@ -49,6 +52,9 @@ app.use('/api/v1/vouchers', userVoucherRoutes);
 app.use('/api/v1/reviews', userReviewRoutes);
 app.use('/api/v1/wishlist', userWishlistRoutes);
 app.use('/api/v1/addresses', userAddressRoutes);
+app.use('/api/v1/profile', userProfileRoutes);
+// POST /api/v1/upload/avatar – upload ảnh đại diện (yêu cầu JWT)
+app.post('/api/v1/upload/avatar', verifyToken, ...uploadAvatar);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
 
 // Centralized error handling middleware
