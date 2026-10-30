@@ -14,6 +14,51 @@ const formatVND = (price) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
 /* ─────────────────────────────────────────────
+   Component: ZaloPay Logo Vector
+───────────────────────────────────────────── */
+const ZaloPayLogo = ({ className = 'h-6 w-auto' }) => (
+  <svg
+    viewBox="0 0 130 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-label="Logo ZaloPay"
+  >
+    <rect x="1" y="2" width="32" height="32" rx="8" fill="#0068FF" />
+    <path
+      d="M10 11H24L12 24H24"
+      stroke="#FFFFFF"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="23" cy="11.5" r="1.5" fill="#00BA51" />
+    <text
+      x="39"
+      y="24"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      fontSize="18"
+      fontWeight="800"
+      fill="#0068FF"
+      letterSpacing="-0.5"
+    >
+      Zalo
+    </text>
+    <text
+      x="80"
+      y="24"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      fontSize="18"
+      fontWeight="800"
+      fill="#00BA51"
+      letterSpacing="-0.5"
+    >
+      Pay
+    </text>
+  </svg>
+);
+
+/* ─────────────────────────────────────────────
    CheckoutPage Component - Refactored
 ───────────────────────────────────────────── */
 const CheckoutPage = () => {
@@ -373,29 +418,29 @@ const CheckoutPage = () => {
           }
         }
 
-        // 3. Chuyển hướng thanh toán MoMo
-        if (paymentMethod === 'MOMO') {
-          toast.loading('Đang chuyển hướng tới cổng thanh toán MoMo...', { id: 'redirect-pay' });
+        // 3. Chuyển hướng thanh toán ZaloPay
+        if (paymentMethod === 'ZALOPAY') {
+          toast.loading('Đang chuyển hướng tới cổng thanh toán ZaloPay...', { id: 'redirect-pay' });
           try {
-            const momoRes = await api.post('/payment/create-momo', {
+            const zalopayRes = await api.post('/payment/create-zalopay', {
               orderId: newOrderId,
               amount: payAmount,
-              orderInfo: `Thanh toan don hang #${newOrderId}`,
-              fallback: true
+              orderInfo: `Thanh toan don hang #${newOrderId}`
             });
             toast.dismiss('redirect-pay');
-            if (momoRes.data && momoRes.data.success && momoRes.data.payUrl) {
-              console.log('[FRONTEND REDIRECTING TO MOMO]:', momoRes.data.payUrl);
-              window.location.href = momoRes.data.payUrl;
+            const payUrl = zalopayRes.data?.payUrl || zalopayRes.data?.order_url || zalopayRes.data?.data?.payUrl;
+            if (zalopayRes.data && zalopayRes.data.success && payUrl) {
+              console.log('[FRONTEND REDIRECTING TO ZALOPAY]:', payUrl);
+              window.location.href = payUrl;
               return;
             } else {
-              toast.error(momoRes.data?.message || 'Không thể tạo link thanh toán MoMo');
+              toast.error(zalopayRes.data?.message || 'Không thể tạo link thanh toán ZaloPay');
               setIsSubmitting(false);
               return;
             }
-          } catch (momoErr) {
+          } catch (zalopayErr) {
             toast.dismiss('redirect-pay');
-            throw new Error(momoErr.response?.data?.message || momoErr.message || 'Không thể tạo liên kết thanh toán MoMo');
+            throw new Error(zalopayErr.response?.data?.message || zalopayErr.message || 'Không thể tạo liên kết thanh toán ZaloPay');
           }
         }
 
@@ -823,31 +868,31 @@ const CheckoutPage = () => {
                       </div>
                     </label>
 
-                    {/* 3. MoMo */}
-                    <label className={`flex items-start gap-unit-sm p-unit-md rounded-xl transition-all cursor-pointer ${paymentMethod === 'MOMO' ? 'bg-primary-fixed/20 shadow-sm ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/50'}`}>
+                    {/* 3. ZaloPay */}
+                    <label className={`flex items-start gap-unit-sm p-unit-md rounded-xl transition-all cursor-pointer ${paymentMethod === 'ZALOPAY' ? 'bg-primary-fixed/20 shadow-sm ring-2 ring-primary' : 'bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/50'}`}>
                       <input
-                        id="payment-momo"
+                        id="payment-zalopay"
                         type="radio"
-                        checked={paymentMethod === 'MOMO'}
-                        onChange={() => setPaymentMethod('MOMO')}
+                        checked={paymentMethod === 'ZALOPAY'}
+                        onChange={() => setPaymentMethod('ZALOPAY')}
                         className="mt-1 accent-primary cursor-pointer"
                         name="payment_method"
                       />
                       <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-unit-xs">
-                            <span className="material-symbols-outlined text-pink-600 text-xl">account_balance_wallet</span>
+                        <div className="flex items-center justify-between flex-wrap gap-y-1">
+                          <div className="flex items-center gap-unit-xs flex-wrap">
+                            <ZaloPayLogo className="h-6 w-auto shrink-0" />
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              MoMo (Thanh toán qua Ví MoMo)
+                              Thanh toán qua Ví ZaloPay / ZaloPay QR
                             </span>
-                            <span className="font-label-spec text-label-spec bg-pink-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
-                              MoMo QR
+                            <span className="font-label-spec text-label-spec bg-[#0068FF] text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
+                              ZaloPay QR
                             </span>
                           </div>
-                          <span className="font-body-sm text-body-sm text-pink-600 font-semibold">Ví điện tử</span>
+                          <span className="font-body-sm text-body-sm text-[#0068FF] font-semibold">Ví ZaloPay</span>
                         </div>
                         <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
-                          Quét mã QR MoMo hoặc thanh toán trực tiếp qua ứng dụng Ví MoMo siêu tốc, bảo mật 100%.
+                          Quét mã QR bằng ứng dụng ZaloPay hoặc Zalo để thanh toán tức thì, an toàn và bảo mật 100%.
                         </p>
                       </div>
                     </label>

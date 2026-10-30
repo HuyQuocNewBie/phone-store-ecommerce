@@ -87,8 +87,8 @@ const Footer = () => {
                 <span>VNPay-QR</span>
               </div>
               <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
-                <span className="material-symbols-outlined text-tertiary leading-none">account_balance_wallet</span>
-                <span>Ví MoMo</span>
+                <span className="material-symbols-outlined text-primary leading-none">account_balance_wallet</span>
+                <span>Ví ZaloPay</span>
               </div>
               <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
                 <span className="material-symbols-outlined text-primary leading-none">percent</span>
