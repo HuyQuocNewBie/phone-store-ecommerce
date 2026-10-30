@@ -168,32 +168,123 @@ const createOrder = async (req, res, next) => {
     // Xác định danh sách sản phẩm mua
     let itemsToProcess = [];
 
-    if (Array.isArray(rawItems) && rawItems.length > 0) {
-      // Hỗ trợ Mua ngay hoặc truyền trực tiếp danh sách items
-      itemsToProcess = rawItems.map((item) => ({
-        MaSanPham: parseInt(item.MaSanPham || item.product_id, 10),
-        SoLuong: parseInt(item.SoLuong || item.quantity, 10),
-        DungLuong: item.DungLuong || null,
-        MauSac: item.MauSac || null
-      }));
-    } else if (Array.isArray(cart_item_ids) && cart_item_ids.length > 0) {
-      // Lấy danh sách sản phẩm từ bảng giohang theo cart_item_ids
-      const validCartIds = cart_item_ids.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
-      if (validCartIds.length > 0) {
-        const [cartRows] = await connection.query(
-          `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
-          [validCartIds, MaNguoiDung]
-        );
-        itemsToProcess = cartRows.map((r) => ({
-          MaSanPham: r.MaSanPham,
-          SoLuong: r.SoLuong,
-          DungLuong: r.DungLuong || null,
-          MauSac: r.MauSac || null,
-          MaGioHang: r.MaGioHang
-        }));
+    // Danh sách cart_item_ids hợp lệ nếu được truyền
+    const inputCartIds = Array.isArray(cart_item_ids)
+      ? cart_item_ids
+      : Array.isArray(req.body.cartItemIds)
+      ? req.body.cartItemIds
+      : null;
+
+    const validCartIds = inputCartIds
+      ? inputCartIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id) && id > 0)
+      : [];
+
+    if (validCartIds.length > 0) {
+      // 1. Trường hợp người dùng tạo đơn hàng từ giỏ hàng (chọn các mục cụ thể qua cart_item_ids)
+      const [cartRows] = await connection.query(
+        `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
+        [validCartIds, MaNguoiDung]
+      );
+
+      // Nếu client đồng thời truyền kèm rawItems (như CheckoutPage), ta kết hợp thông tin
+      const rawMap = new Map();
+      if (Array.isArray(rawItems)) {
+        rawItems.forEach((it) => {
+          if (it.MaGioHang) rawMap.set(`cart_${it.MaGioHang}`, it);
+          const pId = parseInt(it.MaSanPham || it.product_id, 10);
+          if (!isNaN(pId)) rawMap.set(`prod_${pId}`, it);
+        });
       }
+
+      itemsToProcess = cartRows.map((r) => {
+        const matchingRaw = rawMap.get(`cart_${r.MaGioHang}`) || rawMap.get(`prod_${r.MaSanPham}`);
+        const dungLuong = (matchingRaw?.DungLuong || matchingRaw?.dung_luong || matchingRaw?.capacity || matchingRaw?.storage || r.DungLuong || null);
+        const mauSac = (matchingRaw?.MauSac || matchingRaw?.mau_sac || matchingRaw?.color || r.MauSac || null);
+        const soLuong = parseInt(matchingRaw?.SoLuong || matchingRaw?.quantity || r.SoLuong, 10);
+        const rawDonGia = matchingRaw?.DonGia ?? matchingRaw?.don_gia ?? matchingRaw?.price ?? matchingRaw?.Gia;
+        const donGia = (rawDonGia !== undefined && rawDonGia !== null && !isNaN(Number(rawDonGia)) && Number(rawDonGia) >= 0)
+          ? Number(rawDonGia)
+          : null;
+
+        return {
+          MaSanPham: r.MaSanPham,
+          SoLuong: isNaN(soLuong) || soLuong <= 0 ? r.SoLuong : soLuong,
+          DonGia: donGia,
+          DungLuong: dungLuong ? String(dungLuong).trim() : null,
+          MauSac: mauSac ? String(mauSac).trim() : null,
+          MaGioHang: r.MaGioHang
+        };
+      });
+
+      // Nếu trong rawItems có thêm sản phẩm không nằm trong cart_item_ids
+      if (Array.isArray(rawItems) && rawItems.length > 0) {
+        const processedCartProdIds = new Set(itemsToProcess.map((i) => i.MaSanPham));
+        for (const it of rawItems) {
+          const pId = parseInt(it.MaSanPham || it.product_id, 10);
+          if (!isNaN(pId) && !processedCartProdIds.has(pId)) {
+            const rawDonGia = it.DonGia ?? it.don_gia ?? it.price ?? it.Gia;
+            itemsToProcess.push({
+              MaSanPham: pId,
+              SoLuong: parseInt(it.SoLuong || it.quantity || 1, 10),
+              DonGia: (rawDonGia !== undefined && rawDonGia !== null && !isNaN(Number(rawDonGia)) && Number(rawDonGia) >= 0) ? Number(rawDonGia) : null,
+              DungLuong: (it.DungLuong || it.dung_luong || it.capacity || it.storage || null) ? String(it.DungLuong || it.dung_luong || it.capacity || it.storage).trim() : null,
+              MauSac: (it.MauSac || it.mau_sac || it.color || null) ? String(it.MauSac || it.mau_sac || it.color).trim() : null,
+              MaGioHang: it.MaGioHang || null
+            });
+          }
+        }
+      }
+    } else if (Array.isArray(rawItems) && rawItems.length > 0) {
+      // 2. Trường hợp truyền danh sách items trực tiếp (Mua ngay hoặc payload request)
+      const prodIds = rawItems
+        .map((it) => parseInt(it.MaSanPham || it.product_id, 10))
+        .filter((id) => !isNaN(id));
+
+      let userCartRows = [];
+      if (prodIds.length > 0) {
+        const [rows] = await connection.query(
+          `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ? AND MaSanPham IN (?)`,
+          [MaNguoiDung, prodIds]
+        );
+        userCartRows = rows;
+      }
+
+      itemsToProcess = rawItems.map((item) => {
+        const pId = parseInt(item.MaSanPham || item.product_id, 10);
+        const soLuong = parseInt(item.SoLuong || item.quantity || 1, 10);
+        const rawDonGia = item.DonGia ?? item.don_gia ?? item.price ?? item.Gia;
+        const donGia = (rawDonGia !== undefined && rawDonGia !== null && !isNaN(Number(rawDonGia)) && Number(rawDonGia) >= 0)
+          ? Number(rawDonGia)
+          : null;
+
+        let dungLuong = item.DungLuong || item.dung_luong || item.capacity || item.storage || null;
+        let mauSac = item.MauSac || item.mau_sac || item.color || null;
+        let maGioHang = item.MaGioHang || item.cart_id || item.cart_item_id || null;
+
+        // Nếu thiếu DungLuong hoặc MauSac, bổ sung từ bảng giohang của user
+        if ((!dungLuong || !mauSac || !maGioHang) && userCartRows.length > 0) {
+          const matchedCart = userCartRows.find((c) => {
+            if (maGioHang && c.MaGioHang === parseInt(maGioHang, 10)) return true;
+            return c.MaSanPham === pId;
+          });
+          if (matchedCart) {
+            if (!dungLuong && matchedCart.DungLuong) dungLuong = matchedCart.DungLuong;
+            if (!mauSac && matchedCart.MauSac) mauSac = matchedCart.MauSac;
+            if (!maGioHang) maGioHang = matchedCart.MaGioHang;
+          }
+        }
+
+        return {
+          MaSanPham: pId,
+          SoLuong: soLuong,
+          DonGia: donGia,
+          DungLuong: dungLuong ? String(dungLuong).trim() : null,
+          MauSac: mauSac ? String(mauSac).trim() : null,
+          MaGioHang: maGioHang ? parseInt(maGioHang, 10) : null
+        };
+      });
     } else {
-      // Nếu không truyền items lẫn cart_item_ids, tự động lấy toàn bộ sản phẩm trong giỏ hàng của user
+      // 3. Nếu không truyền items lẫn cart_item_ids, tự động lấy toàn bộ sản phẩm trong giỏ hàng của user
       const [cartRows] = await connection.query(
         `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ?`,
         [MaNguoiDung]
@@ -201,8 +292,9 @@ const createOrder = async (req, res, next) => {
       itemsToProcess = cartRows.map((r) => ({
         MaSanPham: r.MaSanPham,
         SoLuong: r.SoLuong,
-        DungLuong: r.DungLuong || null,
-        MauSac: r.MauSac || null,
+        DonGia: null,
+        DungLuong: r.DungLuong ? String(r.DungLuong).trim() : null,
+        MauSac: r.MauSac ? String(r.MauSac).trim() : null,
         MaGioHang: r.MaGioHang
       }));
     }
@@ -275,16 +367,30 @@ const createOrder = async (req, res, next) => {
       }
 
       const dbGia = Number(product.Gia);
-      const itemSubtotal = item.SoLuong * dbGia;
+      // Đọc DonGia: ưu tiên DonGia hợp lệ từ payload / cart, nếu không có lấy giá gốc từ DB
+      const itemDonGia = (item.DonGia !== undefined && item.DonGia !== null && !isNaN(Number(item.DonGia)) && Number(item.DonGia) > 0)
+        ? Number(item.DonGia)
+        : dbGia;
+
+      const itemSubtotal = item.SoLuong * itemDonGia;
       subtotal += itemSubtotal;
+
+      // Ưu tiên DungLuong và MauSac từ giỏ hàng hoặc request payload; nếu chưa có thì fallback về thông tin sanpham
+      const finalDungLuong = (item.DungLuong && String(item.DungLuong).trim() !== '')
+        ? String(item.DungLuong).trim()
+        : (product.DungLuong ? String(product.DungLuong).trim() : null);
+
+      const finalMauSac = (item.MauSac && String(item.MauSac).trim() !== '')
+        ? String(item.MauSac).trim()
+        : (product.MauSac ? String(product.MauSac).trim() : null);
 
       orderItemsDetails.push({
         MaSanPham: item.MaSanPham,
         TenSanPham: product.TenSanPham,
-        DungLuong: item.DungLuong !== undefined ? item.DungLuong : (product.DungLuong || null),
-        MauSac: item.MauSac !== undefined ? item.MauSac : (product.MauSac || null),
+        DungLuong: finalDungLuong,
+        MauSac: finalMauSac,
         SoLuong: item.SoLuong,
-        DonGia: dbGia,
+        DonGia: itemDonGia,
         TongGia: itemSubtotal,
         MaGioHang: item.MaGioHang || null
       });
@@ -551,6 +657,8 @@ const createOrder = async (req, res, next) => {
         items: orderItemsDetails.map((i) => ({
           MaSanPham: i.MaSanPham,
           TenSanPham: i.TenSanPham,
+          DungLuong: i.DungLuong,
+          MauSac: i.MauSac,
           SoLuong: i.SoLuong,
           DonGia: i.DonGia,
           TongGia: i.TongGia
@@ -749,6 +857,8 @@ const reorder = async (req, res, next) => {
       `SELECT 
          ct.MaSanPham,
          ct.SoLuong,
+         ct.DungLuong,
+         ct.MauSac,
          sp.TenSanPham,
          sp.TonKho,
          sp.TrangThai
@@ -784,11 +894,25 @@ const reorder = async (req, res, next) => {
         continue;
       }
 
-      // Kiểm tra sản phẩm đã có trong giỏ hàng của user chưa
-      const [cartRows] = await pool.query(
-        `SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?`,
-        [MaNguoiDung, maSanPham]
-      );
+      // Kiểm tra sản phẩm đã có trong giỏ hàng của user chưa (khớp MaSanPham + DungLuong + MauSac)
+      let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?';
+      const cartCheckParams = [MaNguoiDung, maSanPham];
+
+      if (item.DungLuong) {
+        cartCheckSql += ' AND DungLuong = ?';
+        cartCheckParams.push(item.DungLuong);
+      } else {
+        cartCheckSql += ' AND (DungLuong IS NULL OR DungLuong = "")';
+      }
+
+      if (item.MauSac) {
+        cartCheckSql += ' AND MauSac = ?';
+        cartCheckParams.push(item.MauSac);
+      } else {
+        cartCheckSql += ' AND (MauSac IS NULL OR MauSac = "")';
+      }
+
+      const [cartRows] = await pool.query(cartCheckSql, cartCheckParams);
 
       if (cartRows.length > 0) {
         const currentQty = Number(cartRows[0].SoLuong);
@@ -806,6 +930,8 @@ const reorder = async (req, res, next) => {
           MaGioHang: cartRows[0].MaGioHang,
           MaSanPham: maSanPham,
           TenSanPham: item.TenSanPham,
+          DungLuong: item.DungLuong || null,
+          MauSac: item.MauSac || null,
           SoLuong: newQty,
           TonKho: tonKho
         });
@@ -813,14 +939,16 @@ const reorder = async (req, res, next) => {
         const qtyToAdd = Math.min(orderQty, tonKho);
         if (qtyToAdd > 0) {
           const [insertResult] = await pool.query(
-            `INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong) VALUES (?, ?, ?)`,
-            [MaNguoiDung, maSanPham, qtyToAdd]
+            `INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?)`,
+            [MaNguoiDung, maSanPham, qtyToAdd, item.DungLuong || null, item.MauSac || null]
           );
 
           addedItems.push({
             MaGioHang: insertResult.insertId,
             MaSanPham: maSanPham,
             TenSanPham: item.TenSanPham,
+            DungLuong: item.DungLuong || null,
+            MauSac: item.MauSac || null,
             SoLuong: qtyToAdd,
             TonKho: tonKho
           });

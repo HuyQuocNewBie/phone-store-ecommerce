@@ -328,6 +328,10 @@ const CheckoutPage = () => {
         items: items.map((it) => ({
           MaSanPham: it.MaSanPham,
           SoLuong:   it.SoLuong,
+          DonGia:    it.DonGia || it.Gia,
+          DungLuong: it.DungLuong || null,
+          MauSac:    it.MauSac || null,
+          MaGioHang: it.MaGioHang || null,
         })),
         cart_item_ids: items.filter((it) => it.MaGioHang).map((it) => it.MaGioHang),
       };
