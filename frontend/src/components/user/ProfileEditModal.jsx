@@ -238,13 +238,17 @@ const ProfileEditModal = ({
       const updateRes = await profileService.updateProfile(updatePayload);
       const updatedUser = updateRes?.data;
 
-      // Cập nhật AuthContext và localStorage
-      if (updatedUser && updateUser) {
-        updateUser(updatedUser);
+      // Cập nhật AuthContext và localStorage ngay lập tức
+      const newAvatarUrl = updatedUser?.AnhDaiDien || finalAvatarUrl;
+      if (updateUser) {
+        updateUser({
+          ...(updatedUser || {}),
+          AnhDaiDien: newAvatarUrl,
+        });
       }
 
       toast.success('Cập nhật thông tin cá nhân thành công!');
-      onSuccess?.(updatedUser);
+      onSuccess?.(updatedUser || { ...currentUser, AnhDaiDien: newAvatarUrl });
       handleClose();
     } catch (err) {
       const message =

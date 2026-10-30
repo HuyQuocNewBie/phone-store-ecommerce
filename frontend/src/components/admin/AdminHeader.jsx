@@ -100,9 +100,17 @@ const AdminHeader = ({ onToggleMobile }) => {
             rounded-full flex items-center justify-center
             text-xs font-bold text-white shrink-0
             shadow-sm ring-2 ring-blue-500/20 hover:ring-blue-500/40
-            transition-all duration-200 cursor-pointer
+            transition-all duration-200 cursor-pointer overflow-hidden
           ">
-            {avatarLetter}
+            {user?.AnhDaiDien ? (
+              <img
+                src={user.AnhDaiDien}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              avatarLetter
+            )}
           </div>
         </div>
       </div>

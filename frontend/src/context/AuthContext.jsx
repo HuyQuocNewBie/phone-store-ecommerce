@@ -99,11 +99,11 @@ export const AuthProvider = ({ children }) => {
   /**
    * Cập nhật thông tin người dùng trong state & localStorage
    */
-  const updateUser = useCallback((updatedUserData) => {
+  const updateUser = useCallback((updatedFields) => {
     setUser((prev) => {
-      const merged = { ...prev, ...updatedUserData };
-      localStorage.setItem('user', JSON.stringify(merged));
-      return merged;
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
     });
   }, []);
 

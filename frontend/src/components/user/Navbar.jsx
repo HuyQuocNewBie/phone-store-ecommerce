@@ -328,8 +328,16 @@ const Navbar = () => {
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="flex items-center gap-unit-xs px-unit-xs py-1 hover:bg-surface-container-low rounded-xl transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm uppercase">
-                  {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
+                <div className="w-8 h-8 rounded-full bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm uppercase overflow-hidden shrink-0">
+                  {user?.AnhDaiDien ? (
+                    <img
+                      src={user.AnhDaiDien}
+                      alt={user?.HoTen || user?.TaiKhoan || 'Avatar'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}</span>
+                  )}
                 </div>
                 <div className="flex flex-col text-left">
                   <span className="font-body-sm text-body-sm text-on-surface-variant leading-none">Xin chào,</span>
@@ -576,8 +584,16 @@ const Navbar = () => {
               {/* Profile Card */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
                 {/* Avatar */}
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold text-base flex items-center justify-center shadow-md uppercase shrink-0 ring-2 ring-white ring-offset-1">
-                  {user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold text-base flex items-center justify-center shadow-md uppercase shrink-0 ring-2 ring-white ring-offset-1 overflow-hidden">
+                  {user?.AnhDaiDien ? (
+                    <img
+                      src={user.AnhDaiDien}
+                      alt={user?.HoTen || user?.TaiKhoan || 'Avatar'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.HoTen ? user.HoTen.charAt(0) : user?.TaiKhoan?.charAt(0) || 'U'}</span>
+                  )}
                 </div>
                 {/* Name & Email */}
                 <div className="min-w-0 flex-1">
