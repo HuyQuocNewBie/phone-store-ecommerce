@@ -557,13 +557,13 @@ const RegisterPage = () => {
                       </div>
                     )}
 
-                    {/* 1. Tên tài khoản (TaiKhoan) */}
+                    {/* 1. Họ và tên (TaiKhoan) */}
                     <div className="flex flex-col gap-unit-2xs">
                       <label
                         className="font-body-md text-body-md font-semibold text-on-surface"
                         htmlFor="reg-taikhoan"
                       >
-                        Tên tài khoản <span className="text-error">*</span>
+                        Họ và tên <span className="text-error">*</span>
                       </label>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-unit-md text-outline pointer-events-none">
