@@ -629,10 +629,249 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
+/**
+ * 6. POST /api/v1/auth/zalo
+ * Đăng nhập Zalo OAuth:
+ * - Nhận accessToken từ Zalo Client.
+ * - Gọi Zalo Graph API:
+ *   GET https://graph.zalo.me/v2.0/me?fields=id,name,picture,gender,birthday
+ *   với Header access_token: <accessToken>.
+ * - Bóc tách & chuyển đổi dữ liệu:
+ *   * id -> Email định danh: `zalo_${id}@gmail.com`
+ *   * name -> TaiKhoan
+ *   * picture.data.url -> AnhDaiDien
+ *   * gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
+ *   * birthday (DD/MM/YYYY) -> NgaySinh ('YYYY-MM-DD')
+ * - Xử lý truy vấn MySQL bảng nguoidung:
+ *   * Nếu chưa tồn tại: Sinh randomPass, hash bcrypt, INSERT với MaVaiTro = 2.
+ *   * Nếu đã tồn tại: Cập nhật thông tin cá nhân mới nhất từ Zalo.
+ * - Phát hành và trả về JWT Access Token cho Client.
+ */
+const zaloLogin = async (req, res, next) => {
+  try {
+    const accessToken =
+      req.body?.accessToken ||
+      req.body?.token ||
+      req.body?.access_token ||
+      req.headers['access_token'] ||
+      (req.headers['authorization']?.startsWith('Bearer ')
+        ? req.headers['authorization'].split(' ')[1]
+        : null);
+
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp accessToken của Zalo'
+      });
+    }
+
+    // 1. Gọi Zalo Graph API
+    let zaloRes;
+    try {
+      zaloRes = await axios.get(
+        'https://graph.zalo.me/v2.0/me?fields=id,name,picture,gender,birthday',
+        {
+          headers: {
+            access_token: accessToken
+          }
+        }
+      );
+    } catch (apiError) {
+      console.error('Lỗi khi gọi Zalo Graph API:', apiError?.response?.data || apiError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Xác thực Zalo thất bại hoặc accessToken không hợp lệ',
+        error: apiError?.response?.data?.message || apiError.message
+      });
+    }
+
+    const zaloData = zaloRes.data || {};
+
+    // Kiểm tra mã lỗi trả về từ Zalo Graph API
+    if (zaloData.error && zaloData.error !== 0) {
+      return res.status(401).json({
+        success: false,
+        message: zaloData.message || 'Xác thực Zalo không hợp lệ',
+        error: zaloData
+      });
+    }
+
+    const { id, name, picture, gender, birthday } = zaloData;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không tìm thấy ID người dùng từ Zalo'
+      });
+    }
+
+    // 2. Bóc tách & chuyển đổi dữ liệu
+    // 2.1. id -> Email định danh
+    const generatedEmail = `zalo_${id}@gmail.com`;
+
+    // 2.2. name -> TaiKhoan
+    let taiKhoan = name ? String(name).trim() : `zalo_${id}`;
+    taiKhoan = taiKhoan.slice(0, 50);
+
+    // 2.3. picture.data.url -> AnhDaiDien
+    let anhDaiDien = null;
+    if (picture?.data?.url) {
+      anhDaiDien = picture.data.url;
+    } else if (typeof picture === 'string') {
+      anhDaiDien = picture;
+    }
+    if (anhDaiDien && anhDaiDien.length > 255) {
+      anhDaiDien = anhDaiDien.slice(0, 255);
+    }
+
+    // 2.4. gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
+    let gioiTinh = null;
+    const gVal = String(gender || '').toLowerCase().trim();
+    if (gVal === 'male') {
+      gioiTinh = 'Nam';
+    } else if (gVal === 'female') {
+      gioiTinh = 'Nữ';
+    }
+
+    // 2.5. birthday (DD/MM/YYYY) -> NgaySinh (YYYY-MM-DD)
+    let ngaySinh = null;
+    if (birthday && typeof birthday === 'string') {
+      const parts = birthday.trim().split('/');
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0');
+        const month = parts[1].padStart(2, '0');
+        const year = parts[2];
+        if (year.length === 4) {
+          ngaySinh = `${year}-${month}-${day}`;
+        }
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) {
+        ngaySinh = birthday.trim();
+      }
+    }
+
+    // 3. Xử lý truy vấn MySQL bảng nguoidung
+    const [existingUsers] = await pool.query(
+      'SELECT * FROM nguoidung WHERE LOWER(Email) = LOWER(?)',
+      [generatedEmail]
+    );
+
+    let user;
+
+    if (existingUsers.length > 0) {
+      // NẾU ĐÃ TỒN TẠI: Cập nhật các thông tin cá nhân mới nhất từ Zalo
+      user = existingUsers[0];
+      const updateFields = [];
+      const updateParams = [];
+
+      if (taiKhoan) {
+        updateFields.push('TaiKhoan = ?');
+        updateParams.push(taiKhoan);
+        user.TaiKhoan = taiKhoan;
+      }
+
+      if (anhDaiDien) {
+        updateFields.push('AnhDaiDien = ?');
+        updateParams.push(anhDaiDien);
+        user.AnhDaiDien = anhDaiDien;
+      }
+
+      if (gioiTinh) {
+        updateFields.push('GioiTinh = ?');
+        updateParams.push(gioiTinh);
+        user.GioiTinh = gioiTinh;
+      }
+
+      if (ngaySinh) {
+        updateFields.push('NgaySinh = ?');
+        updateParams.push(ngaySinh);
+        user.NgaySinh = ngaySinh;
+      }
+
+      if (updateFields.length > 0) {
+        updateParams.push(user.MaNguoiDung);
+        await pool.query(
+          `UPDATE nguoidung SET ${updateFields.join(', ')} WHERE MaNguoiDung = ?`,
+          updateParams
+        );
+
+        const [refreshedUsers] = await pool.query(
+          'SELECT * FROM nguoidung WHERE MaNguoiDung = ?',
+          [user.MaNguoiDung]
+        );
+        if (refreshedUsers.length > 0) {
+          user = refreshedUsers[0];
+        }
+      }
+    } else {
+      // NẾU CHƯA TỒN TẠI: Tạo mới tài khoản với MaVaiTro = 2
+      const randomPass = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPass, 10);
+
+      const [insertResult] = await pool.query(
+        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
+         VALUES (?, ?, ?, ?, ?, ?, 2)`,
+        [taiKhoan, generatedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh]
+      );
+
+      const [newUsers] = await pool.query(
+        'SELECT * FROM nguoidung WHERE MaNguoiDung = ?',
+        [insertResult.insertId]
+      );
+      user = newUsers[0];
+    }
+
+    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD nếu cần
+    if (user.NgaySinh instanceof Date) {
+      const d = user.NgaySinh;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      user.NgaySinh = `${year}-${month}-${day}`;
+    } else if (typeof user.NgaySinh === 'string' && user.NgaySinh.includes('T')) {
+      user.NgaySinh = user.NgaySinh.split('T')[0];
+    }
+
+    // 4. Phát hành và trả về JWT Access Token cho Client
+    const payload = {
+      MaNguoiDung: user.MaNguoiDung,
+      MaVaiTro: user.MaVaiTro,
+      TaiKhoan: user.TaiKhoan
+    };
+
+    const jwtAccessToken = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'secret_key',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    );
+
+    const refreshToken = jwt.sign(
+      payload,
+      process.env.JWT_REFRESH_SECRET || 'refresh_secret_key',
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+
+    const { MatKhau: _, ...userInfo } = user;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đăng nhập Zalo thành công',
+      data: {
+        token: jwtAccessToken,
+        accessToken: jwtAccessToken,
+        refreshToken,
+        user: userInfo
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
   login,
   forgotPassword,
-  googleLogin
+  googleLogin,
+  zaloLogin
 };

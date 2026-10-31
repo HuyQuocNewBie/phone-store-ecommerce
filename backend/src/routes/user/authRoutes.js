@@ -20,4 +20,7 @@ router.post('/forgot-password', authController.forgotPassword);
 // 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API
 router.post('/google', authController.googleLogin);
 
+// 6. POST /api/v1/auth/zalo -> Đăng nhập bằng Zalo OAuth
+router.post('/zalo', authController.zaloLogin);
+
 module.exports = router;
