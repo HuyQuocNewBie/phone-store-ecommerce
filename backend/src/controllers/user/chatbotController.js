@@ -15,8 +15,8 @@ const { geminiTools, executeChatbotTool } = require('../../utils/chatbotTools');
 
 // 1. Đọc API Key & Cấu hình Model từ biến môi trường
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-1.5-flash'];
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
 
 if (!GEMINI_API_KEY) {
   console.warn('[chatbotController] CẢNH BÁO: Chưa tìm thấy GEMINI_API_KEY trong .env');
