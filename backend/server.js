@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const { testConnection } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const { initCronJobs } = require('./src/utils/cronJobs');
 
 // Load environment variables (supports running from root or backend directory)
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -68,4 +69,5 @@ app.use(errorHandler);
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
   await testConnection();
+  initCronJobs();
 });
