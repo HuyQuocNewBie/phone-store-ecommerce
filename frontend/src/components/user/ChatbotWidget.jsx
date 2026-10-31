@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ChatbotRichCards from './ChatbotRichCards';
 
 /**
  * Tin nhắn chào mừng mặc định từ SmartZone AI
@@ -303,6 +304,7 @@ const ChatbotWidget = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 text-slate-800 text-[13px] scroll-smooth">
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
+            const hasRichContent = !isUser && msg.type && msg.type !== 'TEXT' && msg.data;
 
             return (
               <div
@@ -310,7 +312,9 @@ const ChatbotWidget = () => {
                 className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} transition-opacity duration-200`}
               >
                 <div
-                  className={`flex items-end gap-2 max-w-[88%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex items-end gap-2 ${
+                    hasRichContent ? 'max-w-[96%]' : 'max-w-[88%]'
+                  } ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {/* Avatar cạnh tin nhắn AI */}
                   {!isUser && (
@@ -325,116 +329,21 @@ const ChatbotWidget = () => {
                       isUser
                         ? 'bg-primary text-white rounded-br-xs shadow-blue-600/10'
                         : 'bg-white text-slate-800 rounded-bl-xs border border-slate-200/70 shadow-slate-200/50'
-                    }`}
+                    } ${hasRichContent ? 'w-full' : ''}`}
                   >
-                    <p className="whitespace-pre-line font-normal">{msg.content}</p>
+                    {msg.content && <p className="whitespace-pre-line font-normal">{msg.content}</p>}
 
-                    {/* Rich Content: Danh sách sản phẩm gợi ý */}
-                    {!isUser &&
-                      msg.type === 'PRODUCT_LIST' &&
-                      Array.isArray(msg.data) &&
-                      msg.data.length > 0 && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-2">
-                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                            <ShoppingBag className="w-3 h-3 text-primary" />
-                            Gợi ý sản phẩm nổi bật:
-                          </p>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                            {msg.data.slice(0, 4).map((p) => (
-                              <div
-                                key={p.productId}
-                                onClick={() => handleGoToProduct(p.productId)}
-                                className="group flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/70 hover:border-blue-200 cursor-pointer transition-all duration-200"
-                              >
-                                {p.imageUrl ? (
-                                  <img
-                                    src={p.imageUrl}
-                                    alt={p.name}
-                                    className="w-10 h-10 object-contain rounded-lg bg-white p-1 border border-slate-100 flex-shrink-0"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-blue-100/60 text-primary flex items-center justify-center flex-shrink-0">
-                                    <ShoppingBag className="w-4 h-4" />
-                                  </div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <h4 className="font-semibold text-xs text-slate-800 truncate group-hover:text-primary transition-colors">
-                                    {p.name}
-                                  </h4>
-                                  <div className="flex items-center justify-between mt-0.5">
-                                    <span className="text-[11px] font-bold text-primary">
-                                      {p.priceFormatted ||
-                                        new Intl.NumberFormat('vi-VN', {
-                                          style: 'currency',
-                                          currency: 'VND',
-                                        }).format(p.price || 0)}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 group-hover:text-primary flex items-center gap-0.5">
-                                      Xem <ExternalLink className="w-2.5 h-2.5" />
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Rich Content: Danh sách voucher ưu đãi */}
-                    {!isUser &&
-                      msg.type === 'VOUCHER_LIST' &&
-                      Array.isArray(msg.data) &&
-                      msg.data.length > 0 && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-2">
-                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                            <Tag className="w-3 h-3 text-amber-500" />
-                            Mã giảm giá khả dụng:
-                          </p>
-                          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                            {msg.data.slice(0, 3).map((v) => {
-                              const code = v.code || v.MaVoucher || 'SMARTZONE';
-                              const isCopied = copiedVoucher === code;
-                              return (
-                                <div
-                                  key={code}
-                                  className="flex items-center justify-between p-2 rounded-xl bg-amber-50/60 border border-amber-200/70"
-                                >
-                                  <div className="min-w-0 pr-2">
-                                    <span className="font-mono font-bold text-xs text-amber-900 tracking-wide">
-                                      {code}
-                                    </span>
-                                    <p className="text-[10px] text-amber-700 truncate mt-0.5">
-                                      {v.description || v.MoTa || 'Giảm giá ưu đãi'}
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopyVoucher(code)}
-                                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all flex items-center gap-1 flex-shrink-0 ${
-                                      isCopied
-                                        ? 'bg-emerald-600 text-white'
-                                        : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                    }`}
-                                  >
-                                    {isCopied ? (
-                                      <>
-                                        <CheckCheck className="w-3 h-3" /> Đã lưu
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-3 h-3" /> Sao chép
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                    {/* Rich Content Cards: ProductList, CompareMatrix, OrderStatus, VoucherList */}
+                    {hasRichContent && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        <ChatbotRichCards
+                          type={msg.type}
+                          data={msg.data}
+                          onNavigate={navigate}
+                          onCopyVoucher={handleCopyVoucher}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
