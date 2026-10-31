@@ -17,7 +17,7 @@ router.post('/login', rateLimitMiddleware, recaptchaMiddleware, authController.l
 // 4. POST /api/v1/auth/forgot-password -> Gửi OTP khôi phục mật khẩu qua Mail & Redis
 router.post('/forgot-password', authController.forgotPassword);
 
-// 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API
+// 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API (Họ tên, Avatar, Giới tính, Ngày sinh, Mật khẩu)
 router.post('/google', authController.googleLogin);
 
 // 6. POST /api/v1/auth/zalo -> Đăng nhập bằng Zalo OAuth

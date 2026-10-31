@@ -378,14 +378,20 @@ const forgotPassword = async (req, res, next) => {
  *   GET https://people.googleapis.com/v1/people/me?personFields=names,photos,genders,birthdays
  *   với Header Authorization: Bearer <accessToken>.
  * - Bóc tách thông tin:
+ *   * Email -> Email
  *   * Họ tên -> TaiKhoan
  *   * Image URL -> AnhDaiDien
  *   * Gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
  *   * Birthday (year, month, day) -> NgaySinh ('YYYY-MM-DD')
- * - Truy vấn MySQL bảng nguoidung:
- *   * Nếu Email đã tồn tại: UPDATE cập nhật AnhDaiDien, GioiTinh, NgaySinh nếu trường đó đang NULL.
- *   * Nếu chưa tồn tại: INSERT user mới (MaVaiTro = 2).
- * - Phát hành JWT Access Token trả về cho client.
+ * - XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung:
+ *   * Kiểm tra theo Email.
+ *   * NẾU CHƯA TỒN TẠI (Tạo mới):
+ *     - Sinh mật khẩu ngẫu nhiên: const randomPass = crypto.randomBytes(16).toString('hex');
+ *     - Băm mật khẩu: const hashedPassword = await bcrypt.hash(randomPass, 10);
+ *     - Thực hiện INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro) VALUES (...) với MaVaiTro = 2 (Khách hàng).
+ *   * NẾU ĐÃ TỒN TẠI (Cập nhật):
+ *     - Cập nhật bổ sung AnhDaiDien, GioiTinh, NgaySinh nếu các cột này đang mang giá trị NULL.
+ * - Trả về JWT Access Token đăng nhập hệ thống.
  */
 const googleLogin = async (req, res, next) => {
   try {
@@ -393,8 +399,8 @@ const googleLogin = async (req, res, next) => {
       req.body?.accessToken ||
       req.body?.token ||
       req.body?.access_token ||
-      (req.headers['authorization']?.startsWith('Bearer ')
-        ? req.headers['authorization'].split(' ')[1]
+      (req.headers?.authorization?.startsWith('Bearer ')
+        ? req.headers.authorization.split(' ')[1]
         : null);
 
     if (!accessToken) {
@@ -516,7 +522,8 @@ const googleLogin = async (req, res, next) => {
       }
     }
 
-    // 4. Truy vấn MySQL bảng nguoidung
+    // 4. XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung
+    // Kiểm tra theo Email
     const [existingUsers] = await pool.query(
       'SELECT * FROM nguoidung WHERE LOWER(Email) = LOWER(?)',
       [trimmedEmail]
@@ -525,9 +532,9 @@ const googleLogin = async (req, res, next) => {
     let user;
 
     if (existingUsers.length > 0) {
+      // NẾU ĐÃ TỒN TẠI (Cập nhật):
+      // Cập nhật bổ sung AnhDaiDien, GioiTinh, NgaySinh nếu các cột này đang mang giá trị NULL
       user = existingUsers[0];
-
-      // Nếu Email đã tồn tại: UPDATE cập nhật AnhDaiDien, GioiTinh, NgaySinh nếu trường đó đang NULL
       const updateFields = [];
       const updateParams = [];
 
@@ -564,15 +571,17 @@ const googleLogin = async (req, res, next) => {
         }
       }
     } else {
-      // Nếu chưa tồn tại: INSERT user mới (MaVaiTro = 2)
-      const randomPassword = crypto.randomBytes(16).toString('hex');
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+      // NẾU CHƯA TỒN TẠI (Tạo mới):
+      // - Sinh mật khẩu ngẫu nhiên: const randomPass = crypto.randomBytes(16).toString('hex');
+      // - Băm mật khẩu: const hashedPassword = await bcrypt.hash(randomPass, 10);
+      // - Thực hiện INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro) VALUES (...) với MaVaiTro = 2 (Khách hàng).
+      const randomPass = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPass, 10);
 
       const [insertResult] = await pool.query(
-        `INSERT INTO nguoidung (TaiKhoan, MatKhau, Email, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
+        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
          VALUES (?, ?, ?, ?, ?, ?, 2)`,
-        [taiKhoan, hashedPassword, trimmedEmail, anhDaiDien, gioiTinh, ngaySinh]
+        [taiKhoan, trimmedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh]
       );
 
       const [newUsers] = await pool.query(
@@ -593,7 +602,7 @@ const googleLogin = async (req, res, next) => {
       user.NgaySinh = user.NgaySinh.split('T')[0];
     }
 
-    // 5. Phát hành JWT Access Token trả về cho client
+    // 5. Trả về JWT Access Token đăng nhập hệ thống
     const payload = {
       MaNguoiDung: user.MaNguoiDung,
       MaVaiTro: user.MaVaiTro,
