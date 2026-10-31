@@ -32,7 +32,7 @@ const LoginPageContent = () => {
   const [shake, setShake] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── Rate Limiting State (Khóa sau 3 lần sai liên tiếp) ──────────────────────
+  // ── Rate Limiting State (Khóa sau 5 lần sai liên tiếp, đếm ngược 60s) ───────
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -71,9 +71,12 @@ const LoginPageContent = () => {
           }
         }
 
-        toast.success(`Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`, {
-          id: 'login-toast',
-        });
+      toast.success(
+        userData?.NgaySinh
+          ? `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
+          : `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
+        { id: 'login-toast' }
+      );
 
         // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
         const intentRaw = sessionStorage.getItem('cart_action_intent');
@@ -186,9 +189,10 @@ const LoginPageContent = () => {
     e.preventDefault();
 
     if (isLocked) {
-      const minutes = Math.floor(lockoutRemaining / 60);
-      const seconds = lockoutRemaining % 60;
-      const msg = `Tài khoản tạm thời bị khóa. Vui lòng thử lại sau ${minutes} phút ${seconds} giây.`;
+      const msg =
+        lockoutRemaining <= 60
+          ? `Hệ thống tạm khóa do nhập sai nhiều lần. Vui lòng chờ đếm ngược ${lockoutRemaining}s!`
+          : `Tài khoản tạm thời bị khóa. Vui lòng thử lại sau ${Math.floor(lockoutRemaining / 60)} phút ${lockoutRemaining % 60} giây.`;
       setLocalErr(msg);
       toast.error(msg, { id: 'login-toast' });
       return;
@@ -264,22 +268,24 @@ const LoginPageContent = () => {
         navigate(dest, { replace: true });
       }
     } else {
+      const isRateLimitResponse = result.status === 429;
       const storedAttempts = parseInt(localStorage.getItem('login_failed_attempts') || '0', 10);
       const newAttempts = storedAttempts + 1;
 
-      if (newAttempts >= 3) {
-        const lockoutTime = Date.now() + 5 * 60 * 1000;
+      if (newAttempts >= 5 || isRateLimitResponse) {
+        const lockoutSeconds = 60;
+        const lockoutTime = Date.now() + lockoutSeconds * 1000;
         localStorage.setItem('login_lockout_until', lockoutTime.toString());
         localStorage.removeItem('login_failed_attempts');
         setIsLocked(true);
-        setLockoutRemaining(300);
+        setLockoutRemaining(lockoutSeconds);
 
-        const lockMsg = 'Đã nhập sai 3 lần liên tiếp. Nút đăng nhập đã bị khóa 5 phút.';
+        const lockMsg = `Bạn đã thử đăng nhập sai 5 lần. Vui lòng chờ 60s trước khi thử lại!`;
         setLocalErr(lockMsg);
         toast.error(lockMsg, { id: 'login-toast', duration: 5000 });
       } else {
         localStorage.setItem('login_failed_attempts', newAttempts.toString());
-        const errMsg = `${result.message || 'Tài khoản hoặc mật khẩu không chính xác'} (Nhập sai ${newAttempts}/3 lần)`;
+        const errMsg = `${result.message || 'Tài khoản hoặc mật khẩu không chính xác'} (Nhập sai ${newAttempts}/5 lần)`;
         setLocalErr(errMsg);
         toast.error(errMsg, { id: 'login-toast' });
       }
@@ -376,7 +382,9 @@ const LoginPageContent = () => {
 
           const userData = event.data.user;
           toast.success(
-            `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`,
+            userData?.NgaySinh
+              ? `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
+              : `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
             { id: 'login-toast' }
           );
 
@@ -412,6 +420,9 @@ const LoginPageContent = () => {
   };
 
   const formatLockTime = (totalSeconds) => {
+    if (totalSeconds <= 60) {
+      return `${totalSeconds}s`;
+    }
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;

@@ -345,19 +345,44 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
   } catch (error) {
     console.error('[chatbotController.sendMessage] Lỗi xử lý:', error);
 
-    // Xử lý các mã lỗi phổ biến từ Gemini API
+    // Xử lý các mã lỗi phổ biến từ Gemini API / Kết nối mạng
     const errorMsg = error?.message || '';
-    let clientMessage = 'Hệ thống trợ lý SmartZone đang bận hoặc gặp sự cố kết nối. Quý khách vui lòng thử lại sau giây lát ạ!';
+    const errorStatus = error?.status || error?.statusCode || error?.response?.status;
+    const errorCode = error?.code || '';
 
-    if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid')) {
-      clientMessage = 'Khóa GEMINI_API_KEY không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại cấu hình backend.';
-    } else if (errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('429')) {
-      clientMessage = 'Hệ thống AI đang quá tải lượt yêu cầu (Quota limit). Quý khách vui lòng đợi ít phút và thử lại nhé!';
+    // Khi hết quota, rate limit, mất mạng, timeout hoặc lỗi từ Gemini API:
+    // Fallback chuẩn: "Hệ thống AI đang bảo trì, vui lòng quay lại sau!"
+    const isQuotaOrLimit =
+      errorMsg.includes('RESOURCE_EXHAUSTED') ||
+      errorMsg.includes('429') ||
+      errorStatus === 429 ||
+      errorMsg.includes('quota') ||
+      errorMsg.includes('Quota exceeded');
+
+    const isNetworkOrTimeout =
+      errorCode === 'ENOTFOUND' ||
+      errorCode === 'ECONNREFUSED' ||
+      errorCode === 'ECONNABORTED' ||
+      errorCode === 'ETIMEDOUT' ||
+      errorMsg.includes('fetch failed') ||
+      errorMsg.includes('network') ||
+      errorMsg.includes('timeout') ||
+      errorMsg.includes('getaddrinfo');
+
+    const isApiKeyIssue =
+      errorMsg.includes('API_KEY_INVALID') ||
+      errorMsg.includes('API key not valid') ||
+      errorMsg.includes('API_KEY');
+
+    let clientMessage = 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';
+
+    if (!isQuotaOrLimit && !isNetworkOrTimeout && !isApiKeyIssue) {
+      clientMessage = 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';
     }
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
-      reply: clientMessage,
+      reply: 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!',
       type: 'TEXT',
       data: null,
       error: process.env.NODE_ENV === 'development' ? errorMsg : undefined

@@ -196,7 +196,13 @@ export const AuthProvider = ({ children }) => {
       const message =
         err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
       setError(message);
-      return { success: false, message };
+      return {
+        success: false,
+        message,
+        status: err.response?.status,
+        headers: err.response?.headers,
+        data: err.response?.data,
+      };
     } finally {
       setLoading(false);
     }

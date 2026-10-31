@@ -234,10 +234,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error('[ChatbotWidget] Gửi tin nhắn lỗi:', error);
+      // Khi hết quota Gemini API Key, mất mạng hoặc server lỗi:
       const errorMsg =
         error.response?.data?.reply ||
-        error.response?.data?.message ||
-        'Dạ hiện tại hệ thống AI SmartZone đang nâng cấp hoặc bận trong giây lát. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ hotline để được hỗ trợ nhé!';
+        'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';
 
       const fallbackAiMessage = {
         id: `ai-error-${Date.now()}`,
