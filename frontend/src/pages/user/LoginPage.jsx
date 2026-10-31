@@ -18,12 +18,15 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuA
  * - Cột phải: Form đăng nhập chuẩn UX, SSO (Google + Zalo), bảo mật SSL 256-bit + 2FA
  */
 const LoginPageContent = () => {
+  // ── 1. Context & Navigation Hooks ──────────────────────────────────────────
   const { login, loginWithGoogle, loginWithZalo, setToken, setUser, loading, error, isAuthenticated, user } = useAuth();
-  const { executeRecaptcha } = useGoogleReCaptcha();
+  const googleReCaptcha = useGoogleReCaptcha();
+  const executeRecaptcha = googleReCaptcha?.executeRecaptcha;
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ── Form State ──────────────────────────────────────────────────────────────
+  // ── 2. State Hooks ──────────────────────────────────────────────────────────
+  // Form State
   const [form, setForm] = useState({ TaiKhoan: '', MatKhau: '', rememberMe: false });
   const [showPassword, setShowPassword] = useState(false);
   const [localErr, setLocalErr] = useState(null);
@@ -32,13 +35,14 @@ const LoginPageContent = () => {
   const [shake, setShake] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── Rate Limiting State (Khóa sau 5 lần sai liên tiếp, đếm ngược 60s) ───────
+  // Rate Limiting State (Khóa sau 5 lần sai liên tiếp, đếm ngược 60s)
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isZaloLoading, setIsZaloLoading] = useState(false);
 
-  // ── Google OAuth Login Hook ─────────────────────────────────────────────────
+  // ── 3. Third-party Auth Hooks ───────────────────────────────────────────────
+  // Google OAuth Login Hook
   const handleGoogleLogin = useGoogleLogin({
     scope: 'openid profile email',
     onSuccess: async (tokenResponse) => {
@@ -70,12 +74,12 @@ const LoginPageContent = () => {
           }
         }
 
-      toast.success(
-        userData?.NgaySinh
-          ? `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
-          : `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
-        { id: 'login-toast' }
-      );
+        toast.success(
+          userData?.NgaySinh
+            ? `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
+            : `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
+          { id: 'login-toast' }
+        );
 
         // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
         const intentRaw = sessionStorage.getItem('cart_action_intent');
@@ -127,6 +131,7 @@ const LoginPageContent = () => {
     },
   });
 
+  // ── 4. Effect Hooks (Tất cả useEffect tập trung tại đây) ───────────────────
   // Điền sẵn số điện thoại / email khi điều hướng từ trang Đăng ký thành công
   useEffect(() => {
     if (location.state?.registeredAccount) {
@@ -164,13 +169,36 @@ const LoginPageContent = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Tự động chuyển hướng nếu người dùng đã đăng nhập trước đó
+  // Zalo SDK & OAuth Initialization
+  useEffect(() => {
+    if (!window.Zalo) {
+      const script = document.createElement('script');
+      script.src = 'https://sp.zalo.me/plugins/sdk.js';
+      script.async = true;
+      script.onload = () => {
+        try {
+          if (window.Zalo && typeof window.Zalo.init === 'function') {
+            window.Zalo.init({
+              version: '2.0',
+              appId: import.meta.env.VITE_ZALO_APP_ID || '4287436940154377836',
+              redirectUrl: `${window.location.origin}/auth/zalo/callback`,
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi khi khởi tạo Zalo JS SDK:', e);
+        }
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // ── 5. Early Return (Đảm bảo đặt SAU TOÀN BỘ khai báo Hook) ────────────────
   if (isAuthenticated) {
     const dest = user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
     return <Navigate to={dest} replace />;
   }
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── 6. Handlers ────────────────────────────────────────────────────────────
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({
@@ -211,13 +239,13 @@ const LoginPageContent = () => {
 
     // Kích hoạt executeRecaptcha('login') để lấy recaptchaToken
     let recaptchaToken = '';
-    if (executeRecaptcha) {
+    if (typeof executeRecaptcha === 'function') {
       try {
         recaptchaToken = await executeRecaptcha('login');
       } catch (recaptchaErr) {
         console.error('Lỗi khi thực thi executeRecaptcha:', recaptchaErr);
       }
-    } else if (window.grecaptcha?.execute) {
+    } else if (typeof window.grecaptcha?.execute === 'function') {
       try {
         recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
       } catch (recaptchaErr) {
@@ -293,29 +321,6 @@ const LoginPageContent = () => {
       setTimeout(() => setShake(false), 600);
     }
   };
-
-  // ── Zalo SDK & OAuth Initialization ─────────────────────────────────────────
-  useEffect(() => {
-    if (!window.Zalo) {
-      const script = document.createElement('script');
-      script.src = 'https://sp.zalo.me/plugins/sdk.js';
-      script.async = true;
-      script.onload = () => {
-        try {
-          if (window.Zalo && typeof window.Zalo.init === 'function') {
-            window.Zalo.init({
-              version: '2.0',
-              appId: import.meta.env.VITE_ZALO_APP_ID || '4287436940154377836',
-              redirectUrl: `${window.location.origin}/auth/zalo/callback`,
-            });
-          }
-        } catch (e) {
-          console.warn('Lỗi khi khởi tạo Zalo JS SDK:', e);
-        }
-      };
-      document.body.appendChild(script);
-    }
-  }, []);
 
   // Helper sinh mã code_verifier và code_challenge cho chuẩn bảo mật PKCE
   const generatePKCE = async () => {
