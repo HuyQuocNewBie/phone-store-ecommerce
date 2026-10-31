@@ -87,10 +87,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
     };
   };
 
-  // Khởi tạo tin nhắn từ localStorage nếu có
+  // Khởi tạo tin nhắn từ sessionStorage nếu có
   const [messages, setMessages] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -106,10 +106,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Lưu lịch sử tin nhắn vào localStorage
+  // Lưu lịch sử tin nhắn vào sessionStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch (e) {
       console.warn('[ChatbotWidget] Không thể lưu lịch sử chat:', e);
     }
@@ -141,7 +141,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const handleClearHistory = () => {
     setMessages([createWelcomeMessage()]);
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
     } catch {
       // Ignore
     }
