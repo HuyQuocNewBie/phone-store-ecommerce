@@ -98,7 +98,7 @@ export const ProductListCard = ({ products = [], data, onNavigate }) => {
   }
 
   return (
-    <div className="w-full my-2 text-slate-800">
+    <div className="w-full min-w-0 my-1.5 text-slate-800">
       {/* Header bar */}
       <div className="flex items-center justify-between mb-2 px-0.5">
         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
@@ -137,42 +137,24 @@ export const ProductListCard = ({ products = [], data, onNavigate }) => {
       <div
         ref={scrollContainerRef}
         onScroll={checkScroll}
-        className="flex gap-2.5 overflow-x-auto pb-2 pt-0.5 scroll-smooth no-scrollbar snap-x snap-mandatory"
-        style={{ scrollbarWidth: 'thin' }}
+        className="flex gap-2.5 overflow-x-auto pb-2 pt-0.5 scroll-smooth scrollbar-hide no-scrollbar snap-x snap-mandatory"
       >
         {list.map((item, idx) => {
           const id = item.productId || item.MaSanPham || item.id;
           const name = item.name || item.TenSanPham || 'Điện thoại thông minh';
           const price = item.priceFormatted || formatVND(item.price || item.Gia || 0);
           const image = item.imageUrl || item.Anh || FALLBACK_IMAGE;
-          const brand = item.brand || item.ThuongHieu || null;
-          const storage = item.storage || item.DungLuong || null;
-          const color = item.color || item.MauSac || null;
           const isOutOfStock = item.stock !== undefined && item.stock <= 0;
 
           return (
             <div
               key={id || idx}
               onClick={() => id && onNavigate?.(`/products/${id}`)}
-              className="min-w-[190px] w-[190px] flex-shrink-0 snap-start bg-white rounded-2xl p-2.5 border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer group select-none"
+              className="min-w-[175px] w-[175px] flex-shrink-0 snap-start bg-white rounded-2xl p-2.5 border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer group select-none"
             >
               <div>
-                {/* Ảnh sản phẩm + nhãn */}
-                <div className="relative w-full h-24 bg-slate-50/80 rounded-xl flex items-center justify-center p-1.5 mb-2 overflow-hidden border border-slate-100 group-hover:bg-blue-50/30 transition-colors">
-                  {brand && (
-                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-white/90 text-slate-700 shadow-2xs border border-slate-100">
-                      {brand}
-                    </span>
-                  )}
-                  {isOutOfStock ? (
-                    <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                      Hết hàng
-                    </span>
-                  ) : (
-                    <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
-                      Sẵn hàng
-                    </span>
-                  )}
+                {/* Ảnh sản phẩm sạch sẽ, tối giản */}
+                <div className="w-full h-24 bg-slate-50/80 rounded-xl flex items-center justify-center p-2 mb-2 overflow-hidden border border-slate-100 group-hover:bg-blue-50/30 transition-colors">
                   <img
                     src={image}
                     alt={name}
@@ -192,25 +174,16 @@ export const ProductListCard = ({ products = [], data, onNavigate }) => {
                   {name}
                 </h4>
 
-                {/* Cấu hình chính (Tags) */}
-                <div className="flex flex-wrap items-center gap-1 my-1.5 min-h-[18px]">
-                  {storage && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                      {storage}
-                    </span>
-                  )}
-                  {color && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 truncate max-w-[95px]">
-                      {color}
-                    </span>
-                  )}
-                </div>
-
-                {/* Giá bán */}
-                <div className="mt-1">
+                {/* Giá bán & Trạng thái hết hàng (nếu có) */}
+                <div className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-[13px] font-extrabold text-blue-600 tracking-tight">
                     {price}
                   </span>
+                  {isOutOfStock && (
+                    <span className="text-[10px] text-rose-500 font-medium">
+                      (Hết hàng)
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -345,7 +318,7 @@ export const CompareMatrixCard = ({ products = [], onNavigate }) => {
   ];
 
   return (
-    <div className="w-full my-2 text-slate-800">
+    <div className="w-full min-w-0 my-1.5 text-slate-800">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 px-0.5">
         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
