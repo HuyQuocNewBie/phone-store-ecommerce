@@ -325,25 +325,27 @@ const compareProducts = async ({ productIds } = {}) => {
 };
 
 /**
- * 3. getOrderStatus({ orderCode, phoneNumber })
+ * 3. getOrderStatus({ orderCode, phoneNumber, userId })
  * Tra cứu tiến độ đơn hàng bằng cách JOIN bảng `donhang` và `chitietdonhang`.
- * Hỗ trợ tra cứu theo mã đơn hàng (orderCode) hoặc số điện thoại (phoneNumber).
+ * Hỗ trợ tra cứu theo mã đơn hàng (orderCode), số điện thoại (phoneNumber) hoặc mã khách hàng (userId).
  *
  * @param {Object} params
  * @param {string|number} [params.orderCode] - Mã đơn hàng (ví dụ: "SZ202609170002" hoặc số ID "2")
  * @param {string} [params.phoneNumber] - Số điện thoại đặt hàng (ví dụ: "0901234567")
+ * @param {number} [params.userId] - Mã người dùng (userId) đã đăng nhập
  * @returns {Promise<Object>} Trạng thái đơn hàng và các mặt hàng bên trong
  */
-const getOrderStatus = async ({ orderCode, phoneNumber } = {}) => {
+const getOrderStatus = async ({ orderCode, phoneNumber, userId } = {}) => {
   try {
     const rawOrderCode = orderCode !== undefined && orderCode !== null ? String(orderCode).trim() : '';
     const rawPhone = phoneNumber !== undefined && phoneNumber !== null ? String(phoneNumber).trim() : '';
+    const parsedUserId = userId !== undefined && userId !== null && !isNaN(Number(userId)) ? Number(userId) : null;
 
-    if (!rawOrderCode && !rawPhone) {
+    if (!rawOrderCode && !rawPhone && !parsedUserId) {
       return {
         success: false,
         message:
-          'Vui lòng cung cấp mã đơn hàng (ví dụ: "SZ202609170002") hoặc số điện thoại đặt hàng (ví dụ: "0901234567") để tra cứu.'
+          'Vui lòng cung cấp mã đơn hàng (ví dụ: "SZ202609170002"), số điện thoại hoặc mã người dùng để tra cứu.'
       };
     }
 
@@ -360,13 +362,17 @@ const getOrderStatus = async ({ orderCode, phoneNumber } = {}) => {
     } else if (rawOrderCode) {
       whereClauses.push('CAST(d.MaDonHang AS CHAR) = ?');
       queryParams.push(rawOrderCode);
-    }
-
-    // Điều kiện lọc theo số điện thoại
-    if (sanitizedPhone) {
+    } else if (sanitizedPhone && parsedUserId) {
+      const localPhone = sanitizedPhone.replace(/^\+84/, '0');
+      whereClauses.push('(d.SoDienThoai = ? OR d.SoDienThoai LIKE ? OR d.MaNguoiDung = ?)');
+      queryParams.push(localPhone, `%${localPhone}%`, parsedUserId);
+    } else if (sanitizedPhone) {
       const localPhone = sanitizedPhone.replace(/^\+84/, '0');
       whereClauses.push('(d.SoDienThoai = ? OR d.SoDienThoai LIKE ?)');
       queryParams.push(localPhone, `%${localPhone}%`);
+    } else if (parsedUserId) {
+      whereClauses.push('d.MaNguoiDung = ?');
+      queryParams.push(parsedUserId);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -691,7 +697,7 @@ const toolsDeclaration = [
   {
     name: 'getOrderStatus',
     description:
-      'Tra cứu trạng thái xử lý, tiến độ vận chuyển đơn hàng, thông tin người nhận và chi tiết các sản phẩm đã mua dựa vào mã đơn hàng (orderCode) hoặc số điện thoại (phoneNumber).',
+      'Tra cứu trạng thái xử lý, tiến độ vận chuyển đơn hàng, thông tin người nhận và chi tiết các sản phẩm đã mua dựa vào mã đơn hàng (orderCode), số điện thoại (phoneNumber) hoặc mã khách hàng (userId).',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -704,6 +710,11 @@ const toolsDeclaration = [
           type: Type.STRING,
           description:
             'Số điện thoại người nhận đã dùng khi đặt hàng để tìm kiếm đơn hàng (ví dụ: "0901234567").'
+        },
+        userId: {
+          type: Type.INTEGER,
+          description:
+            'Mã người dùng (User ID) đã đăng nhập hệ thống để tự động tra cứu danh sách đơn hàng của khách.'
         }
       }
     }

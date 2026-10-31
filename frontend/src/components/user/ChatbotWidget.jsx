@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import ChatbotRichCards from './ChatbotRichCards';
 
 /**
@@ -54,13 +55,36 @@ const STORAGE_KEY = 'smartzone_chatbot_history';
  *  - Footer: Input câu hỏi + Nút gửi + phím tắt Enter.
  *  - Hỗ trợ hiển thị rich cards (sản phẩm, voucher, so sánh) trả về từ Gemini AI.
  */
-const ChatbotWidget = () => {
+const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Tích hợp AuthContext: ưu tiên props truyền vào, nếu không có thì lấy trực tiếp từ Context
+  const authContext = useAuth();
+  const user = propUser !== undefined ? propUser : authContext?.user;
+  const token =
+    propToken !== undefined
+      ? propToken
+      : authContext?.token || localStorage.getItem('token') || localStorage.getItem('accessToken');
+
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedVoucher, setCopiedVoucher] = useState(null);
+
+  // Lời chào cá nhân hóa theo thông tin tài khoản đăng nhập
+  const createWelcomeMessage = () => {
+    const customerName = user?.HoTen || user?.TaiKhoan;
+    return {
+      id: 'welcome-msg',
+      role: 'assistant',
+      content: customerName
+        ? `Xin chào ${customerName}! 👋 Em là Trợ lý AI SmartZone 24/7. Em có thể hỗ trợ tra cứu đơn hàng, tư vấn chọn mua điện thoại hoặc tìm voucher giảm giá cho anh/chị. Em có thể hỗ trợ gì ạ?`
+        : DEFAULT_WELCOME_MESSAGE.content,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      type: 'TEXT',
+    };
+  };
 
   // Khởi tạo tin nhắn từ localStorage nếu có
   const [messages, setMessages] = useState(() => {
@@ -75,7 +99,7 @@ const ChatbotWidget = () => {
     } catch {
       // Fallback
     }
-    return [DEFAULT_WELCOME_MESSAGE];
+    return [createWelcomeMessage()];
   });
 
   const messagesEndRef = useRef(null);
@@ -114,12 +138,7 @@ const ChatbotWidget = () => {
 
   // Xóa toàn bộ lịch sử trò chuyện
   const handleClearHistory = () => {
-    setMessages([
-      {
-        ...DEFAULT_WELCOME_MESSAGE,
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
+    setMessages([createWelcomeMessage()]);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -170,13 +189,32 @@ const ChatbotWidget = () => {
           content: m.content,
         }));
 
+      // Chuẩn bị Header Authorization và Payload gửi lên API
+      const headers = {};
+      const authToken =
+        token || localStorage.getItem('token') || localStorage.getItem('accessToken');
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const response = await api.post(
         '/chatbot/message',
         {
           message: text,
           conversationHistory,
+          user: user
+            ? {
+                MaNguoiDung: user.MaNguoiDung,
+                HoTen: user.HoTen,
+                SoDienThoai: user.SoDienThoai,
+                Email: user.Email,
+              }
+            : undefined,
         },
-        { timeout: 25000 }
+        {
+          headers,
+          timeout: 25000,
+        }
       );
 
       const resData = response.data || {};

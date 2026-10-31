@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
 import UserProtectedRoute from '../components/user/UserProtectedRoute';
 import AdminLayout from '../layouts/AdminLayout';
+import MainLayout from '../layouts/MainLayout';
 import LoginPage from '../pages/user/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import DashboardPage from '../pages/admin/dashboard/DashboardPage';
@@ -43,33 +44,37 @@ import ZaloCallbackPage from '../pages/user/ZaloCallbackPage';
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* ── Public Routes ── */}
-      <Route path="/" element={<HomePage />} />
-      <Route path="/products" element={<CatalogPage />} />
-      <Route path="/products/:id" element={<ProductDetailPage />} />
-      <Route path="/compare" element={<ComparePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/auth/zalo/callback" element={<ZaloCallbackPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/verify-otp" element={<VerifyOtpPage />} />
-      <Route path="/payment-return" element={<PaymentReturnPage />} />
-      <Route path="/dang-ky" element={<Navigate to="/register" replace />} />
-      <Route path="/xac-thuc-otp" element={<Navigate to="/verify-otp" replace />} />
-      <Route path="/404" element={<NotFoundPage />} />
+      {/* ── Public & User Protected Routes (Bọc bởi MainLayout) ── */}
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/products" element={<CatalogPage />} />
+        <Route path="/products/:id" element={<ProductDetailPage />} />
+        <Route path="/compare" element={<ComparePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/zalo/callback" element={<ZaloCallbackPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/verify-otp" element={<VerifyOtpPage />} />
+        <Route path="/payment-return" element={<PaymentReturnPage />} />
+        <Route path="/dang-ky" element={<Navigate to="/register" replace />} />
+        <Route path="/xac-thuc-otp" element={<Navigate to="/verify-otp" replace />} />
+        <Route path="/404" element={<NotFoundPage />} />
 
-      {/* ── Compatibility / Legacy Redirects (Ngăn ngừa lỗi mất layout khi chuyển trang trực tiếp bằng URL) ── */}
-      <Route path="/orders" element={<Navigate to="/user/orders" replace />} />
-      <Route path="/wishlist" element={<Navigate to="/user/wishlist" replace />} />
-      <Route path="/profile" element={<Navigate to="/user/profile" replace />} />
-      <Route path="/addresses" element={<Navigate to="/user/addresses" replace />} />
+        {/* ── Compatibility / Legacy Redirects (Ngăn ngừa lỗi mất layout khi chuyển trang trực tiếp bằng URL) ── */}
+        <Route path="/orders" element={<Navigate to="/user/orders" replace />} />
+        <Route path="/wishlist" element={<Navigate to="/user/wishlist" replace />} />
+        <Route path="/profile" element={<Navigate to="/user/profile" replace />} />
+        <Route path="/addresses" element={<Navigate to="/user/addresses" replace />} />
 
-      {/* ── User Protected Routes ── */}
+        {/* ── User Cart & Checkout Routes ── */}
+        <Route element={<UserProtectedRoute />}>
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+        </Route>
+      </Route>
+
+      {/* ── Cấu trúc Nested Routes người dùng bọc bởi AccountLayout ── */}
       <Route element={<UserProtectedRoute />}>
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
-
-        {/* ── Cấu trúc Nested Routes người dùng bọc bởi AccountLayout ── */}
         <Route path="/user" element={<AccountLayout />}>
           <Route index element={<Navigate to="profile" replace />} />
           <Route path="profile" element={<ProfilePage />} />

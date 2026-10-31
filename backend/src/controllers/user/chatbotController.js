@@ -10,6 +10,8 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 require('dotenv').config();
 
+const jwt = require('jsonwebtoken');
+const { pool } = require('../../../config/db');
 const { GoogleGenAI } = require('@google/genai');
 const { geminiTools, executeChatbotTool } = require('../../utils/chatbotTools');
 
@@ -117,7 +119,7 @@ let cachedActiveModel = null;
  * @param {Array} tools
  * @returns {Promise<Object>}
  */
-const generateContentWithFallback = async (ai, contents, tools) => {
+const generateContentWithFallback = async (ai, contents, tools, systemInstruction = SYSTEM_INSTRUCTION) => {
   const modelsToTry = cachedActiveModel
     ? [cachedActiveModel, DEFAULT_MODEL, ...FALLBACK_MODELS]
     : [DEFAULT_MODEL, ...FALLBACK_MODELS.filter((m) => m !== DEFAULT_MODEL)];
@@ -131,7 +133,7 @@ const generateContentWithFallback = async (ai, contents, tools) => {
         model: modelName,
         contents,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction,
           tools
         }
       });
@@ -162,7 +164,7 @@ const generateContentWithFallback = async (ai, contents, tools) => {
  */
 const sendMessage = async (req, res, next) => {
   try {
-    const { message, conversationHistory = [] } = req.body;
+    const { message, conversationHistory = [], user: bodyUser } = req.body;
 
     // Kiểm tra tính hợp lệ của tin nhắn đầu vào
     if (!message || typeof message !== 'string' || !message.trim()) {
@@ -170,6 +172,54 @@ const sendMessage = async (req, res, next) => {
         success: false,
         message: 'Nội dung tin nhắn (message) không được để trống.'
       });
+    }
+
+    // 1. Trích xuất thông tin người dùng từ Header Authorization (JWT) hoặc body (nếu có)
+    let currentUser = null;
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+        if (decoded && decoded.MaNguoiDung) {
+          const [userRows] = await pool.query(
+            'SELECT MaNguoiDung, TaiKhoan, HoTen, Email, SoDienThoai FROM nguoidung WHERE MaNguoiDung = ?',
+            [decoded.MaNguoiDung]
+          );
+          if (userRows && userRows.length > 0) {
+            currentUser = userRows[0];
+          }
+        }
+      } catch (tokenErr) {
+        console.warn('[chatbotController] Xác thực token thất bại hoặc token hết hạn:', tokenErr.message);
+      }
+    }
+
+    // Fallback: Nếu JWT không giải mã được hoặc môi trường dev truyền thông tin user qua body
+    if (!currentUser && bodyUser && bodyUser.MaNguoiDung) {
+      currentUser = bodyUser;
+    }
+
+    // 2. Tạo System Instruction động kèm ngữ cảnh khách hàng đăng nhập
+    let dynamicSystemInstruction = SYSTEM_INSTRUCTION;
+    if (currentUser) {
+      dynamicSystemInstruction += `
+
+--- THÔNG TIN KHÁCH HÀNG ĐANG ĐĂNG NHẬP (USER CONTEXT) ---
+- Mã người dùng (userId): ${currentUser.MaNguoiDung}
+- Họ tên khách hàng: ${currentUser.HoTen || currentUser.TaiKhoan}
+- Số điện thoại: ${currentUser.SoDienThoai || 'Chưa cập nhật'}
+- Email: ${currentUser.Email || 'Chưa cập nhật'}
+
+QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
+1. Khách hàng đã đăng nhập tài khoản trên hệ thống. Hãy xưng "Em" và xưng hô thân mật với khách là "${currentUser.HoTen || currentUser.TaiKhoan}".
+2. KHI KHÁCH HÀNG YÊU CẦU: "tra cứu đơn hàng", "đơn hàng của tôi", "kiểm tra đơn hàng", "tôi đã mua gì", "đơn hàng gần đây", "tiến độ giao hàng", v.v.:
+   - TUYỆT ĐỐI KHÔNG HỎI LẠI số điện thoại hay bắt khách cung cấp lại mã/thông tin cá nhân!
+   - HÃY TỰ ĐỘNG gọi tool \`getOrderStatus\` ngay lập tức với:
+     + userId: ${currentUser.MaNguoiDung}
+     + phoneNumber: "${currentUser.SoDienThoai || ''}"
+3. Nếu khách hàng chủ động cung cấp một mã đơn hàng cụ thể (ví dụ: "SZ202609170002" hoặc "#2"), hãy ưu tiên truyền orderCode đó vào tool \`getOrderStatus\`.
+`;
     }
 
     const ai = getAIClient();
@@ -187,7 +237,7 @@ const sendMessage = async (req, res, next) => {
     while (currentTurn < MAX_TURNS) {
       currentTurn++;
 
-      const { response } = await generateContentWithFallback(ai, contents, geminiTools);
+      const { response } = await generateContentWithFallback(ai, contents, geminiTools, dynamicSystemInstruction);
 
       // Kiểm tra nếu Gemini yêu cầu gọi Function (Tool Call)
       if (response.functionCalls && response.functionCalls.length > 0) {

@@ -3,6 +3,8 @@ import { ChevronRight, Home } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import AccountSidebar from './AccountSidebar';
+import ChatbotWidget from './ChatbotWidget';
+import { useAuth } from '../../context/AuthContext';
 
 /* ─── Breadcrumb Map ────────────────────────────────────────────────────────── */
 const PAGE_TITLES = {
@@ -60,6 +62,7 @@ const Breadcrumb = ({ currentTitle }) => (
  */
 const AccountLayout = () => {
   const { pathname } = useLocation();
+  const { user, token } = useAuth();
 
   // Resolve tên trang từ pathname hiện tại
   // Hỗ trợ khớp chính xác lẫn các sub-path (vd: /user/orders/123)
@@ -101,6 +104,9 @@ const AccountLayout = () => {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <Footer />
+
+      {/* ── Floating Chatbot Widget ──────────────────────────────────────── */}
+      <ChatbotWidget user={user} token={token} />
     </div>
   );
 };
