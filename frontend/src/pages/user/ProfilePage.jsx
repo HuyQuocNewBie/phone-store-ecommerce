@@ -102,19 +102,19 @@ const ProfilePage = () => {
       const resolvedAddress =
         defaultAddrStr ||
         backendUser?.DiaChi ||
-        authUser?.DiaChiMacDinh ||
-        authUser?.DiaChi ||
         'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội';
 
       setDefaultAddress(resolvedAddress);
 
       const mergedProfile = {
-        ...(authUser || {}),
         ...backendUser,
         DiaChiMacDinh: resolvedAddress,
       };
 
-      setProfileData(mergedProfile);
+      setProfileData((prev) => ({
+        ...(prev || {}),
+        ...mergedProfile,
+      }));
 
       if (updateUser) {
         updateUser(mergedProfile);
@@ -122,11 +122,12 @@ const ProfilePage = () => {
     } catch (err) {
       console.error('Không thể tải thông tin hồ sơ & địa chỉ:', err);
     }
-  }, [authUser, updateUser]);
+  }, [updateUser]);
 
   useEffect(() => {
     fetchProfileAndAddresses();
-  }, [fetchProfileAndAddresses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Hợp nhất dữ liệu user giữa profileData và authUser
   const user = { ...(authUser || {}), ...(profileData || {}) };

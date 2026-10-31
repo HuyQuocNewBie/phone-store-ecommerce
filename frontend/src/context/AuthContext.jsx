@@ -129,25 +129,28 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      const mergedUser = normalizeUserData({
-        ...(user || {}),
-        ...profileData,
-        DiaChiMacDinh:
-          defaultAddrStr ||
-          profileData.DiaChi ||
-          user?.DiaChiMacDinh ||
-          user?.DiaChi ||
-          'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội',
+      let updatedUser = null;
+      setUser((prevUser) => {
+        updatedUser = normalizeUserData({
+          ...(prevUser || {}),
+          ...profileData,
+          DiaChiMacDinh:
+            defaultAddrStr ||
+            profileData.DiaChi ||
+            prevUser?.DiaChiMacDinh ||
+            prevUser?.DiaChi ||
+            'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội',
+        });
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return updatedUser;
       });
 
-      setUser(mergedUser);
-      localStorage.setItem('user', JSON.stringify(mergedUser));
-      return mergedUser;
+      return updatedUser;
     } catch (err) {
       console.warn('Lỗi đồng bộ thông tin hồ sơ:', err);
       return null;
     }
-  }, [token, user]);
+  }, [token]);
 
   // Tự động đồng bộ profile khi có token
   useEffect(() => {
