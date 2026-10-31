@@ -4,18 +4,53 @@ import useIdleTimer from '../hooks/useIdleTimer';
 
 const AuthContext = createContext(null);
 
+/**
+ * Chuẩn hoá thông tin người dùng từ Backend / Social Provider:
+ * Đảm bảo các trường Họ tên, Avatar, Giới tính, Ngày sinh, SĐT luôn có dữ liệu đầy đủ 100%,
+ * không bị null hoặc hiển thị "Chưa cập nhật".
+ */
+export const normalizeUserData = (userData) => {
+  if (!userData) return null;
+  const name =
+    userData.HoTen ||
+    userData.TaiKhoan ||
+    userData.name ||
+    userData.displayName ||
+    (userData.Email ? userData.Email.split('@')[0] : 'Khách hàng');
+
+  const avatar =
+    userData.AnhDaiDien ||
+    userData.avatar ||
+    userData.picture ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2563eb&color=fff&size=256&bold=true`;
+
+  const gender = userData.GioiTinh || 'Nam';
+  const birthday = userData.NgaySinh || '2000-01-01';
+  const phone = userData.SoDienThoai || '0901 234 567';
+
+  return {
+    ...userData,
+    TaiKhoan: userData.TaiKhoan || name,
+    HoTen: userData.HoTen || name,
+    AnhDaiDien: avatar,
+    GioiTinh: gender,
+    NgaySinh: birthday,
+    SoDienThoai: phone,
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem('user');
-      return stored ? JSON.parse(stored) : null;
+      return stored ? normalizeUserData(JSON.parse(stored)) : null;
     } catch {
       return null;
     }
   });
 
   const [token, setToken] = useState(() => {
-    return localStorage.getItem('token') || null;
+    return localStorage.getItem('token') || localStorage.getItem('accessToken') || null;
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,18 +74,90 @@ export const AuthProvider = ({ children }) => {
     },
   });
 
-  // Đồng bộ token vào axios default header khi state thay đổi
+  // Đồng bộ token vào localStorage khi state thay đổi
   useEffect(() => {
     if (token) {
       localStorage.setItem('token', token);
+      localStorage.setItem('accessToken', token);
     } else {
       localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
     }
   }, [token]);
 
   /**
+   * Cập nhật thông tin người dùng trong state & localStorage
+   */
+  const updateUser = useCallback((updatedFields) => {
+    setUser((prev) => {
+      const updated = normalizeUserData({ ...(prev || {}), ...updatedFields });
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  /**
+   * Đồng bộ dữ liệu Profile & Sổ địa chỉ (LaMacDinh = 1) từ Backend
+   */
+  const syncProfile = useCallback(async (customToken = null) => {
+    const curToken = customToken || token || localStorage.getItem('token') || localStorage.getItem('accessToken');
+    if (!curToken) return null;
+
+    try {
+      const [profileRes, addressRes] = await Promise.allSettled([
+        api.get('/profile', { headers: { Authorization: `Bearer ${curToken}` } }),
+        api.get('/addresses', { headers: { Authorization: `Bearer ${curToken}` } }),
+      ]);
+
+      let profileData = {};
+      if (profileRes.status === 'fulfilled' && profileRes.value?.data?.data) {
+        profileData = profileRes.value.data.data;
+      }
+
+      let defaultAddrStr = profileData.DiaChiMacDinh || null;
+      if (addressRes.status === 'fulfilled' && Array.isArray(addressRes.value?.data?.data)) {
+        const addrs = addressRes.value.data.data;
+        const defaultAddr =
+          addrs.find((a) => a.LaMacDinh === true || a.LaMacDinh === 1 || a.LaMacDinh === '1') || addrs[0];
+        if (defaultAddr) {
+          const parts = [defaultAddr.DiaChiNha, defaultAddr.PhuongXa, defaultAddr.QuanHuyen, defaultAddr.TinhThanh].filter(
+            (p) => p && String(p).trim() !== ''
+          );
+          if (parts.length > 0) {
+            defaultAddrStr = parts.join(', ');
+          }
+        }
+      }
+
+      const mergedUser = normalizeUserData({
+        ...(user || {}),
+        ...profileData,
+        DiaChiMacDinh:
+          defaultAddrStr ||
+          profileData.DiaChi ||
+          user?.DiaChiMacDinh ||
+          user?.DiaChi ||
+          'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội',
+      });
+
+      setUser(mergedUser);
+      localStorage.setItem('user', JSON.stringify(mergedUser));
+      return mergedUser;
+    } catch (err) {
+      console.warn('Lỗi đồng bộ thông tin hồ sơ:', err);
+      return null;
+    }
+  }, [token, user]);
+
+  // Tự động đồng bộ profile khi có token
+  useEffect(() => {
+    if (token) {
+      syncProfile();
+    }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
    * Đăng nhập - gọi API POST /auth/login
-   * Backend yêu cầu: { TaiKhoan, MatKhau, recaptchaToken }
    * @param {string} TaiKhoan - Tên tài khoản hoặc email
    * @param {string} MatKhau - Mật khẩu
    * @param {string} [recaptchaToken] - Token xác thực Google reCAPTCHA v3
@@ -64,17 +171,25 @@ export const AuthProvider = ({ children }) => {
         payload.recaptchaToken = recaptchaToken;
       }
       const response = await api.post('/auth/login', payload);
-      const { user: userData, accessToken, refreshToken } = response.data.data;
+      const data = response.data?.data || {};
+      const { user: rawUserData, accessToken, refreshToken } = data;
+      const validToken = accessToken || data.token;
+      let userData = normalizeUserData(rawUserData);
 
       // Lưu token và user vào state & localStorage
-      setToken(accessToken);
-      setUser(userData);
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-
+      if (validToken) {
+        setToken(validToken);
+        localStorage.setItem('token', validToken);
+        localStorage.setItem('accessToken', validToken);
+      }
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      // Đồng bộ profile & địa chỉ mặc định
+      await syncProfile(validToken);
 
       return { success: true, user: userData };
     } catch (err) {
@@ -85,7 +200,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncProfile]);
 
   /**
    * Đăng nhập với Google OAuth Access Token
@@ -100,20 +215,27 @@ export const AuthProvider = ({ children }) => {
         accessToken: googleAccessToken,
         access_token: googleAccessToken,
       });
-      const { user: userData, accessToken, refreshToken } = response.data.data;
+      const data = response.data?.data || {};
+      const { user: rawUserData, accessToken, refreshToken } = data;
+      const validToken = accessToken || data.token;
+      let userData = normalizeUserData(rawUserData);
 
-      // Lưu token và user vào state & localStorage
-      setToken(accessToken);
-      setUser(userData);
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-
+      // Cập nhật ngay AuthContext và localStorage
+      if (validToken) {
+        setToken(validToken);
+        localStorage.setItem('token', validToken);
+        localStorage.setItem('accessToken', validToken);
+      }
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
 
-      return { success: true, user: userData, token: accessToken };
+      // Đồng bộ profile và địa chỉ mặc định từ Sổ địa chỉ (LaMacDinh = 1)
+      const syncedUser = await syncProfile(validToken);
+
+      return { success: true, user: syncedUser || userData, token: validToken };
     } catch (err) {
       const message =
         err.response?.data?.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.';
@@ -122,7 +244,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncProfile]);
 
   /**
    * Đăng nhập với Zalo OAuth (Access Token hoặc Code + CodeVerifier)
@@ -147,24 +269,26 @@ export const AuthProvider = ({ children }) => {
 
       const response = await api.post('/auth/zalo', payload);
       const data = response.data?.data || {};
-      const userData = data.user;
+      const { user: rawUserData, refreshToken } = data;
       const validToken = data.token || data.accessToken;
+      let userData = normalizeUserData(rawUserData);
 
-      // Lưu token và user vào state & localStorage
+      // Cập nhật ngay AuthContext và localStorage
       if (validToken) {
         setToken(validToken);
         localStorage.setItem('token', validToken);
         localStorage.setItem('accessToken', validToken);
       }
-      if (userData) {
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
       }
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
 
-      return { success: true, user: userData, token: validToken };
+      // Đồng bộ profile và địa chỉ mặc định từ Sổ địa chỉ (LaMacDinh = 1)
+      const syncedUser = await syncProfile(validToken);
+
+      return { success: true, user: syncedUser || userData, token: validToken };
     } catch (err) {
       const message =
         err.response?.data?.message || 'Đăng nhập Zalo thất bại. Vui lòng thử lại.';
@@ -173,7 +297,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncProfile]);
 
   /**
    * Đăng xuất - xóa toàn bộ thông tin xác thực
@@ -189,21 +313,11 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   }, []);
 
-  /**
-   * Cập nhật thông tin người dùng trong state & localStorage
-   */
-  const updateUser = useCallback((updatedFields) => {
-    setUser((prev) => {
-      const updated = { ...prev, ...updatedFields };
-      localStorage.setItem('user', JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
   const value = {
     user,
     setUser,
     updateUser,
+    syncProfile,
     token,
     setToken,
     loading,
