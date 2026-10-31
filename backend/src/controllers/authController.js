@@ -163,5 +163,6 @@ const getAdminProfile = async (req, res, next) => {
 module.exports = {
   login,
   refreshToken,
-  getAdminProfile
+  getAdminProfile,
+  googleLogin: require('./user/authController').googleLogin
 };

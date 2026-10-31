@@ -40,8 +40,7 @@ const LoginPageContent = () => {
 
   // ── Google OAuth Login Hook ─────────────────────────────────────────────────
   const handleGoogleLogin = useGoogleLogin({
-    scope:
-      'openid profile email https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read',
+    scope: 'openid profile email',
     onSuccess: async (tokenResponse) => {
       setIsGoogleLoading(true);
       try {

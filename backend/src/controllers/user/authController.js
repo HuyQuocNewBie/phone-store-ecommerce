@@ -372,26 +372,22 @@ const forgotPassword = async (req, res, next) => {
 
 /**
  * 5. POST /api/v1/auth/google
- * Đăng nhập Google:
- * - Nhận accessToken từ client gửi lên.
- * - Gọi Google People API:
- *   GET https://people.googleapis.com/v1/people/me?personFields=names,photos,genders,birthdays
- *   với Header Authorization: Bearer <accessToken>.
- * - Bóc tách thông tin:
- *   * Email -> Email
- *   * Họ tên -> TaiKhoan
- *   * Image URL -> AnhDaiDien
- *   * Gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
- *   * Birthday (year, month, day) -> NgaySinh ('YYYY-MM-DD')
+ * Đăng nhập Google (OAuth 2.0):
+ * - Nhận accessToken từ client gửi lên (hoặc Authorization Header).
+ * - Sử dụng 3 Scope cơ bản: 'openid profile email' (không yêu cầu Google Verification, tránh lỗi 403 access_denied).
+ * - Chỉ bóc tách 3 thông tin chính từ Google Profile:
+ *   * email -> Email
+ *   * name -> TaiKhoan (Họ tên)
+ *   * picture -> AnhDaiDien (Avatar)
  * - XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung:
  *   * Kiểm tra theo Email.
  *   * NẾU CHƯA TỒN TẠI (Tạo mới):
  *     - Sinh mật khẩu ngẫu nhiên: const randomPass = crypto.randomBytes(16).toString('hex');
- *     - Băm mật khẩu: const hashedPassword = await bcrypt.hash(randomPass, 10);
- *     - Thực hiện INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro) VALUES (...) với MaVaiTro = 2 (Khách hàng).
- *   * NẾU ĐÃ TỒN TẠI (Cập nhật):
- *     - Cập nhật bổ sung AnhDaiDien, GioiTinh, NgaySinh nếu các cột này đang mang giá trị NULL.
- * - Trả về JWT Access Token đăng nhập hệ thống.
+ *     - Băm mật khẩu ngẫu nhiên: const hashedPassword = await bcrypt.hash(randomPass, 10);
+ *     - Thực hiện INSERT INTO nguoidung: Gán Email, TaiKhoan, AnhDaiDien, MatKhau (băm ngẫu nhiên), gán GioiTinh = NULL, NgaySinh = NULL, MaVaiTro = 2 (Khách hàng).
+ *   * NẾU ĐÃ TỒN TẠI:
+ *     - Cập nhật bổ sung AnhDaiDien nếu cột này đang mang giá trị NULL hoặc rỗng.
+ * - Trả về JWT Access Token & Refresh Token đăng nhập hệ thống.
  */
 const googleLogin = async (req, res, next) => {
   try {
@@ -410,49 +406,53 @@ const googleLogin = async (req, res, next) => {
       });
     }
 
-    // 1. Gọi Google People API
-    let googlePeopleRes;
+    // 1. Chỉ bóc tách 3 thông tin chính: email, name (Tên), picture (Avatar)
+    let email = null;
+    let name = null;
+    let picture = null;
+
     try {
-      googlePeopleRes = await axios.get(
-        'https://people.googleapis.com/v1/people/me?personFields=names,photos,genders,birthdays',
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
+      // Ưu tiên Google UserInfo API (chuẩn OIDC với 3 scope cơ bản: openid profile email)
+      const userInfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
         }
-      );
-    } catch (apiError) {
-      console.error('Lỗi khi gọi Google People API:', apiError?.response?.data || apiError.message);
-      return res.status(401).json({
-        success: false,
-        message: 'Xác thực Google thất bại hoặc accessToken không hợp lệ',
-        error: apiError?.response?.data?.error?.message || apiError.message
       });
+      const data = userInfoRes.data || {};
+      email = data.email;
+      name = data.name || `${data.family_name || ''} ${data.given_name || ''}`.trim();
+      picture = data.picture;
+    } catch (userInfoError) {
+      console.warn('Google UserInfo API không thành công, thử fallback sang People API:', userInfoError?.response?.data || userInfoError.message);
+      try {
+        // Fallback sang Google People API chỉ lấy names, photos, emailAddresses (không dùng scope nhạy cảm)
+        const peopleRes = await axios.get(
+          'https://people.googleapis.com/v1/people/me?personFields=names,photos,emailAddresses',
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        );
+        const peopleData = peopleRes.data || {};
+        email = peopleData.emailAddresses?.[0]?.value;
+        const primaryName = peopleData.names?.find((n) => n.metadata?.primary) || peopleData.names?.[0];
+        name = primaryName?.displayName || `${primaryName?.familyName || ''} ${primaryName?.givenName || ''}`.trim();
+        const primaryPhoto = peopleData.photos?.find((p) => p.metadata?.primary) || peopleData.photos?.[0];
+        picture = primaryPhoto?.url;
+      } catch (apiError) {
+        console.error('Lỗi khi xác thực Google Profile:', apiError?.response?.data || apiError.message);
+        return res.status(401).json({
+          success: false,
+          message: 'Xác thực Google thất bại hoặc accessToken không hợp lệ',
+          error: apiError?.response?.data?.error?.message || userInfoError?.response?.data?.error?.message || apiError.message
+        });
+      }
     }
 
-    const peopleData = googlePeopleRes.data || {};
-
-    // 2. Lấy Email người dùng
-    let email =
-      peopleData.emailAddresses?.[0]?.value ||
-      peopleData.email ||
-      req.body?.email ||
-      req.body?.Email;
-
-    // Dự phòng: Nếu personFields không trả về email, truy vấn thêm Google UserInfo bằng accessToken
-    if (!email) {
-      try {
-        const userInfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        });
-        if (userInfoRes.data?.email) {
-          email = userInfoRes.data.email;
-        }
-      } catch (err) {
-        console.warn('Không thể lấy email từ Google UserInfo:', err.message);
-      }
+    // Dự phòng Email nếu client gửi kèm
+    if (!email && (req.body?.email || req.body?.Email)) {
+      email = req.body?.email || req.body?.Email;
     }
 
     if (!email) {
@@ -464,65 +464,17 @@ const googleLogin = async (req, res, next) => {
 
     const trimmedEmail = String(email).trim().toLowerCase();
 
-    // 3. Bóc tách thông tin:
-    // 3.1. Họ tên -> TaiKhoan
-    let taiKhoan = null;
-    if (Array.isArray(peopleData.names) && peopleData.names.length > 0) {
-      const primaryName = peopleData.names.find((n) => n.metadata?.primary) || peopleData.names[0];
-      taiKhoan =
-        primaryName.displayName ||
-        `${primaryName.familyName || ''} ${primaryName.givenName || ''}`.trim() ||
-        primaryName.unstructuredName;
-    }
+    // 2. Chuẩn hóa 3 thông tin chính
+    // Họ tên -> TaiKhoan (tối đa 50 ký tự)
+    let taiKhoan = name ? String(name).trim().slice(0, 50) : '';
     if (!taiKhoan) {
-      taiKhoan = trimmedEmail.split('@')[0];
-    }
-    taiKhoan = String(taiKhoan).trim().slice(0, 50);
-
-    // 3.2. Image URL -> AnhDaiDien
-    let anhDaiDien = null;
-    if (Array.isArray(peopleData.photos) && peopleData.photos.length > 0) {
-      const primaryPhoto = peopleData.photos.find((p) => p.metadata?.primary) || peopleData.photos[0];
-      anhDaiDien = primaryPhoto.url || null;
-    }
-    if (!anhDaiDien && peopleData.picture) {
-      anhDaiDien = peopleData.picture;
-    }
-    if (anhDaiDien && anhDaiDien.length > 255) {
-      anhDaiDien = anhDaiDien.slice(0, 255);
+      taiKhoan = trimmedEmail.split('@')[0].slice(0, 50);
     }
 
-    // 3.3. Gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
-    let gioiTinh = null;
-    if (Array.isArray(peopleData.genders) && peopleData.genders.length > 0) {
-      const primaryGender = peopleData.genders.find((g) => g.metadata?.primary) || peopleData.genders[0];
-      const gVal = String(primaryGender.value || primaryGender.gender || '').toLowerCase().trim();
-      if (gVal === 'male') {
-        gioiTinh = 'Nam';
-      } else if (gVal === 'female') {
-        gioiTinh = 'Nữ';
-      }
-    }
+    // Avatar -> AnhDaiDien (tối đa 255 ký tự)
+    let anhDaiDien = picture ? String(picture).trim().slice(0, 255) : null;
 
-    // 3.4. Birthday (year, month, day) -> NgaySinh ('YYYY-MM-DD')
-    let ngaySinh = null;
-    if (Array.isArray(peopleData.birthdays) && peopleData.birthdays.length > 0) {
-      for (const item of peopleData.birthdays) {
-        const d = item.date || item;
-        if (d && d.year && d.month && d.day) {
-          const year = String(d.year).padStart(4, '0');
-          const month = String(d.month).padStart(2, '0');
-          const day = String(d.day).padStart(2, '0');
-          ngaySinh = `${year}-${month}-${day}`;
-          break;
-        } else if (typeof item === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item)) {
-          ngaySinh = item;
-          break;
-        }
-      }
-    }
-
-    // 4. XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung
+    // 3. XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung
     // Kiểm tra theo Email
     const [existingUsers] = await pool.query(
       'SELECT * FROM nguoidung WHERE LOWER(Email) = LOWER(?)',
@@ -532,56 +484,29 @@ const googleLogin = async (req, res, next) => {
     let user;
 
     if (existingUsers.length > 0) {
-      // NẾU ĐÃ TỒN TẠI (Cập nhật):
-      // Cập nhật bổ sung AnhDaiDien, GioiTinh, NgaySinh nếu các cột này đang mang giá trị NULL
+      // NẾU ĐÃ TỒN TẠI:
       user = existingUsers[0];
-      const updateFields = [];
-      const updateParams = [];
 
+      // Cập nhật bổ sung AnhDaiDien nếu cột này đang mang giá trị NULL hoặc rỗng
       if ((user.AnhDaiDien === null || user.AnhDaiDien === '') && anhDaiDien) {
-        updateFields.push('AnhDaiDien = ?');
-        updateParams.push(anhDaiDien);
-        user.AnhDaiDien = anhDaiDien;
-      }
-
-      if ((user.GioiTinh === null || user.GioiTinh === '') && gioiTinh) {
-        updateFields.push('GioiTinh = ?');
-        updateParams.push(gioiTinh);
-        user.GioiTinh = gioiTinh;
-      }
-
-      if ((user.NgaySinh === null || user.NgaySinh === '') && ngaySinh) {
-        updateFields.push('NgaySinh = ?');
-        updateParams.push(ngaySinh);
-        user.NgaySinh = ngaySinh;
-      }
-
-      if (updateFields.length > 0) {
-        updateParams.push(user.MaNguoiDung);
         await pool.query(
-          `UPDATE nguoidung SET ${updateFields.join(', ')} WHERE MaNguoiDung = ?`,
-          updateParams
+          'UPDATE nguoidung SET AnhDaiDien = ? WHERE MaNguoiDung = ?',
+          [anhDaiDien, user.MaNguoiDung]
         );
-        const [refreshedUsers] = await pool.query(
-          'SELECT * FROM nguoidung WHERE MaNguoiDung = ?',
-          [user.MaNguoiDung]
-        );
-        if (refreshedUsers.length > 0) {
-          user = refreshedUsers[0];
-        }
+        user.AnhDaiDien = anhDaiDien;
       }
     } else {
       // NẾU CHƯA TỒN TẠI (Tạo mới):
       // - Sinh mật khẩu ngẫu nhiên: const randomPass = crypto.randomBytes(16).toString('hex');
-      // - Băm mật khẩu: const hashedPassword = await bcrypt.hash(randomPass, 10);
-      // - Thực hiện INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro) VALUES (...) với MaVaiTro = 2 (Khách hàng).
+      // - Băm mật khẩu ngẫu nhiên: const hashedPassword = await bcrypt.hash(randomPass, 10);
+      // - Gán Email, TaiKhoan, AnhDaiDien, MatKhau (băm ngẫu nhiên), gán GioiTinh = NULL, NgaySinh = NULL
       const randomPass = crypto.randomBytes(16).toString('hex');
       const hashedPassword = await bcrypt.hash(randomPass, 10);
 
       const [insertResult] = await pool.query(
         `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
-         VALUES (?, ?, ?, ?, ?, ?, 2)`,
-        [taiKhoan, trimmedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh]
+         VALUES (?, ?, ?, ?, NULL, NULL, 2)`,
+        [taiKhoan, trimmedEmail, hashedPassword, anhDaiDien]
       );
 
       const [newUsers] = await pool.query(
@@ -591,7 +516,7 @@ const googleLogin = async (req, res, next) => {
       user = newUsers[0];
     }
 
-    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD tránh lệch múi giờ
+    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD tránh lệch múi giờ nếu có
     if (user.NgaySinh instanceof Date) {
       const d = user.NgaySinh;
       const year = d.getFullYear();
@@ -602,7 +527,7 @@ const googleLogin = async (req, res, next) => {
       user.NgaySinh = user.NgaySinh.split('T')[0];
     }
 
-    // 5. Trả về JWT Access Token đăng nhập hệ thống
+    // 4. Trả về JWT Access Token & Refresh Token đăng nhập hệ thống
     const payload = {
       MaNguoiDung: user.MaNguoiDung,
       MaVaiTro: user.MaVaiTro,
