@@ -52,6 +52,16 @@ Phong cách & Quy tắc giao tiếp:
    - Sử dụng định dạng tiền tệ Việt Nam (VNĐ), nhấn mạnh thông số nổi bật (Chip, RAM/ROM, Màn hình, Camera, Dung lượng pin).
    - Nếu không có sản phẩm hoặc đơn hàng tương ứng trong DB, hãy trả lời nhã nhặn và gợi ý giải pháp thay thế.
    - Luôn mời khách hàng đặt câu hỏi thêm nếu cần tư vấn sâu hơn.
+4. QUY TẮC BẮT BUỘC KHI NHẬN KẾT QUẢ TỪ \`searchProducts\`:
+   - KHI TÌM THẤY SẢN PHẨM PHÙ HỢP (isFallback = false và totalFound > 0): Giới thiệu ngắn gọn các sản phẩm tìm thấy, nêu mức giá và đặc điểm nổi bật, mời khách tham khảo danh sách bên dưới.
+   - NẾU KHÔNG TÌM THẤY SẢN PHẨM ĐÚNG TIÊU CHÍ (kết quả trả về có \`isFallback: true\` hoặc totalFound = 0):
+     * TUYỆT ĐỐI KHÔNG NÓI "đã tìm thấy bên dưới ạ", "đã tìm thấy các sản phẩm phù hợp" hay ngộ nhận các sản phẩm gợi ý là sản phẩm đúng tiêu chí ban đầu.
+     * Gemini PHẢI trả lời: "Hiện tại SmartZone chưa có mẫu [Tên hãng] nào trong tầm giá [Giá] đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:" thay vì nói "đã tìm thấy bên dưới ạ".
+     * Hãy thay thế linh hoạt [Tên hãng] và [Giá] theo đúng ngữ cảnh câu hỏi của khách hàng:
+       + Ví dụ khách hỏi: "Tìm cho mình iPhone dưới 10 triệu": "Hiện tại SmartZone chưa có mẫu iPhone nào trong tầm giá dưới 10 triệu đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:"
+       + Ví dụ khách hỏi: "Có điện thoại Xiaomi nào tầm 4 triệu không?": "Hiện tại SmartZone chưa có mẫu Xiaomi nào trong tầm giá 4 triệu đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:"
+       + Ví dụ khách chỉ hỏi theo khoảng giá (ví dụ: dưới 5 triệu): "Hiện tại SmartZone chưa có mẫu điện thoại nào trong tầm giá dưới 5 triệu đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:"
+       + Ví dụ khách chỉ hỏi theo hãng: "Có mẫu Nokia nào không?": "Hiện tại SmartZone chưa có mẫu Nokia nào đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:"
 `;
 
 /**
@@ -229,6 +239,7 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
     let toolData = null;
     let finalReply = '';
     let executedCall = null;
+    let isSearchFallback = false;
 
     // Vòng lặp Function Calling tối đa 3 lượt (tránh lặp vô hạn)
     let currentTurn = 0;
@@ -256,6 +267,9 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
           case 'searchProducts':
             toolType = 'PRODUCT_LIST';
             toolData = rawToolResult.products || [];
+            if (rawToolResult && rawToolResult.isFallback) {
+              isSearchFallback = true;
+            }
             break;
           case 'compareProducts':
             toolType = 'COMPARE';
@@ -317,7 +331,9 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
     if (!finalReply && toolType !== 'TEXT') {
       switch (toolType) {
         case 'PRODUCT_LIST':
-          finalReply = 'Dạ SmartZone đã tìm kiếm các sản phẩm phù hợp với nhu cầu của quý khách bên dưới ạ:';
+          finalReply = isSearchFallback
+            ? 'Hiện tại SmartZone chưa có mẫu sản phẩm nào đáp ứng nhu cầu này. Tuy nhiên, bạn có thể tham khảo một số mẫu điện thoại nổi bật bên dưới:'
+            : 'Dạ SmartZone đã tìm kiếm các sản phẩm phù hợp với nhu cầu của quý khách bên dưới ạ:';
           break;
         case 'COMPARE':
           finalReply = 'Dạ đây là bảng so sánh chi tiết thông số kỹ thuật giữa các sản phẩm quý khách đang quan tâm ạ:';
@@ -340,7 +356,8 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
       success: true,
       reply: finalReply,
       type: toolType,
-      data: toolData
+      data: toolData,
+      isFallback: isSearchFallback || undefined
     });
   } catch (error) {
     console.error('[chatbotController.sendMessage] Lỗi xử lý:', error);

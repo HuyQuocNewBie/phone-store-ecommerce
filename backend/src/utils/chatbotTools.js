@@ -148,6 +148,71 @@ const searchProducts = async ({ keyword, minPrice, maxPrice, category } = {}) =>
 
     const [rows] = await pool.query(sql, queryParams);
 
+    // Nếu không tìm thấy sản phẩm nào khớp với điều kiện tìm kiếm, thực hiện fallback nhẹ:
+    // Lấy Top 3 sản phẩm nổi bật/bán chạy nhất cửa hàng kèm cờ isFallback: true
+    if (rows.length === 0) {
+      const fallbackSql = `
+        SELECT 
+          sp.MaSanPham,
+          sp.TenSanPham,
+          sp.Anh,
+          sp.Gia,
+          sp.TonKho,
+          sp.DungLuong,
+          sp.MauSac,
+          sp.TrangThai,
+          sp.MoTa,
+          l.TenLoaiSanPham AS DanhMuc,
+          nsx.TenNhaSanXuat AS ThuongHieu,
+          COALESCE(SUM(ct.SoLuong), 0) AS DaBan
+        FROM sanpham sp
+        LEFT JOIN loaisanpham l ON sp.MaLoaiSanPham = l.MaLoaiSanPham
+        LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
+        LEFT JOIN chitietdonhang ct ON sp.MaSanPham = ct.MaSanPham
+        WHERE sp.TrangThai = 'DangBan'
+        GROUP BY 
+          sp.MaSanPham,
+          sp.TenSanPham,
+          sp.Anh,
+          sp.Gia,
+          sp.TonKho,
+          sp.DungLuong,
+          sp.MauSac,
+          sp.TrangThai,
+          sp.MoTa,
+          l.TenLoaiSanPham,
+          nsx.TenNhaSanXuat
+        ORDER BY DaBan DESC, sp.MaSanPham DESC
+        LIMIT 3
+      `;
+
+      const [fallbackRows] = await pool.query(fallbackSql);
+
+      const fallbackProducts = fallbackRows.map((item) => ({
+        productId: item.MaSanPham,
+        name: item.TenSanPham,
+        price: Number(item.Gia),
+        priceFormatted: formatVND(item.Gia),
+        stock: Number(item.TonKho),
+        storage: item.DungLuong || 'Tiêu chuẩn',
+        color: item.MauSac || 'Tiêu chuẩn',
+        category: item.DanhMuc || 'Điện thoại',
+        brand: item.ThuongHieu || 'Chưa cập nhật',
+        status: item.TrangThai,
+        description: item.MoTa ? item.MoTa.slice(0, 150) + (item.MoTa.length > 150 ? '...' : '') : '',
+        imageUrl: item.Anh || null
+      }));
+
+      return {
+        success: true,
+        isFallback: true,
+        totalFound: 0,
+        products: fallbackProducts,
+        message:
+          'Không tìm thấy sản phẩm nào đúng tiêu chí tìm kiếm. Đang hiển thị gợi ý Top 3 sản phẩm nổi bật/bán chạy nhất cửa hàng.'
+      };
+    }
+
     const formattedProducts = rows.map((item) => ({
       productId: item.MaSanPham,
       name: item.TenSanPham,
@@ -165,17 +230,16 @@ const searchProducts = async ({ keyword, minPrice, maxPrice, category } = {}) =>
 
     return {
       success: true,
+      isFallback: false,
       totalFound: formattedProducts.length,
       products: formattedProducts,
-      message:
-        formattedProducts.length > 0
-          ? `Tìm thấy ${formattedProducts.length} sản phẩm phù hợp.`
-          : 'Không tìm thấy sản phẩm nào phù hợp với yêu cầu tìm kiếm.'
+      message: `Tìm thấy ${formattedProducts.length} sản phẩm phù hợp.`
     };
   } catch (error) {
     console.error('[chatbotTools.searchProducts] Lỗi truy vấn:', error.message);
     return {
       success: false,
+      isFallback: false,
       error: error.message,
       products: [],
       message: 'Đã xảy ra lỗi trong quá trình tra cứu sản phẩm.'
@@ -651,7 +715,7 @@ const toolsDeclaration = [
   {
     name: 'searchProducts',
     description:
-      'Tìm kiếm sản phẩm điện thoại và thiết bị trong cơ sở dữ liệu dựa trên từ khóa tên hoặc mô tả, khoảng giá (minPrice, maxPrice) và danh mục hoặc thương hiệu.',
+      'Tìm kiếm sản phẩm điện thoại và thiết bị trong cơ sở dữ liệu dựa trên từ khóa tên hoặc mô tả, khoảng giá (minPrice, maxPrice) và danh mục hoặc thương hiệu. Nếu không có sản phẩm khớp tiêu chí, hàm sẽ tự động fallback trả về Top 3 sản phẩm nổi bật/bán chạy nhất kèm cờ isFallback: true.',
     parameters: {
       type: Type.OBJECT,
       properties: {
