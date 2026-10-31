@@ -36,7 +36,7 @@ const ScrollToTop = () => {
       id="btn-scroll-to-top"
       aria-label="Cuộn lên đầu trang"
       onClick={scrollToTop}
-      className={`fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl
+      className={`fixed bottom-[6.25rem] right-6 z-40 w-14 h-14 rounded-2xl flex items-center justify-center
         bg-slate-900/80 backdrop-blur-md border border-slate-700/80 text-sky-400
         hover:text-white hover:bg-sky-600 hover:border-sky-500 hover:shadow-sky-500/25
         shadow-xl shadow-black/50 transition-all duration-300 transform active:scale-90
