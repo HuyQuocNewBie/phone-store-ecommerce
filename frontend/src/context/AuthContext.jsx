@@ -24,9 +24,31 @@ export const normalizeUserData = (userData) => {
     userData.picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2563eb&color=fff&size=256&bold=true`;
 
-  const gender = userData.GioiTinh !== undefined ? userData.GioiTinh : null;
-  const birthday = userData.NgaySinh || '2000-01-01';
-  const phone = userData.SoDienThoai || '0901 234 567';
+  const gender =
+    userData.GioiTinh !== undefined && userData.GioiTinh !== 'null' && userData.GioiTinh !== 'undefined'
+      ? userData.GioiTinh
+      : null;
+
+  const rawBirthday = userData.NgaySinh;
+  const birthday =
+    rawBirthday &&
+    rawBirthday !== '1970-01-01' &&
+    rawBirthday !== '1969-12-31' &&
+    rawBirthday !== '0000-00-00' &&
+    rawBirthday !== '01/01/2000' &&
+    rawBirthday !== 'null' &&
+    rawBirthday !== 'undefined'
+      ? rawBirthday
+      : null;
+
+  const rawPhone = userData.SoDienThoai;
+  const phone =
+    rawPhone &&
+    rawPhone !== '0901 234 567' &&
+    rawPhone !== 'null' &&
+    rawPhone !== 'undefined'
+      ? rawPhone
+      : null;
 
   return {
     ...userData,
@@ -137,9 +159,11 @@ export const AuthProvider = ({ children }) => {
           DiaChiMacDinh:
             defaultAddrStr ||
             profileData.DiaChi ||
-            prevUser?.DiaChiMacDinh ||
-            prevUser?.DiaChi ||
-            'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội',
+            (prevUser?.DiaChiMacDinh && !prevUser.DiaChiMacDinh.includes('Điện Biên Phủ')
+              ? prevUser.DiaChiMacDinh
+              : null) ||
+            (prevUser?.DiaChi && !prevUser.DiaChi.includes('Điện Biên Phủ') ? prevUser.DiaChi : null) ||
+            null,
         });
         localStorage.setItem('user', JSON.stringify(updatedUser));
         return updatedUser;

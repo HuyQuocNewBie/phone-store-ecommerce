@@ -83,15 +83,36 @@ const ProfileEditModal = ({
       let initNgaySinh = '';
       if (currentUser?.NgaySinh) {
         try {
-          initNgaySinh = String(currentUser.NgaySinh).split('T')[0];
+          const rawDate = String(currentUser.NgaySinh).split('T')[0].trim();
+          if (
+            rawDate &&
+            rawDate !== '1970-01-01' &&
+            rawDate !== '1969-12-31' &&
+            rawDate !== '0000-00-00' &&
+            rawDate !== '01/01/2000' &&
+            rawDate !== 'null' &&
+            rawDate !== 'undefined'
+          ) {
+            initNgaySinh = rawDate;
+          }
         } catch (e) {
           console.error('Lỗi phân tích ngày sinh:', e);
         }
       }
 
+      const rawPhone = currentUser?.SoDienThoai || '';
+      const cleanPhone =
+        rawPhone === '0901 234 567' || rawPhone === 'null' || rawPhone === 'undefined'
+          ? ''
+          : rawPhone;
+
+      const rawGender = currentUser?.GioiTinh || '';
+      const cleanGender =
+        rawGender === 'null' || rawGender === 'undefined' ? '' : rawGender;
+
       setFormData({
-        gioiTinh: currentUser?.GioiTinh || '',
-        soDienThoai: currentUser?.SoDienThoai || '',
+        gioiTinh: cleanGender,
+        soDienThoai: cleanPhone,
         ngaySinh: initNgaySinh,
       });
 
@@ -332,6 +353,7 @@ const ProfileEditModal = ({
                   <img
                     src={avatarPreview}
                     alt={displayName}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover rounded-full"
                   />
                 ) : (

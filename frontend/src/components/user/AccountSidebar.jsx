@@ -66,6 +66,7 @@ const AccountSidebar = () => {
             <img
               src={user.AnhDaiDien}
               alt={displayName}
+              referrerPolicy="no-referrer"
               className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100 shadow-sm"
             />
           ) : (

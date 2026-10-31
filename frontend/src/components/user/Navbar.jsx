@@ -333,6 +333,7 @@ const Navbar = () => {
                     <img
                       src={user.AnhDaiDien}
                       alt={user?.HoTen || user?.TaiKhoan || 'Avatar'}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -378,12 +379,12 @@ const Navbar = () => {
                   )}
 
                   <Link
-                    to="/user/orders"
+                    to="/user/profile"
                     onClick={() => setIsUserMenuOpen(false)}
                     className="flex items-center gap-unit-sm px-unit-sm py-unit-xs rounded-lg text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors font-body-md text-body-md"
                   >
-                    <span className="material-symbols-outlined text-sm text-primary">receipt_long</span>
-                    <span>Đơn hàng của tôi</span>
+                    <span className="material-symbols-outlined text-sm text-primary">manage_accounts</span>
+                    <span>Hồ sơ cá nhân</span>
                   </Link>
 
                   <button
@@ -589,6 +590,7 @@ const Navbar = () => {
                     <img
                       src={user.AnhDaiDien}
                       alt={user?.HoTen || user?.TaiKhoan || 'Avatar'}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   ) : (

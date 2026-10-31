@@ -9,7 +9,6 @@ import {
   Edit3,
   Lock,
   Users,
-  Image as ImageIcon,
   ShieldCheck,
   CheckCircle2,
   ExternalLink,
@@ -22,26 +21,47 @@ import { addressService } from '../../services/addressService';
 
 /**
  * Định dạng ngày sinh theo chuẩn Việt Nam (DD/MM/YYYY)
- * Tự động fallback ngày sinh mặc định nếu chưa có, tránh để trống hoặc hiển thị "Chưa cập nhật".
+ * Nếu dữ liệu DB mang giá trị NULL, undefined, '1970-01-01', '1969-12-31' -> Hiển thị "Chưa cập nhật"
  */
 const formatDateVN = (dateString) => {
-  if (!dateString) return '01/01/2000';
+  if (!dateString) return 'Chưa cập nhật';
   try {
-    const raw = String(dateString).split('T')[0];
+    const raw = String(dateString).trim().split('T')[0];
+    if (
+      !raw ||
+      raw === '1970-01-01' ||
+      raw === '1969-12-31' ||
+      raw === '0000-00-00' ||
+      raw === '01/01/1970' ||
+      raw === '31/12/1969' ||
+      raw === '01/01/2000' ||
+      raw === 'null' ||
+      raw === 'undefined'
+    ) {
+      return 'Chưa cập nhật';
+    }
+
     const parts = raw.split('-');
     if (parts.length === 3) {
       const [y, m, d] = parts;
       if (y && m && d) {
-        return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+        const formatted = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+        if (formatted === '01/01/1970' || formatted === '31/12/1969') {
+          return 'Chưa cập nhật';
+        }
+        return formatted;
       }
     }
     // Nếu dateString đã ở dạng DD/MM/YYYY
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-      return dateString;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      if (raw === '01/01/1970' || raw === '31/12/1969') {
+        return 'Chưa cập nhật';
+      }
+      return raw;
     }
-    return dateString;
+    return 'Chưa cập nhật';
   } catch {
-    return '01/01/2000';
+    return 'Chưa cập nhật';
   }
 };
 
@@ -98,11 +118,11 @@ const ProfilePage = () => {
         }
       }
 
-      // Fallback địa chỉ hợp lệ đảm bảo không bị trống
+      // Không dùng fallback dữ liệu giả hardcode
       const resolvedAddress =
         defaultAddrStr ||
         backendUser?.DiaChi ||
-        'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội';
+        null;
 
       setDefaultAddress(resolvedAddress);
 
@@ -138,20 +158,47 @@ const ProfilePage = () => {
     user?.TaiKhoan ||
     user?.name ||
     user?.displayName ||
-    (user?.Email ? user.Email.split('@')[0] : 'Khách hàng SmartZone');
+    (user?.Email ? user.Email.split('@')[0] : 'Chưa cập nhật');
 
   const initialLetter = displayName.charAt(0).toUpperCase();
 
   // 2. Email
-  const displayEmail = user?.Email || 'customer@smartzone.vn';
+  const displayEmail = user?.Email || 'Chưa cập nhật';
 
-  // 3. Số điện thoại
-  const displayPhone = user?.SoDienThoai || '0901 234 567';
+  // 3. Số điện thoại (xóa fallback 0901 234 567)
+  const rawPhone = user?.SoDienThoai;
+  const displayPhone =
+    rawPhone &&
+    rawPhone !== '0901 234 567' &&
+    rawPhone !== 'null' &&
+    rawPhone !== 'undefined' &&
+    String(rawPhone).trim() !== ''
+      ? String(rawPhone).trim()
+      : 'Chưa cập nhật';
 
-  // 4. Giới tính
-  const displayGender = user?.GioiTinh || 'Nam';
+  // 4. Giới tính (xóa fallback Nam mặc định)
+  const rawGender = user?.GioiTinh;
+  let displayGender = 'Chưa cập nhật';
+  if (
+    rawGender !== null &&
+    rawGender !== undefined &&
+    rawGender !== 'null' &&
+    rawGender !== 'undefined' &&
+    String(rawGender).trim() !== ''
+  ) {
+    const g = String(rawGender).trim().toLowerCase();
+    if (g === 'nam' || g === '1' || g === 1 || g === 'male') {
+      displayGender = 'Nam';
+    } else if (g === 'nữ' || g === 'nu' || g === '0' || g === 0 || g === 'female') {
+      displayGender = 'Nữ';
+    } else if (g === 'khác' || g === 'khac' || g === 'other') {
+      displayGender = 'Khác';
+    } else {
+      displayGender = String(rawGender);
+    }
+  }
 
-  // 5. Ngày sinh
+  // 5. Ngày sinh (xóa fallback 01/01/2000, 31/12/1969, 1970-01-01)
   const displayBirthday = formatDateVN(user?.NgaySinh);
 
   // 6. Avatar
@@ -161,12 +208,27 @@ const ProfilePage = () => {
     user?.picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2563eb&color=fff&size=256&bold=true`;
 
-  // 7. Địa chỉ giao hàng mặc định
+  // 7. Địa chỉ giao hàng mặc định (xóa fallback Số 28 Điện Biên Phủ)
+  const rawAddress = defaultAddress || user?.DiaChiMacDinh || user?.DiaChi;
   const finalAddressStr =
-    defaultAddress ||
-    user?.DiaChiMacDinh ||
-    user?.DiaChi ||
-    'Số 28 Điện Biên Phủ, Quận Hoàn Kiếm, Thành phố Hà Nội';
+    rawAddress &&
+    !String(rawAddress).includes('Điện Biên Phủ') &&
+    rawAddress !== 'null' &&
+    rawAddress !== 'undefined' &&
+    String(rawAddress).trim() !== ''
+      ? String(rawAddress).trim()
+      : 'Chưa cập nhật';
+
+  // Đếm phần trăm hoàn thiện hồ sơ thực tế
+  const totalFields = 6;
+  let filledCount = 0;
+  if (displayName && displayName !== 'Chưa cập nhật') filledCount++;
+  if (displayEmail && displayEmail !== 'Chưa cập nhật') filledCount++;
+  if (displayPhone && displayPhone !== 'Chưa cập nhật') filledCount++;
+  if (displayGender && displayGender !== 'Chưa cập nhật') filledCount++;
+  if (displayBirthday && displayBirthday !== 'Chưa cập nhật') filledCount++;
+  if (finalAddressStr && finalAddressStr !== 'Chưa cập nhật') filledCount++;
+  const completionPercent = Math.round((filledCount / totalFields) * 100);
 
   return (
     <div className="space-y-6">
@@ -174,13 +236,18 @@ const ProfilePage = () => {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           {/* Avatar Thumbnail */}
-          <div className="relative shrink-0">
+          <div
+            className="relative shrink-0 group cursor-pointer"
+            onClick={() => setIsEditModalOpen(true)}
+            title="Nhấp để thay đổi thông tin cá nhân"
+          >
             {!avatarError && displayAvatar ? (
               <img
                 src={displayAvatar}
                 alt={displayName}
+                referrerPolicy="no-referrer"
                 onError={() => setAvatarError(true)}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 shadow-md transition-all hover:scale-105"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 shadow-md transition-all group-hover:scale-105"
               />
             ) : (
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-2xl shadow-md shadow-blue-500/20">
@@ -207,10 +274,17 @@ const ProfilePage = () => {
               </span>
             </div>
             <p className="text-sm text-slate-500 mt-1 truncate">{displayEmail}</p>
-            <p className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-              Đã đồng bộ đầy đủ thông tin tài khoản
-            </p>
+            {completionPercent === 100 ? (
+              <p className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                Đã đồng bộ đầy đủ thông tin tài khoản
+              </p>
+            ) : (
+              <p className="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+                Hồ sơ hoàn thiện {completionPercent}% ({filledCount}/{totalFields} thông tin)
+              </p>
+            )}
           </div>
         </div>
 
@@ -229,7 +303,9 @@ const ProfilePage = () => {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
         <div className="flex items-center justify-between pb-3 mb-5 border-b border-slate-100">
           <h2 className="text-base font-bold text-slate-800">Thông tin cá nhân</h2>
-          <span className="text-xs font-medium text-slate-400">Đã điền đủ 100% dữ liệu</span>
+          <span className="text-xs font-medium text-slate-400">
+            {completionPercent === 100 ? 'Đã hoàn thiện 100% dữ liệu' : `Đã điền ${completionPercent}% dữ liệu`}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
@@ -240,7 +316,14 @@ const ProfilePage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-500">Họ và tên</p>
-              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate" title={displayName}>
+              <p
+                className={`text-sm mt-0.5 truncate ${
+                  displayName === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+                title={displayName}
+              >
                 {displayName}
               </p>
             </div>
@@ -253,7 +336,14 @@ const ProfilePage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-500">Địa chỉ Email</p>
-              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate" title={displayEmail}>
+              <p
+                className={`text-sm mt-0.5 truncate ${
+                  displayEmail === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+                title={displayEmail}
+              >
                 {displayEmail}
               </p>
             </div>
@@ -266,7 +356,13 @@ const ProfilePage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-500">Số điện thoại</p>
-              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">
+              <p
+                className={`text-sm mt-0.5 truncate ${
+                  displayPhone === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+              >
                 {displayPhone}
               </p>
             </div>
@@ -279,7 +375,13 @@ const ProfilePage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-500">Giới tính</p>
-              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">
+              <p
+                className={`text-sm mt-0.5 truncate ${
+                  displayGender === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+              >
                 {displayGender}
               </p>
             </div>
@@ -292,34 +394,15 @@ const ProfilePage = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-slate-500">Ngày sinh</p>
-              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">
+              <p
+                className={`text-sm mt-0.5 truncate ${
+                  displayBirthday === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+              >
                 {displayBirthday}
               </p>
-            </div>
-          </div>
-
-          {/* Ảnh đại diện (Avatar) */}
-          <div className="sm:col-span-2 md:col-span-6 flex items-center gap-3.5 p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-              <ImageIcon size={20} />
-            </div>
-            <div className="min-w-0 flex-1 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium text-slate-500">Ảnh đại diện</p>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5 flex items-center gap-2">
-                  <span>Đã cập nhật ảnh đại diện</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Sẵn sàng
-                  </span>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(true)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer shrink-0"
-              >
-                Đổi ảnh đại diện
-              </button>
             </div>
           </div>
 
@@ -332,9 +415,11 @@ const ProfilePage = () => {
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-slate-500 flex items-center gap-2">
                   <span>Địa chỉ giao hàng mặc định</span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">
-                    Mặc định (LaMacDinh = 1)
-                  </span>
+                  {finalAddressStr !== 'Chưa cập nhật' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200">
+                      Mặc định (LaMacDinh = 1)
+                    </span>
+                  )}
                 </p>
                 <Link
                   to="/user/addresses"
@@ -344,7 +429,13 @@ const ProfilePage = () => {
                   <ExternalLink size={12} />
                 </Link>
               </div>
-              <p className="text-sm font-semibold text-slate-800 mt-1 leading-snug break-words">
+              <p
+                className={`text-sm mt-1 leading-snug break-words ${
+                  finalAddressStr === 'Chưa cập nhật'
+                    ? 'text-slate-400 italic font-normal'
+                    : 'font-semibold text-slate-800'
+                }`}
+              >
                 {finalAddressStr}
               </p>
             </div>

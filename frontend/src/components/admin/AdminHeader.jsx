@@ -106,6 +106,7 @@ const AdminHeader = ({ onToggleMobile }) => {
               <img
                 src={user.AnhDaiDien}
                 alt={displayName}
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
             ) : (
