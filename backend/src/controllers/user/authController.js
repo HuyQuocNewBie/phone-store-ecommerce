@@ -705,13 +705,18 @@ const zaloLogin = async (req, res, next) => {
       anhDaiDien = anhDaiDien.slice(0, 255);
     }
 
-    // 2.4. gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
+    // 2.4. Parse trường gender từ Zalo Graph API:
+    // * Nếu gender === 'male' hoặc gender === 1 hoặc gender === '1' -> Lưu GioiTinh = 'Nam'
+    // * Nếu gender === 'female' hoặc gender === 2 hoặc gender === '2' -> Lưu GioiTinh = 'Nữ'
+    // * Ngược lại -> Lưu GioiTinh = NULL
     let gioiTinh = null;
-    const gVal = String(gender || '').toLowerCase().trim();
-    if (gVal === 'male') {
+    const gVal = typeof gender === 'string' ? gender.trim().toLowerCase() : gender;
+    if (gVal === 'male' || gVal === 1 || gVal === '1') {
       gioiTinh = 'Nam';
-    } else if (gVal === 'female') {
+    } else if (gVal === 'female' || gVal === 2 || gVal === '2') {
       gioiTinh = 'Nữ';
+    } else {
+      gioiTinh = null;
     }
 
     // 2.5. birthday (DD/MM/YYYY) -> NgaySinh (YYYY-MM-DD)
@@ -756,7 +761,7 @@ const zaloLogin = async (req, res, next) => {
         user.AnhDaiDien = anhDaiDien;
       }
 
-      if (gioiTinh) {
+      if (gioiTinh !== undefined) {
         updateFields.push('GioiTinh = ?');
         updateParams.push(gioiTinh);
         user.GioiTinh = gioiTinh;

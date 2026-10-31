@@ -380,6 +380,18 @@ const LoginPageContent = () => {
           setIsZaloLoading(false);
 
           const userData = event.data.user;
+          const userToken = event.data.token;
+          if (userData && userToken && typeof login === 'function') {
+            login(userData, userToken);
+          }
+          if (userToken) {
+            localStorage.setItem('token', userToken);
+            localStorage.setItem('accessToken', userToken);
+          }
+          if (userData) {
+            localStorage.setItem('user', JSON.stringify(userData));
+          }
+
           toast.success(
             userData?.NgaySinh
               ? `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`

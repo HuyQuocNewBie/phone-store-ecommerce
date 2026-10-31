@@ -164,5 +164,6 @@ module.exports = {
   login,
   refreshToken,
   getAdminProfile,
-  googleLogin: require('./user/authController').googleLogin
+  googleLogin: require('./user/authController').googleLogin,
+  zaloLogin: require('./user/authController').zaloLogin
 };

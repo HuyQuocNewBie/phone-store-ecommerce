@@ -16,7 +16,7 @@ import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 const ZaloCallbackPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loginWithZalo, setToken, setUser } = useAuth();
+  const { login, setToken, setUser } = useAuth();
 
   const [status, setStatus] = useState('processing'); // 'processing' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
@@ -81,30 +81,21 @@ const ZaloCallbackPage = () => {
         }
 
         // 2. Gửi mã xác thực lên Backend POST /api/v1/auth/zalo
-        let authResult;
-        if (typeof loginWithZalo === 'function') {
-          authResult = await loginWithZalo({ accessToken, code, codeVerifier });
-        } else {
-          const res = await api.post('/auth/zalo', {
-            accessToken,
-            access_token: accessToken,
-            code,
-            codeVerifier,
-          });
-          const resData = res.data?.data || {};
-          const jwtToken = resData.token || resData.accessToken;
-          const userData = resData.user;
+        const res = await api.post('/auth/zalo', {
+          accessToken,
+          access_token: accessToken,
+          code,
+          codeVerifier,
+        });
 
-          if (setToken) setToken(jwtToken);
-          if (setUser) setUser(userData);
-          localStorage.setItem('token', jwtToken);
-          localStorage.setItem('accessToken', jwtToken);
-          localStorage.setItem('user', JSON.stringify(userData));
-          if (resData.refreshToken) {
-            localStorage.setItem('refreshToken', resData.refreshToken);
-          }
+        const resData = res.data?.data || res.data || {};
+        const token = resData.token || resData.accessToken;
+        const user = resData.user;
 
-          authResult = { success: true, user: userData, token: jwtToken };
+        if (!token || !user) {
+          throw new Error(
+            res.data?.message || 'Không nhận được thông tin xác thực (token, user) từ hệ thống.'
+          );
         }
 
         // Xóa code_verifier đã dùng
@@ -112,27 +103,26 @@ const ZaloCallbackPage = () => {
         sessionStorage.removeItem('zalo_auth_state');
         localStorage.removeItem('zalo_code_verifier');
 
-        if (!authResult || !authResult.success) {
-          const msg = authResult?.message || 'Xác thực Zalo với hệ thống SmartZone thất bại.';
-          setStatus('error');
-          setErrorMessage(msg);
+        // Lưu token và user vào localStorage
+        localStorage.setItem('token', token);
+        localStorage.setItem('accessToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        if (resData.refreshToken) {
+          localStorage.setItem('refreshToken', resData.refreshToken);
+        }
 
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage(
-              { type: 'ZALO_AUTH_ERROR', message: msg },
-              window.location.origin
-            );
-            setTimeout(() => window.close(), 1500);
-          }
-          return;
+        // Gọi hàm login(user, token) từ useAuth() (AuthContext) để trigger Navbar re-render lại State đã đăng nhập
+        if (typeof login === 'function') {
+          await login(user, token);
+        } else {
+          if (setToken) setToken(token);
+          if (setUser) setUser(user);
         }
 
         // 3. Đăng nhập thành công
-        const userData = authResult.user;
         setStatus('success');
 
         // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
-        let redirectTarget = userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
         const intentRaw = sessionStorage.getItem('cart_action_intent');
         if (intentRaw) {
           try {
@@ -145,12 +135,6 @@ const ZaloCallbackPage = () => {
               DungLuong: intent.DungLuong || intent.variant?.DungLuong || null,
               MauSac: intent.MauSac || intent.variant?.MauSac || null,
             });
-
-            if (intent.action_type === 'buy_now') {
-              redirectTarget = '/checkout';
-            } else if (intent.redirect_back) {
-              redirectTarget = intent.redirect_back;
-            }
           } catch (e) {
             console.warn('Lỗi xử lý cart_action_intent:', e);
           }
@@ -161,9 +145,9 @@ const ZaloCallbackPage = () => {
           window.opener.postMessage(
             {
               type: 'ZALO_AUTH_SUCCESS',
-              user: userData,
-              token: authResult.token,
-              redirectTarget,
+              user,
+              token,
+              redirectTarget: '/',
             },
             window.location.origin
           );
@@ -171,14 +155,12 @@ const ZaloCallbackPage = () => {
             window.close();
           }, 600);
         } else {
-          // Nếu chuyển hướng trực tiếp
+          // Tiến hành chuyển hướng về trang chủ (navigate('/'))
           toast.success(
-            `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`,
+            `Đăng nhập Zalo thành công! Chào mừng ${user?.TaiKhoan || user?.HoTen || 'bạn'}.`,
             { id: 'login-toast' }
           );
-          setTimeout(() => {
-            navigate(redirectTarget, { replace: true });
-          }, 800);
+          navigate('/');
         }
       } catch (err) {
         console.error('Lỗi trong luồng Zalo Callback:', err);
@@ -200,7 +182,7 @@ const ZaloCallbackPage = () => {
     };
 
     handleCallback();
-  }, [location, loginWithZalo, navigate, setToken, setUser]);
+  }, [location, login, navigate, setToken, setUser]);
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">

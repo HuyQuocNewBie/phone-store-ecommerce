@@ -24,7 +24,7 @@ export const normalizeUserData = (userData) => {
     userData.picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2563eb&color=fff&size=256&bold=true`;
 
-  const gender = userData.GioiTinh || 'Nam';
+  const gender = userData.GioiTinh !== undefined ? userData.GioiTinh : null;
   const birthday = userData.NgaySinh || '2000-01-01';
   const phone = userData.SoDienThoai || '0901 234 567';
 
@@ -157,12 +157,35 @@ export const AuthProvider = ({ children }) => {
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
-   * Đăng nhập - gọi API POST /auth/login
-   * @param {string} TaiKhoan - Tên tài khoản hoặc email
-   * @param {string} MatKhau - Mật khẩu
+   * Đăng nhập - gọi API POST /auth/login hoặc nhận trực tiếp (user, token) từ OAuth callback
+   * @param {string|Object} TaiKhoan - Tên tài khoản hoặc Object user nếu gọi từ OAuth callback
+   * @param {string} MatKhau - Mật khẩu hoặc jwt token nếu gọi từ OAuth callback
    * @param {string} [recaptchaToken] - Token xác thực Google reCAPTCHA v3
    */
   const login = useCallback(async (TaiKhoan, MatKhau, recaptchaToken = null) => {
+    // Hỗ trợ truyền trực tiếp (user, token) từ OAuth callback (Zalo, Google...)
+    if (TaiKhoan && typeof TaiKhoan === 'object') {
+      const rawUserData = TaiKhoan;
+      const validToken = MatKhau;
+      const userData = normalizeUserData(rawUserData);
+
+      if (validToken) {
+        setToken(validToken);
+        localStorage.setItem('token', validToken);
+        localStorage.setItem('accessToken', validToken);
+      }
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      try {
+        await syncProfile(validToken);
+      } catch (err) {
+        console.warn('Lỗi syncProfile trong login:', err);
+      }
+
+      return { success: true, user: userData, token: validToken };
+    }
+
     setLoading(true);
     setError(null);
     try {
