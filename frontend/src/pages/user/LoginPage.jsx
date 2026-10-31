@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, Link, useLocation } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleReCaptchaProvider, useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import toast from 'react-hot-toast';
@@ -17,7 +18,7 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuA
  * - Cột phải: Form đăng nhập chuẩn UX, SSO (Google + Facebook), bảo mật SSL 256-bit + 2FA
  */
 const LoginPageContent = () => {
-  const { login, loading, error, isAuthenticated, user } = useAuth();
+  const { login, loginWithGoogle, setToken, setUser, loading, error, isAuthenticated, user } = useAuth();
   const { executeRecaptcha } = useGoogleReCaptcha();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,6 +35,94 @@ const LoginPageContent = () => {
   // ── Rate Limiting State (Khóa sau 3 lần sai liên tiếp) ──────────────────────
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // ── Google OAuth Login Hook ─────────────────────────────────────────────────
+  const handleGoogleLogin = useGoogleLogin({
+    scope:
+      'openid profile email https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read',
+    onSuccess: async (tokenResponse) => {
+      setIsGoogleLoading(true);
+      try {
+        let userData;
+        if (typeof loginWithGoogle === 'function') {
+          const res = await loginWithGoogle(tokenResponse.access_token);
+          if (!res.success) {
+            toast.error(res.message || 'Đăng nhập Google thất bại.', { id: 'login-toast' });
+            return;
+          }
+          userData = res.user;
+        } else {
+          const response = await api.post('/auth/google', {
+            accessToken: tokenResponse.access_token,
+            access_token: tokenResponse.access_token,
+          });
+          const data = response.data.data;
+          userData = data.user;
+          const jwtToken = data.token || data.accessToken;
+          if (setToken) setToken(jwtToken);
+          if (setUser) setUser(userData);
+          localStorage.setItem('token', jwtToken);
+          localStorage.setItem('accessToken', jwtToken);
+          localStorage.setItem('user', JSON.stringify(userData));
+          if (data.refreshToken) {
+            localStorage.setItem('refreshToken', data.refreshToken);
+          }
+        }
+
+        toast.success(`Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`, {
+          id: 'login-toast',
+        });
+
+        // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
+        const intentRaw = sessionStorage.getItem('cart_action_intent');
+        if (intentRaw) {
+          try {
+            const intent = JSON.parse(intentRaw);
+            sessionStorage.removeItem('cart_action_intent');
+
+            await api.post('/cart/items', {
+              MaSanPham: intent.product_id || intent.MaSanPham,
+              SoLuong: intent.quantity || intent.SoLuong || 1,
+              DungLuong: intent.DungLuong || intent.variant?.DungLuong || null,
+              MauSac: intent.MauSac || intent.variant?.MauSac || null,
+            });
+
+            if (intent.action_type === 'buy_now') {
+              toast.success('Đang chuyển đến trang thanh toán...', { id: 'login-toast' });
+              navigate('/checkout', { replace: true });
+              return;
+            } else {
+              toast.success(
+                `Đã thêm "${intent.product_name || 'sản phẩm'}" vào giỏ hàng.`,
+                { id: 'login-toast', duration: 4000 }
+              );
+              navigate(intent.redirect_back || '/', { replace: true });
+              return;
+            }
+          } catch {
+            // fallback nếu thêm giỏ hàng lỗi
+          }
+        }
+
+        const dest = userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
+        navigate(dest, { replace: true });
+      } catch (err) {
+        console.error('Lỗi khi đăng nhập Google:', err);
+        const errMsg =
+          err.response?.data?.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+        toast.error(errMsg, { id: 'login-toast' });
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+    onError: (errorResponse) => {
+      console.error('Lỗi Google OAuth Popup:', errorResponse);
+      toast.error('Đăng nhập Google không thành công hoặc cửa sổ popup đã bị đóng.', {
+        id: 'login-toast',
+      });
+    },
+  });
 
   // Điền sẵn số điện thoại / email khi điều hướng từ trang Đăng ký thành công
   useEffect(() => {
@@ -555,42 +644,50 @@ const LoginPageContent = () => {
                     </span>
                   </div>
 
-                  {/* Social SSO Buttons Grid (Google + Facebook, đã loại bỏ Apple ID & Zalo) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-unit-sm">
+                  {/* Social SSO Buttons Grid (Ngang) */}
+                  <div className="grid grid-cols-2 gap-unit-sm">
                     {/* Google SSO */}
                     <button
-                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-surface-container-low hover:bg-surface-container text-on-surface font-body-md text-body-md font-semibold rounded-xl shadow-sm transition-all hover:-translate-y-0.5"
-                      onClick={() => handleSocialLogin('Google')}
+                      id="google-login-btn"
+                      aria-label="Đăng nhập với Google"
+                      title="Đăng nhập với Google"
+                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-white hover:bg-slate-50 text-slate-700 font-body-md text-body-md font-semibold rounded-xl border border-slate-300 shadow-sm transition-all hover:shadow hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+                      onClick={() => handleGoogleLogin()}
+                      disabled={isGoogleLoading || isSubmitting || loading}
                       type="button"
                     >
-                      <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24">
-                        <path
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                          fill="#34A853"
-                        />
-                        <path
-                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                          fill="#FBBC05"
-                        />
-                        <path
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                          fill="#EA4335"
-                        />
-                      </svg>
-                      <span>Google</span>
+                      {isGoogleLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
+                      ) : (
+                        <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                          <path
+                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                            fill="#4285F4"
+                          />
+                          <path
+                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                            fill="#34A853"
+                          />
+                          <path
+                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                            fill="#FBBC05"
+                          />
+                          <path
+                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                            fill="#EA4335"
+                          />
+                        </svg>
+                      )}
+                      <span>{isGoogleLoading ? 'Đang kết nối...' : 'Google'}</span>
                     </button>
 
                     {/* Facebook SSO */}
                     <button
-                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-surface-container-low hover:bg-surface-container text-on-surface font-body-md text-body-md font-semibold rounded-xl shadow-sm transition-all hover:-translate-y-0.5"
+                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-surface-container-low hover:bg-surface-container text-on-surface font-body-md text-body-md font-semibold rounded-xl border border-outline-variant/30 shadow-sm transition-all hover:-translate-y-0.5 text-center"
                       onClick={() => handleSocialLogin('Facebook')}
                       type="button"
                     >
-                      <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="12" fill="#1877F2" />
                         <path
                           d="M15.117 12.5l.44-2.87h-2.753V7.766c0-.787.385-1.554 1.62-1.554h1.254V3.768S14.538 3.57 13.456 3.57c-2.257 0-3.73 1.368-3.73 3.842v2.218H7.202v2.87h2.524V20.5a12.06 12.06 0 003.73 0V12.5h1.661z"

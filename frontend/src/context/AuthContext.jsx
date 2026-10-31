@@ -88,6 +88,43 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
+   * Đăng nhập với Google OAuth Access Token
+   * Gọi API POST /api/v1/auth/google
+   * @param {string} googleAccessToken - Google OAuth access_token
+   */
+  const loginWithGoogle = useCallback(async (googleAccessToken) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.post('/auth/google', {
+        accessToken: googleAccessToken,
+        access_token: googleAccessToken,
+      });
+      const { user: userData, accessToken, refreshToken } = response.data.data;
+
+      // Lưu token và user vào state & localStorage
+      setToken(accessToken);
+      setUser(userData);
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+
+      return { success: true, user: userData, token: accessToken };
+    } catch (err) {
+      const message =
+        err.response?.data?.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+      setError(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
    * Đăng xuất - xóa toàn bộ thông tin xác thực
    */
   const logout = useCallback(() => {
@@ -117,9 +154,11 @@ export const AuthProvider = ({ children }) => {
     setUser,
     updateUser,
     token,
+    setToken,
     loading,
     error,
     login,
+    loginWithGoogle,
     logout,
     isAuthenticated: !!token && !!user,
     isAdmin: user?.MaVaiTro === 1,
