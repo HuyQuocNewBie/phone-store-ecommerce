@@ -125,6 +125,57 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
+   * Đăng nhập với Zalo OAuth (Access Token hoặc Code + CodeVerifier)
+   * Gọi API POST /api/v1/auth/zalo
+   * @param {Object} params - { accessToken, code, codeVerifier }
+   */
+  const loginWithZalo = useCallback(async ({ accessToken, code, codeVerifier } = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = {};
+      if (accessToken) {
+        payload.accessToken = accessToken;
+        payload.access_token = accessToken;
+      }
+      if (code) {
+        payload.code = code;
+      }
+      if (codeVerifier) {
+        payload.codeVerifier = codeVerifier;
+      }
+
+      const response = await api.post('/auth/zalo', payload);
+      const data = response.data?.data || {};
+      const userData = data.user;
+      const validToken = data.token || data.accessToken;
+
+      // Lưu token và user vào state & localStorage
+      if (validToken) {
+        setToken(validToken);
+        localStorage.setItem('token', validToken);
+        localStorage.setItem('accessToken', validToken);
+      }
+      if (userData) {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+
+      return { success: true, user: userData, token: validToken };
+    } catch (err) {
+      const message =
+        err.response?.data?.message || 'Đăng nhập Zalo thất bại. Vui lòng thử lại.';
+      setError(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
    * Đăng xuất - xóa toàn bộ thông tin xác thực
    */
   const logout = useCallback(() => {
@@ -159,6 +210,7 @@ export const AuthProvider = ({ children }) => {
     error,
     login,
     loginWithGoogle,
+    loginWithZalo,
     logout,
     isAuthenticated: !!token && !!user,
     isAdmin: user?.MaVaiTro === 1,

@@ -35,6 +35,7 @@ import AccountLayout from '../components/user/AccountLayout';
 import RegisterPage from '../pages/user/RegisterPage';
 import VerifyOtpPage from '../pages/user/VerifyOtpPage';
 import PaymentReturnPage from '../pages/user/PaymentReturnPage';
+import ZaloCallbackPage from '../pages/user/ZaloCallbackPage';
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -48,6 +49,7 @@ const AppRoutes = () => {
       <Route path="/products/:id" element={<ProductDetailPage />} />
       <Route path="/compare" element={<ComparePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/zalo/callback" element={<ZaloCallbackPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
       <Route path="/payment-return" element={<PaymentReturnPage />} />

@@ -658,7 +658,7 @@ const googleLogin = async (req, res, next) => {
  */
 const zaloLogin = async (req, res, next) => {
   try {
-    const accessToken =
+    let accessToken =
       req.body?.accessToken ||
       req.body?.token ||
       req.body?.access_token ||
@@ -667,10 +667,57 @@ const zaloLogin = async (req, res, next) => {
         ? req.headers['authorization'].split(' ')[1]
         : null);
 
+    const code = req.body?.code || req.body?.oauth_code;
+    const codeVerifier = req.body?.codeVerifier || req.body?.code_verifier;
+
+    // Đổi authorization code lấy access_token nếu chưa có access_token trực tiếp
+    if (!accessToken && code) {
+      const appId = process.env.ZALO_APP_ID || '4287436940154377836';
+      const appSecret = process.env.ZALO_APP_SECRET || 'PNEpV0EwHf7Y5sFC2PmB';
+      try {
+        const params = new URLSearchParams();
+        params.append('code', code);
+        params.append('app_id', appId);
+        params.append('grant_type', 'authorization_code');
+        if (codeVerifier) {
+          params.append('code_verifier', codeVerifier);
+        }
+
+        const tokenRes = await axios.post(
+          'https://oauth.zaloapp.com/v4/access_token',
+          params.toString(),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              secret_key: appSecret
+            }
+          }
+        );
+
+        if (tokenRes.data?.access_token) {
+          accessToken = tokenRes.data.access_token;
+        } else {
+          console.error('Lỗi khi đổi Zalo code lấy access_token:', tokenRes.data);
+          return res.status(400).json({
+            success: false,
+            message: tokenRes.data?.error_description || tokenRes.data?.error_name || tokenRes.data?.message || 'Không thể lấy access token từ Zalo',
+            error: tokenRes.data
+          });
+        }
+      } catch (tokenErr) {
+        console.error('Lỗi gọi API Zalo access_token:', tokenErr?.response?.data || tokenErr.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Không thể xác thực mã Zalo code',
+          error: tokenErr?.response?.data || tokenErr.message
+        });
+      }
+    }
+
     if (!accessToken) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng cung cấp accessToken của Zalo'
+        message: 'Vui lòng cung cấp accessToken hoặc code của Zalo'
       });
     }
 

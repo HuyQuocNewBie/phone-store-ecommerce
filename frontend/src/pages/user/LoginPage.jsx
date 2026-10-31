@@ -15,10 +15,10 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuA
  * LoginPageContent – SmartZone Ecommerce
  * Refactored từ Stitch AI HTML Design System:
  * - Cột trái: VIP Member Privileges, công nghệ flagship, danh sách 4 đặc quyền thành viên
- * - Cột phải: Form đăng nhập chuẩn UX, SSO (Google + Facebook), bảo mật SSL 256-bit + 2FA
+ * - Cột phải: Form đăng nhập chuẩn UX, SSO (Google + Zalo), bảo mật SSL 256-bit + 2FA
  */
 const LoginPageContent = () => {
-  const { login, loginWithGoogle, setToken, setUser, loading, error, isAuthenticated, user } = useAuth();
+  const { login, loginWithGoogle, loginWithZalo, setToken, setUser, loading, error, isAuthenticated, user } = useAuth();
   const { executeRecaptcha } = useGoogleReCaptcha();
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,6 +36,7 @@ const LoginPageContent = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isZaloLoading, setIsZaloLoading] = useState(false);
 
   // ── Google OAuth Login Hook ─────────────────────────────────────────────────
   const handleGoogleLogin = useGoogleLogin({
@@ -288,11 +289,126 @@ const LoginPageContent = () => {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    toast(`Đang kết nối cổng xác thực an toàn qua ${provider}...`, {
-      icon: '🔐',
-      duration: 3000,
-    });
+  // ── Zalo SDK & OAuth Initialization ─────────────────────────────────────────
+  useEffect(() => {
+    if (!window.Zalo) {
+      const script = document.createElement('script');
+      script.src = 'https://sp.zalo.me/plugins/sdk.js';
+      script.async = true;
+      script.onload = () => {
+        try {
+          if (window.Zalo && typeof window.Zalo.init === 'function') {
+            window.Zalo.init({
+              version: '2.0',
+              appId: import.meta.env.VITE_ZALO_APP_ID || '4287436940154377836',
+              redirectUrl: `${window.location.origin}/auth/zalo/callback`,
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi khi khởi tạo Zalo JS SDK:', e);
+        }
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // Helper sinh mã code_verifier và code_challenge cho chuẩn bảo mật PKCE
+  const generatePKCE = async () => {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const array = new Uint8Array(43);
+    window.crypto.getRandomValues(array);
+    let verifier = '';
+    for (let i = 0; i < array.length; i++) {
+      verifier += charset[array[i] % charset.length];
+    }
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await window.crypto.subtle.digest('SHA-256', data);
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return { verifier, challenge };
+  };
+
+  // Mở Popup hoặc chuyển hướng đăng nhập qua Zalo OAuth
+  const handleZaloLogin = async () => {
+    setIsZaloLoading(true);
+    try {
+      const appId = import.meta.env.VITE_ZALO_APP_ID || '4287436940154377836';
+      const redirectUri = `${window.location.origin}/auth/zalo/callback`;
+      const state = Math.random().toString(36).substring(2, 15);
+
+      const { verifier, challenge } = await generatePKCE();
+      sessionStorage.setItem('zalo_code_verifier', verifier);
+      sessionStorage.setItem('zalo_auth_state', state);
+
+      const zaloAuthUrl = `https://oauth.zaloapp.com/v4/permission?app_id=${appId}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&code_challenge=${challenge}&state=${state}`;
+
+      // Kích thước chuẩn cho popup mạng xã hội
+      const width = 500;
+      const height = 650;
+      const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+      const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+
+      const popup = window.open(
+        zaloAuthUrl,
+        'zalo_login_popup',
+        `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,status=no,resizable=yes,scrollbars=yes`
+      );
+
+      // Nếu trình duyệt chặn popup hoặc đang ở môi trường di động
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        window.location.href = zaloAuthUrl;
+        return;
+      }
+
+      // Lắng nghe kết quả từ ZaloCallbackPage gửi về qua postMessage
+      const handlePopupMessage = (event) => {
+        if (event.origin !== window.location.origin) return;
+
+        if (event.data?.type === 'ZALO_AUTH_SUCCESS') {
+          window.removeEventListener('message', handlePopupMessage);
+          clearInterval(checkPopupClosed);
+          setIsZaloLoading(false);
+
+          const userData = event.data.user;
+          toast.success(
+            `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`,
+            { id: 'login-toast' }
+          );
+
+          const target = event.data.redirectTarget || (userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/');
+          navigate(target, { replace: true });
+        } else if (event.data?.type === 'ZALO_AUTH_ERROR') {
+          window.removeEventListener('message', handlePopupMessage);
+          clearInterval(checkPopupClosed);
+          setIsZaloLoading(false);
+          toast.error(event.data.message || 'Đăng nhập Zalo không thành công.', {
+            id: 'login-toast',
+          });
+        }
+      };
+
+      window.addEventListener('message', handlePopupMessage);
+
+      // Tự động giải phóng loading nếu người dùng đóng cửa sổ popup
+      const checkPopupClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopupClosed);
+          window.removeEventListener('message', handlePopupMessage);
+          setIsZaloLoading(false);
+        }
+      }, 700);
+    } catch (err) {
+      console.error('Lỗi khi mở đăng nhập Zalo:', err);
+      setIsZaloLoading(false);
+      toast.error('Không thể kết nối cổng đăng nhập Zalo. Vui lòng thử lại.', {
+        id: 'login-toast',
+      });
+    }
   };
 
   const formatLockTime = (totalSeconds) => {
@@ -653,7 +769,7 @@ const LoginPageContent = () => {
                       title="Đăng nhập với Google"
                       className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-white hover:bg-slate-50 text-slate-700 font-body-md text-body-md font-semibold rounded-xl border border-slate-300 shadow-sm transition-all hover:shadow hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed text-center"
                       onClick={() => handleGoogleLogin()}
-                      disabled={isGoogleLoading || isSubmitting || loading}
+                      disabled={isGoogleLoading || isZaloLoading || isSubmitting || loading}
                       type="button"
                     >
                       {isGoogleLoading ? (
@@ -681,20 +797,31 @@ const LoginPageContent = () => {
                       <span>{isGoogleLoading ? 'Đang kết nối...' : 'Google'}</span>
                     </button>
 
-                    {/* Facebook SSO */}
+                    {/* Zalo SSO */}
                     <button
-                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-surface-container-low hover:bg-surface-container text-on-surface font-body-md text-body-md font-semibold rounded-xl border border-outline-variant/30 shadow-sm transition-all hover:-translate-y-0.5 text-center"
-                      onClick={() => handleSocialLogin('Facebook')}
+                      id="zalo-login-btn"
+                      aria-label="Đăng nhập với Zalo"
+                      title="Đăng nhập với Zalo"
+                      className="flex items-center justify-center gap-unit-xs py-unit-xs px-unit-sm bg-[#0068FF] hover:bg-[#0058e0] active:bg-[#004ec9] text-white font-body-md text-body-md font-semibold rounded-xl border border-transparent shadow-sm transition-all hover:shadow hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+                      onClick={handleZaloLogin}
+                      disabled={isZaloLoading || isGoogleLoading || isSubmitting || loading}
                       type="button"
                     >
-                      <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="12" fill="#1877F2" />
-                        <path
-                          d="M15.117 12.5l.44-2.87h-2.753V7.766c0-.787.385-1.554 1.62-1.554h1.254V3.768S14.538 3.57 13.456 3.57c-2.257 0-3.73 1.368-3.73 3.842v2.218H7.202v2.87h2.524V20.5a12.06 12.06 0 003.73 0V12.5h1.661z"
-                          fill="#ffffff"
-                        />
-                      </svg>
-                      <span>Facebook</span>
+                      {isZaloLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-white shrink-0" />
+                      ) : (
+                        <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center p-0.5 shrink-0 shadow-sm">
+                          <svg
+                            role="img"
+                            viewBox="0 0 24 24"
+                            className="w-3.5 h-3.5 fill-[#0068FF]"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M12.49 10.2722v-.4496h1.3467v6.3218h-.7704a.576.576 0 01-.5763-.5729l-.0006.0005a3.273 3.273 0 01-1.9372.6321c-1.8138 0-3.2844-1.4697-3.2844-3.2823 0-1.8125 1.4706-3.2822 3.2844-3.2822a3.273 3.273 0 011.9372.6321l.0006.0005zM6.9188 7.7896v.205c0 .3823-.051.6944-.2995 1.0605l-.03.0343c-.0542.0615-.1815.206-.2421.2843L2.024 14.8h4.8948v.7682a.5764.5764 0 01-.5767.5761H0v-.3622c0-.4436.1102-.6414.2495-.8476L4.8582 9.23H.1922V7.7896h6.7266zm8.5513 8.3548a.4805.4805 0 01-.4803-.4798v-7.875h1.4416v8.3548H15.47zM20.6934 9.6C22.52 9.6 24 11.0807 24 12.9044c0 1.8252-1.4801 3.306-3.3066 3.306-1.8264 0-3.3066-1.4808-3.3066-3.306 0-1.8237 1.4802-3.3044 3.3066-3.3044zm-10.1412 5.253c1.0675 0 1.9324-.8645 1.9324-1.9312 0-1.065-.865-1.9295-1.9324-1.9295s-1.9324.8644-1.9324 1.9295c0 1.0667.865 1.9312 1.9324 1.9312zm10.1412-.0033c1.0737 0 1.945-.8707 1.945-1.9453 0-1.073-.8713-1.9436-1.945-1.9436-1.0753 0-1.945.8706-1.945 1.9453 0 1.0746.8697 1.9453 1.945 1.9453z" />
+                          </svg>
+                        </span>
+                      )}
+                      <span>{isZaloLoading ? 'Đang kết nối...' : 'Zalo'}</span>
                     </button>
                   </div>
                 </div>
