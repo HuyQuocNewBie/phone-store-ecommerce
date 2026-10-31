@@ -548,9 +548,7 @@ const createOrder = async (req, res, next) => {
     console.log("-> Processing Payment Method:", rawMethod, "Mapped ID:", maPhuongThucId);
 
     const [thanhToanResult] = await connection.query(
-      `INSERT INTO thanhtoan 
-        (MaDonHang, MaNguoiDung, SoLuongMua, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan)
-       VALUES (?, ?, ?, CURDATE(), ?, ?)`,
+      `INSERT INTO thanhtoan (MaDonHang, MaNguoiDung, SoTien, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan) VALUES (?, ?, ?, NOW(), ?, ?)`,
       [maDonHang, MaNguoiDung, tongTien, initialPaymentStatus, maPhuongThucId]
     );
 

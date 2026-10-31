@@ -244,8 +244,8 @@ const processSuccessfulPayment = async (params) => {
       await connection.query(
         `UPDATE thanhtoan 
          SET MaTrangThaiThanhToan = 1,
-             SoLuongMua = ?,
-             NgayThanhToan = CURDATE(),
+             SoTien = ?,
+             NgayThanhToan = NOW(),
              MaPhuongThucThanhToan = ?
          WHERE MaThanhToan = ?`,
         [finalAmount, maPhuongThucId, maThanhToan]
@@ -253,10 +253,8 @@ const processSuccessfulPayment = async (params) => {
     } else {
       // Lưu bản ghi mới vào bảng thanhtoan (MaTrangThaiThanhToan = 1: Thành công)
       const [insertThanhToan] = await connection.query(
-        `INSERT INTO thanhtoan 
-          (MaDonHang, MaNguoiDung, SoLuongMua, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan)
-         VALUES (?, ?, ?, CURDATE(), 1, ?)`,
-        [order.MaDonHang, userId, finalAmount, maPhuongThucId]
+        `INSERT INTO thanhtoan (MaDonHang, MaNguoiDung, SoTien, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan) VALUES (?, ?, ?, NOW(), ?, ?)`,
+        [order.MaDonHang, userId, finalAmount, 1, maPhuongThucId]
       );
       maThanhToan = insertThanhToan.insertId;
     }
