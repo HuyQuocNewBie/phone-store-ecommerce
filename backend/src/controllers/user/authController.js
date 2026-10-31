@@ -26,6 +26,115 @@ const getCustomerRoleId = async () => {
 };
 
 /**
+ * Helper chuẩn hóa và kiểm tra Giới tính:
+ * Trả về 'Nam', 'Nữ' hoặc null
+ */
+const sanitizeGender = (gender) => {
+  if (gender === null || gender === undefined) return null;
+  const g = String(gender).trim().toLowerCase();
+  if (g === 'male' || g === 'nam' || g === '1') return 'Nam';
+  if (g === 'female' || g === 'nữ' || g === 'nu' || g === '2') return 'Nữ';
+  return null;
+};
+
+/**
+ * Helper chuẩn hóa và kiểm tra Số điện thoại:
+ * Trả về chuỗi số điện thoại hợp lệ hoặc null
+ */
+const sanitizePhone = (phone) => {
+  if (phone === null || phone === undefined) return null;
+  const p = String(phone).trim();
+  if (
+    p === '' ||
+    p === 'null' ||
+    p === 'undefined' ||
+    p === '0901 234 567' ||
+    p === '0901234567'
+  ) {
+    return null;
+  }
+  const cleanPhone = p.replace(/[\s.-]/g, '');
+  if (!/^\+?[0-9]{8,15}$/.test(cleanPhone)) {
+    return null;
+  }
+  return p;
+};
+
+/**
+ * Helper chuẩn hóa và kiểm tra Ngày sinh:
+ * - Chấp nhận DD/MM/YYYY, YYYY-MM-DD hoặc Date object
+ * - Loại bỏ các giá trị rác: 1970-01-01, 1969-12-31, 0000-00-00, invalid date
+ * - Trả về YYYY-MM-DD hoặc null
+ */
+const sanitizeBirthday = (birthday) => {
+  if (birthday === null || birthday === undefined) return null;
+
+  if (birthday instanceof Date) {
+    if (isNaN(birthday.getTime()) || birthday.getTime() === 0) return null;
+    const year = birthday.getFullYear();
+    const month = String(birthday.getMonth() + 1).padStart(2, '0');
+    const day = String(birthday.getDate()).padStart(2, '0');
+    const formatted = `${year}-${month}-${day}`;
+    if (formatted === '1970-01-01' || formatted === '1969-12-31' || formatted === '0000-00-00') return null;
+    return formatted;
+  }
+
+  let str = String(birthday).trim();
+  if (!str || str === 'null' || str === 'undefined' || str === '0000-00-00' || str === 'NaN') {
+    return null;
+  }
+
+  // Nếu có dạng ISO string YYYY-MM-DDTHH:mm:ss...
+  if (str.includes('T')) {
+    str = str.split('T')[0];
+  }
+
+  let formattedDate = null;
+
+  // Xử lý định dạng DD/MM/YYYY hoặc DD-MM-YYYY
+  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(str)) {
+    const parts = str.split(/[\/-]/);
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    formattedDate = `${year}-${month}-${day}`;
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    formattedDate = str;
+  } else {
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      formattedDate = `${year}-${month}-${day}`;
+    }
+  }
+
+  if (!formattedDate) return null;
+
+  // Loại bỏ các giá trị ngày sinh rác (1970-01-01, 1969-12-31, 0000-00-00)
+  if (
+    formattedDate === '1970-01-01' ||
+    formattedDate === '1969-12-31' ||
+    formattedDate === '0000-00-00'
+  ) {
+    return null;
+  }
+
+  const d = new Date(formattedDate);
+  if (isNaN(d.getTime())) return null;
+
+  // Kiểm tra năm hợp lý (từ 1920 đến năm hiện tại)
+  const currentYear = new Date().getFullYear();
+  const year = parseInt(formattedDate.split('-')[0], 10);
+  if (year < 1920 || year > currentYear) {
+    return null;
+  }
+
+  return formattedDate;
+};
+
+/**
  * 1. POST /api/v1/auth/register
  * Nhận TaiKhoan, Email, MatKhau.
  * Kiểm tra trùng lặp CSDL -> Hash mật khẩu -> Sinh OTP 5 chữ số -> Lưu Redis (TTL 300s) -> Gửi Mail
@@ -464,7 +573,7 @@ const googleLogin = async (req, res, next) => {
 
     const trimmedEmail = String(email).trim().toLowerCase();
 
-    // 2. Chuẩn hóa 3 thông tin chính
+    // 2. Chuẩn hóa thông tin
     // Họ tên -> TaiKhoan (tối đa 50 ký tự)
     let taiKhoan = name ? String(name).trim().slice(0, 50) : '';
     if (!taiKhoan) {
@@ -473,6 +582,16 @@ const googleLogin = async (req, res, next) => {
 
     // Avatar -> AnhDaiDien (tối đa 255 ký tự)
     let anhDaiDien = picture ? String(picture).trim().slice(0, 255) : null;
+
+    // Giới tính, Ngày sinh, Số điện thoại:
+    // Nếu không lấy được hoặc invalid/1970-01-01 -> Ép gán giá trị = null trước khi INSERT/UPDATE vào MySQL
+    const rawGender = req.body?.gioiTinh || req.body?.gender || null;
+    const rawBirthday = req.body?.ngaySinh || req.body?.birthday || null;
+    const rawPhone = req.body?.soDienThoai || req.body?.phone || null;
+
+    const gioiTinh = sanitizeGender(rawGender);
+    const ngaySinh = sanitizeBirthday(rawBirthday);
+    const soDienThoai = sanitizePhone(rawPhone);
 
     // 3. XỬ LÝ TRUY VẤN MYSQL BẢNG nguoidung
     // Kiểm tra theo Email
@@ -486,27 +605,65 @@ const googleLogin = async (req, res, next) => {
     if (existingUsers.length > 0) {
       // NẾU ĐÃ TỒN TẠI:
       user = existingUsers[0];
+      const updateFields = [];
+      const updateParams = [];
 
       // Cập nhật bổ sung AnhDaiDien nếu cột này đang mang giá trị NULL hoặc rỗng
       if ((user.AnhDaiDien === null || user.AnhDaiDien === '') && anhDaiDien) {
-        await pool.query(
-          'UPDATE nguoidung SET AnhDaiDien = ? WHERE MaNguoiDung = ?',
-          [anhDaiDien, user.MaNguoiDung]
-        );
+        updateFields.push('AnhDaiDien = ?');
+        updateParams.push(anhDaiDien);
         user.AnhDaiDien = anhDaiDien;
+      }
+
+      // Xử lý NgaySinh: Nếu lấy được hợp lệ -> update; nếu DB cũ đang bị gán rác (1970-01-01 / invalid) -> ép về NULL
+      const sanitizedExistingDob = sanitizeBirthday(user.NgaySinh);
+      if (ngaySinh) {
+        updateFields.push('NgaySinh = ?');
+        updateParams.push(ngaySinh);
+        user.NgaySinh = ngaySinh;
+      } else if (!sanitizedExistingDob && user.NgaySinh) {
+        updateFields.push('NgaySinh = NULL');
+        user.NgaySinh = null;
+      }
+
+      // Giới tính: Nếu lấy được hợp lệ -> update; nếu giá trị hiện tại không hợp lệ -> ép về NULL
+      if (gioiTinh) {
+        updateFields.push('GioiTinh = ?');
+        updateParams.push(gioiTinh);
+        user.GioiTinh = gioiTinh;
+      } else if (user.GioiTinh && !['Nam', 'Nữ'].includes(user.GioiTinh)) {
+        updateFields.push('GioiTinh = NULL');
+        user.GioiTinh = null;
+      }
+
+      // Số điện thoại: Nếu lấy được hợp lệ -> update; nếu giá trị hiện tại không hợp lệ -> ép về NULL
+      if (soDienThoai) {
+        updateFields.push('SoDienThoai = ?');
+        updateParams.push(soDienThoai);
+        user.SoDienThoai = soDienThoai;
+      } else if (user.SoDienThoai && !sanitizePhone(user.SoDienThoai)) {
+        updateFields.push('SoDienThoai = NULL');
+        user.SoDienThoai = null;
+      }
+
+      if (updateFields.length > 0) {
+        updateParams.push(user.MaNguoiDung);
+        await pool.query(
+          `UPDATE nguoidung SET ${updateFields.join(', ')} WHERE MaNguoiDung = ?`,
+          updateParams
+        );
       }
     } else {
       // NẾU CHƯA TỒN TẠI (Tạo mới):
-      // - Sinh mật khẩu ngẫu nhiên: const randomPass = crypto.randomBytes(16).toString('hex');
-      // - Băm mật khẩu ngẫu nhiên: const hashedPassword = await bcrypt.hash(randomPass, 10);
-      // - Gán Email, TaiKhoan, AnhDaiDien, MatKhau (băm ngẫu nhiên), gán GioiTinh = NULL, NgaySinh = NULL
+      // - Sinh mật khẩu ngẫu nhiên & băm bcrypt
+      // - INSERT đảm bảo GioiTinh = NULL, NgaySinh = NULL, SoDienThoai = NULL chuẩn xác khi không có dữ liệu
       const randomPass = crypto.randomBytes(16).toString('hex');
       const hashedPassword = await bcrypt.hash(randomPass, 10);
 
       const [insertResult] = await pool.query(
-        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
-         VALUES (?, ?, ?, ?, NULL, NULL, 2)`,
-        [taiKhoan, trimmedEmail, hashedPassword, anhDaiDien]
+        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, SoDienThoai, MaVaiTro)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 2)`,
+        [taiKhoan, trimmedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh, soDienThoai]
       );
 
       const [newUsers] = await pool.query(
@@ -516,16 +673,10 @@ const googleLogin = async (req, res, next) => {
       user = newUsers[0];
     }
 
-    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD tránh lệch múi giờ nếu có
-    if (user.NgaySinh instanceof Date) {
-      const d = user.NgaySinh;
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      user.NgaySinh = `${year}-${month}-${day}`;
-    } else if (typeof user.NgaySinh === 'string' && user.NgaySinh.includes('T')) {
-      user.NgaySinh = user.NgaySinh.split('T')[0];
-    }
+    // Chuẩn hóa lại các trường dữ liệu trả về client
+    user.NgaySinh = sanitizeBirthday(user.NgaySinh);
+    user.GioiTinh = sanitizeGender(user.GioiTinh);
+    user.SoDienThoai = sanitizePhone(user.SoDienThoai);
 
     // 4. Trả về JWT Access Token & Refresh Token đăng nhập hệ thống
     const payload = {
@@ -705,35 +856,15 @@ const zaloLogin = async (req, res, next) => {
       anhDaiDien = anhDaiDien.slice(0, 255);
     }
 
-    // 2.4. Parse trường gender từ Zalo Graph API:
-    // * Nếu gender === 'male' hoặc gender === 1 hoặc gender === '1' -> Lưu GioiTinh = 'Nam'
-    // * Nếu gender === 'female' hoặc gender === 2 hoặc gender === '2' -> Lưu GioiTinh = 'Nữ'
-    // * Ngược lại -> Lưu GioiTinh = NULL
-    let gioiTinh = null;
-    const gVal = typeof gender === 'string' ? gender.trim().toLowerCase() : gender;
-    if (gVal === 'male' || gVal === 1 || gVal === '1') {
-      gioiTinh = 'Nam';
-    } else if (gVal === 'female' || gVal === 2 || gVal === '2') {
-      gioiTinh = 'Nữ';
-    } else {
-      gioiTinh = null;
-    }
+    // 2.4. Giới tính, Ngày sinh, Số điện thoại:
+    // Nếu không lấy được hoặc invalid/1970-01-01 -> Ép gán giá trị = null trước khi INSERT/UPDATE vào MySQL
+    const rawGender = gender ?? req.body?.gender ?? req.body?.gioiTinh ?? null;
+    const rawBirthday = birthday ?? req.body?.birthday ?? req.body?.ngaySinh ?? null;
+    const rawPhone = zaloData?.phone ?? req.body?.phone ?? req.body?.soDienThoai ?? null;
 
-    // 2.5. birthday (DD/MM/YYYY) -> NgaySinh (YYYY-MM-DD)
-    let ngaySinh = null;
-    if (birthday && typeof birthday === 'string') {
-      const parts = birthday.trim().split('/');
-      if (parts.length === 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        const year = parts[2];
-        if (year.length === 4) {
-          ngaySinh = `${year}-${month}-${day}`;
-        }
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) {
-        ngaySinh = birthday.trim();
-      }
-    }
+    const gioiTinh = sanitizeGender(rawGender);
+    const ngaySinh = sanitizeBirthday(rawBirthday);
+    const soDienThoai = sanitizePhone(rawPhone);
 
     // 3. Xử lý truy vấn MySQL bảng nguoidung
     const [existingUsers] = await pool.query(
@@ -761,16 +892,35 @@ const zaloLogin = async (req, res, next) => {
         user.AnhDaiDien = anhDaiDien;
       }
 
-      if (gioiTinh !== undefined) {
+      // Giới tính: Nếu lấy được hợp lệ -> update; nếu giá trị hiện tại không hợp lệ -> ép về NULL
+      if (gioiTinh !== null) {
         updateFields.push('GioiTinh = ?');
         updateParams.push(gioiTinh);
         user.GioiTinh = gioiTinh;
+      } else if (user.GioiTinh && !['Nam', 'Nữ'].includes(user.GioiTinh)) {
+        updateFields.push('GioiTinh = NULL');
+        user.GioiTinh = null;
       }
 
-      if (ngaySinh) {
+      // Ngày sinh: nếu có ngày sinh mới hợp lệ -> update; nếu ngày sinh hiện tại trong DB là rác (1970-01-01 / invalid) -> dọn về NULL
+      const sanitizedExistingDob = sanitizeBirthday(user.NgaySinh);
+      if (ngaySinh !== null) {
         updateFields.push('NgaySinh = ?');
         updateParams.push(ngaySinh);
         user.NgaySinh = ngaySinh;
+      } else if (!sanitizedExistingDob && user.NgaySinh) {
+        updateFields.push('NgaySinh = NULL');
+        user.NgaySinh = null;
+      }
+
+      // Số điện thoại: nếu có số điện thoại mới hợp lệ -> update; nếu giá trị hiện tại không hợp lệ -> dọn về NULL
+      if (soDienThoai !== null) {
+        updateFields.push('SoDienThoai = ?');
+        updateParams.push(soDienThoai);
+        user.SoDienThoai = soDienThoai;
+      } else if (user.SoDienThoai && !sanitizePhone(user.SoDienThoai)) {
+        updateFields.push('SoDienThoai = NULL');
+        user.SoDienThoai = null;
       }
 
       if (updateFields.length > 0) {
@@ -790,13 +940,14 @@ const zaloLogin = async (req, res, next) => {
       }
     } else {
       // NẾU CHƯA TỒN TẠI: Tạo mới tài khoản với MaVaiTro = 2
+      // INSERT đảm bảo GioiTinh = NULL, NgaySinh = NULL, SoDienThoai = NULL chuẩn xác khi không có dữ liệu
       const randomPass = crypto.randomBytes(16).toString('hex');
       const hashedPassword = await bcrypt.hash(randomPass, 10);
 
       const [insertResult] = await pool.query(
-        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
-         VALUES (?, ?, ?, ?, ?, ?, 2)`,
-        [taiKhoan, generatedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh]
+        `INSERT INTO nguoidung (TaiKhoan, Email, MatKhau, AnhDaiDien, GioiTinh, NgaySinh, SoDienThoai, MaVaiTro)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 2)`,
+        [taiKhoan, generatedEmail, hashedPassword, anhDaiDien, gioiTinh, ngaySinh, soDienThoai]
       );
 
       const [newUsers] = await pool.query(
@@ -806,16 +957,10 @@ const zaloLogin = async (req, res, next) => {
       user = newUsers[0];
     }
 
-    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD nếu cần
-    if (user.NgaySinh instanceof Date) {
-      const d = user.NgaySinh;
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      user.NgaySinh = `${year}-${month}-${day}`;
-    } else if (typeof user.NgaySinh === 'string' && user.NgaySinh.includes('T')) {
-      user.NgaySinh = user.NgaySinh.split('T')[0];
-    }
+    // Chuẩn hóa lại các trường dữ liệu trả về client
+    user.NgaySinh = sanitizeBirthday(user.NgaySinh);
+    user.GioiTinh = sanitizeGender(user.GioiTinh);
+    user.SoDienThoai = sanitizePhone(user.SoDienThoai);
 
     // 4. Phát hành và trả về JWT Access Token cho Client
     const payload = {
