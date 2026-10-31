@@ -342,7 +342,11 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70 text-slate-800 text-[13px] scroll-smooth">
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
-            const hasRichContent = !isUser && msg.type && msg.type !== 'TEXT' && msg.data;
+            const hasRichContent =
+              !isUser &&
+              msg.type &&
+              msg.type !== 'TEXT' &&
+              (msg.data !== undefined && msg.data !== null ? true : msg.type === 'PRODUCT_LIST' || msg.type === 'PRODUCTS');
 
             return (
               <div

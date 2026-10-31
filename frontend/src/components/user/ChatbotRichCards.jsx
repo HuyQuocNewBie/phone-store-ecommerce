@@ -20,7 +20,8 @@ import {
   RotateCcw,
   Sparkles,
   ShieldCheck,
-  HelpCircle
+  HelpCircle,
+  Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,15 +44,18 @@ const FALLBACK_IMAGE =
  * Render danh sách sản phẩm nằm ngang (Ảnh, Tên, Giá, Cấu hình chính, Nút "Xem chi tiết").
  * Hỗ trợ cuộn ngang mượt mà kèm nút bấm điều hướng trái/phải.
  */
-export const ProductListCard = ({ products = [], onNavigate }) => {
+export const ProductListCard = ({ products = [], data, onNavigate }) => {
   const scrollContainerRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  const rawList = Array.isArray(products)
-    ? products
-    : products?.products && Array.isArray(products.products)
-    ? products.products
+  // Hỗ trợ truyền vào qua prop 'data' hoặc 'products'
+  const targetData = data !== undefined ? data : products;
+
+  const rawList = Array.isArray(targetData)
+    ? targetData
+    : targetData?.products && Array.isArray(targetData.products)
+    ? targetData.products
     : [];
 
   const list = rawList.slice(0, 8); // Tối đa 8 sản phẩm
@@ -71,8 +75,26 @@ export const ProductListCard = ({ products = [], onNavigate }) => {
     }
   };
 
-  if (!list || list.length === 0) {
-    return null;
+  // Trạng thái rỗng (Empty State) khi data rỗng hoặc không tìm thấy sản phẩm
+  if (!targetData || (Array.isArray(targetData) && targetData.length === 0) || list.length === 0) {
+    return (
+      <div className="w-full my-2 p-4 bg-slate-50/80 rounded-2xl border border-dashed border-slate-200/90 flex flex-col items-center justify-center text-center gap-2.5">
+        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+          <Search className="w-5 h-5 text-slate-500" />
+        </div>
+        <p className="text-xs font-medium text-slate-600 leading-relaxed max-w-[260px]">
+          Không tìm thấy sản phẩm phù hợp trong hệ thống
+        </p>
+        <button
+          type="button"
+          onClick={() => onNavigate?.('/products')}
+          className="mt-0.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all duration-200 active:scale-95"
+        >
+          <span>Xem tất cả sản phẩm</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -943,14 +965,17 @@ export const PaymentGuideCard = ({ data = [], onNavigate }) => {
  * @param {Function} [props.onCopyVoucher] - Hàm callback khi sao chép mã voucher
  */
 const ChatbotRichCards = ({ type, data, onNavigate, onCopyVoucher }) => {
-  if (!type || !data) return null;
+  if (!type) return null;
 
   const normalizedType = String(type).trim().toUpperCase();
+
+  // Các thẻ khác yêu cầu có data, riêng PRODUCT_LIST sẽ hiển thị giao diện Empty State khi data rỗng
+  if (!data && normalizedType !== 'PRODUCT_LIST' && normalizedType !== 'PRODUCTS') return null;
 
   switch (normalizedType) {
     case 'PRODUCT_LIST':
     case 'PRODUCTS':
-      return <ProductListCard products={data} onNavigate={onNavigate} />;
+      return <ProductListCard products={data} data={data} onNavigate={onNavigate} />;
 
     case 'COMPARE':
     case 'COMPARE_MATRIX':
