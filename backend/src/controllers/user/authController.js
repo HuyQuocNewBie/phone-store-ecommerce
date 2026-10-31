@@ -235,10 +235,11 @@ const verifyOtp = async (req, res, next) => {
 /**
  * 3. POST /api/v1/auth/login
  * Kiểm tra đăng nhập (TaiKhoan/Email + MatKhau)
+ * Bảo vệ bởi: rateLimitMiddleware (chống Brute-force) & recaptchaMiddleware (chống Bot)
  */
 const login = async (req, res, next) => {
   try {
-    const { TaiKhoan, Email, MatKhau } = req.body;
+    const { TaiKhoan, Email, MatKhau, recaptchaToken } = req.body;
     const loginIdentifier = String(TaiKhoan || Email || '').trim();
 
     if (!loginIdentifier || !MatKhau) {
