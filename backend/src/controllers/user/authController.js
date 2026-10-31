@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const crypto = require('crypto');
 const { pool } = require('../../../config/db');
 const redis = require('../../config/redis');
 const { sendOtpEmail } = require('../../utils/mailer');
@@ -368,9 +370,269 @@ const forgotPassword = async (req, res, next) => {
   }
 };
 
+/**
+ * 5. POST /api/v1/auth/google
+ * Đăng nhập Google:
+ * - Nhận accessToken từ client gửi lên.
+ * - Gọi Google People API:
+ *   GET https://people.googleapis.com/v1/people/me?personFields=names,photos,genders,birthdays
+ *   với Header Authorization: Bearer <accessToken>.
+ * - Bóc tách thông tin:
+ *   * Họ tên -> TaiKhoan
+ *   * Image URL -> AnhDaiDien
+ *   * Gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
+ *   * Birthday (year, month, day) -> NgaySinh ('YYYY-MM-DD')
+ * - Truy vấn MySQL bảng nguoidung:
+ *   * Nếu Email đã tồn tại: UPDATE cập nhật AnhDaiDien, GioiTinh, NgaySinh nếu trường đó đang NULL.
+ *   * Nếu chưa tồn tại: INSERT user mới (MaVaiTro = 2).
+ * - Phát hành JWT Access Token trả về cho client.
+ */
+const googleLogin = async (req, res, next) => {
+  try {
+    const accessToken =
+      req.body?.accessToken ||
+      req.body?.token ||
+      req.body?.access_token ||
+      (req.headers['authorization']?.startsWith('Bearer ')
+        ? req.headers['authorization'].split(' ')[1]
+        : null);
+
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp accessToken của Google'
+      });
+    }
+
+    // 1. Gọi Google People API
+    let googlePeopleRes;
+    try {
+      googlePeopleRes = await axios.get(
+        'https://people.googleapis.com/v1/people/me?personFields=names,photos,genders,birthdays',
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+    } catch (apiError) {
+      console.error('Lỗi khi gọi Google People API:', apiError?.response?.data || apiError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Xác thực Google thất bại hoặc accessToken không hợp lệ',
+        error: apiError?.response?.data?.error?.message || apiError.message
+      });
+    }
+
+    const peopleData = googlePeopleRes.data || {};
+
+    // 2. Lấy Email người dùng
+    let email =
+      peopleData.emailAddresses?.[0]?.value ||
+      peopleData.email ||
+      req.body?.email ||
+      req.body?.Email;
+
+    // Dự phòng: Nếu personFields không trả về email, truy vấn thêm Google UserInfo bằng accessToken
+    if (!email) {
+      try {
+        const userInfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+        if (userInfoRes.data?.email) {
+          email = userInfoRes.data.email;
+        }
+      } catch (err) {
+        console.warn('Không thể lấy email từ Google UserInfo:', err.message);
+      }
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không tìm thấy Email từ tài khoản Google'
+      });
+    }
+
+    const trimmedEmail = String(email).trim().toLowerCase();
+
+    // 3. Bóc tách thông tin:
+    // 3.1. Họ tên -> TaiKhoan
+    let taiKhoan = null;
+    if (Array.isArray(peopleData.names) && peopleData.names.length > 0) {
+      const primaryName = peopleData.names.find((n) => n.metadata?.primary) || peopleData.names[0];
+      taiKhoan =
+        primaryName.displayName ||
+        `${primaryName.familyName || ''} ${primaryName.givenName || ''}`.trim() ||
+        primaryName.unstructuredName;
+    }
+    if (!taiKhoan) {
+      taiKhoan = trimmedEmail.split('@')[0];
+    }
+    taiKhoan = String(taiKhoan).trim().slice(0, 50);
+
+    // 3.2. Image URL -> AnhDaiDien
+    let anhDaiDien = null;
+    if (Array.isArray(peopleData.photos) && peopleData.photos.length > 0) {
+      const primaryPhoto = peopleData.photos.find((p) => p.metadata?.primary) || peopleData.photos[0];
+      anhDaiDien = primaryPhoto.url || null;
+    }
+    if (!anhDaiDien && peopleData.picture) {
+      anhDaiDien = peopleData.picture;
+    }
+    if (anhDaiDien && anhDaiDien.length > 255) {
+      anhDaiDien = anhDaiDien.slice(0, 255);
+    }
+
+    // 3.3. Gender ('male'/'female') -> GioiTinh ('Nam'/'Nữ')
+    let gioiTinh = null;
+    if (Array.isArray(peopleData.genders) && peopleData.genders.length > 0) {
+      const primaryGender = peopleData.genders.find((g) => g.metadata?.primary) || peopleData.genders[0];
+      const gVal = String(primaryGender.value || primaryGender.gender || '').toLowerCase().trim();
+      if (gVal === 'male') {
+        gioiTinh = 'Nam';
+      } else if (gVal === 'female') {
+        gioiTinh = 'Nữ';
+      }
+    }
+
+    // 3.4. Birthday (year, month, day) -> NgaySinh ('YYYY-MM-DD')
+    let ngaySinh = null;
+    if (Array.isArray(peopleData.birthdays) && peopleData.birthdays.length > 0) {
+      for (const item of peopleData.birthdays) {
+        const d = item.date || item;
+        if (d && d.year && d.month && d.day) {
+          const year = String(d.year).padStart(4, '0');
+          const month = String(d.month).padStart(2, '0');
+          const day = String(d.day).padStart(2, '0');
+          ngaySinh = `${year}-${month}-${day}`;
+          break;
+        } else if (typeof item === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item)) {
+          ngaySinh = item;
+          break;
+        }
+      }
+    }
+
+    // 4. Truy vấn MySQL bảng nguoidung
+    const [existingUsers] = await pool.query(
+      'SELECT * FROM nguoidung WHERE LOWER(Email) = LOWER(?)',
+      [trimmedEmail]
+    );
+
+    let user;
+
+    if (existingUsers.length > 0) {
+      user = existingUsers[0];
+
+      // Nếu Email đã tồn tại: UPDATE cập nhật AnhDaiDien, GioiTinh, NgaySinh nếu trường đó đang NULL
+      const updateFields = [];
+      const updateParams = [];
+
+      if ((user.AnhDaiDien === null || user.AnhDaiDien === '') && anhDaiDien) {
+        updateFields.push('AnhDaiDien = ?');
+        updateParams.push(anhDaiDien);
+        user.AnhDaiDien = anhDaiDien;
+      }
+
+      if ((user.GioiTinh === null || user.GioiTinh === '') && gioiTinh) {
+        updateFields.push('GioiTinh = ?');
+        updateParams.push(gioiTinh);
+        user.GioiTinh = gioiTinh;
+      }
+
+      if ((user.NgaySinh === null || user.NgaySinh === '') && ngaySinh) {
+        updateFields.push('NgaySinh = ?');
+        updateParams.push(ngaySinh);
+        user.NgaySinh = ngaySinh;
+      }
+
+      if (updateFields.length > 0) {
+        updateParams.push(user.MaNguoiDung);
+        await pool.query(
+          `UPDATE nguoidung SET ${updateFields.join(', ')} WHERE MaNguoiDung = ?`,
+          updateParams
+        );
+        const [refreshedUsers] = await pool.query(
+          'SELECT * FROM nguoidung WHERE MaNguoiDung = ?',
+          [user.MaNguoiDung]
+        );
+        if (refreshedUsers.length > 0) {
+          user = refreshedUsers[0];
+        }
+      }
+    } else {
+      // Nếu chưa tồn tại: INSERT user mới (MaVaiTro = 2)
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      const [insertResult] = await pool.query(
+        `INSERT INTO nguoidung (TaiKhoan, MatKhau, Email, AnhDaiDien, GioiTinh, NgaySinh, MaVaiTro)
+         VALUES (?, ?, ?, ?, ?, ?, 2)`,
+        [taiKhoan, hashedPassword, trimmedEmail, anhDaiDien, gioiTinh, ngaySinh]
+      );
+
+      const [newUsers] = await pool.query(
+        'SELECT * FROM nguoidung WHERE MaNguoiDung = ?',
+        [insertResult.insertId]
+      );
+      user = newUsers[0];
+    }
+
+    // Định dạng lại NgaySinh chuẩn YYYY-MM-DD tránh lệch múi giờ
+    if (user.NgaySinh instanceof Date) {
+      const d = user.NgaySinh;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      user.NgaySinh = `${year}-${month}-${day}`;
+    } else if (typeof user.NgaySinh === 'string' && user.NgaySinh.includes('T')) {
+      user.NgaySinh = user.NgaySinh.split('T')[0];
+    }
+
+    // 5. Phát hành JWT Access Token trả về cho client
+    const payload = {
+      MaNguoiDung: user.MaNguoiDung,
+      MaVaiTro: user.MaVaiTro,
+      TaiKhoan: user.TaiKhoan
+    };
+
+    const jwtAccessToken = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'secret_key',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    );
+
+    const refreshToken = jwt.sign(
+      payload,
+      process.env.JWT_REFRESH_SECRET || 'refresh_secret_key',
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+
+    const { MatKhau: _, ...userInfo } = user;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đăng nhập Google thành công',
+      data: {
+        token: jwtAccessToken,
+        accessToken: jwtAccessToken,
+        refreshToken,
+        user: userInfo
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
   login,
-  forgotPassword
+  forgotPassword,
+  googleLogin
 };

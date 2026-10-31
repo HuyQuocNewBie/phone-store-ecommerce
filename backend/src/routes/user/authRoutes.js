@@ -17,4 +17,7 @@ router.post('/login', rateLimitMiddleware, recaptchaMiddleware, authController.l
 // 4. POST /api/v1/auth/forgot-password -> Gửi OTP khôi phục mật khẩu qua Mail & Redis
 router.post('/forgot-password', authController.forgotPassword);
 
+// 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API
+router.post('/google', authController.googleLogin);
+
 module.exports = router;
