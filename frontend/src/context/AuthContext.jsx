@@ -50,15 +50,20 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Đăng nhập - gọi API POST /auth/login
-   * Backend yêu cầu: { TaiKhoan, MatKhau }
+   * Backend yêu cầu: { TaiKhoan, MatKhau, recaptchaToken }
    * @param {string} TaiKhoan - Tên tài khoản hoặc email
    * @param {string} MatKhau - Mật khẩu
+   * @param {string} [recaptchaToken] - Token xác thực Google reCAPTCHA v3
    */
-  const login = useCallback(async (TaiKhoan, MatKhau) => {
+  const login = useCallback(async (TaiKhoan, MatKhau, recaptchaToken = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.post('/auth/login', { TaiKhoan, MatKhau });
+      const payload = { TaiKhoan, MatKhau };
+      if (recaptchaToken) {
+        payload.recaptchaToken = recaptchaToken;
+      }
+      const response = await api.post('/auth/login', payload);
       const { user: userData, accessToken, refreshToken } = response.data.data;
 
       // Lưu token và user vào state & localStorage

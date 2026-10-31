@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import { Loader2, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuAAAAAHATGbDWPmg2432V6GA8uFLpatuu';
+
 /**
- * LoginPage – SmartZone Ecommerce
+ * LoginPageContent – SmartZone Ecommerce
  * Refactored từ Stitch AI HTML Design System:
  * - Cột trái: VIP Member Privileges, công nghệ flagship, danh sách 4 đặc quyền thành viên
  * - Cột phải: Form đăng nhập chuẩn UX, SSO (Google + Facebook), bảo mật SSL 256-bit + 2FA
  */
-const LoginPage = () => {
+const LoginPageContent = () => {
   const { login, loading, error, isAuthenticated, user } = useAuth();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -111,7 +115,24 @@ const LoginPage = () => {
     }
 
     setIsSubmitting(true);
-    const result = await login(form.TaiKhoan.trim(), form.MatKhau);
+
+    // Kích hoạt executeRecaptcha('login') để lấy recaptchaToken
+    let recaptchaToken = '';
+    if (executeRecaptcha) {
+      try {
+        recaptchaToken = await executeRecaptcha('login');
+      } catch (recaptchaErr) {
+        console.error('Lỗi khi thực thi executeRecaptcha:', recaptchaErr);
+      }
+    } else if (window.grecaptcha?.execute) {
+      try {
+        recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
+      } catch (recaptchaErr) {
+        console.error('Lỗi khi thực thi window.grecaptcha:', recaptchaErr);
+      }
+    }
+
+    const result = await login(form.TaiKhoan.trim(), form.MatKhau, recaptchaToken);
     setIsSubmitting(false);
 
     if (result.success) {
@@ -616,9 +637,17 @@ const LoginPage = () => {
       </div>
     </main>
 
-    <Footer />
-  </div>
-);
+      <Footer />
+    </div>
+  );
+};
+
+const LoginPage = () => {
+  return (
+    <GoogleReCaptchaProvider reCaptchaKey={RECAPTCHA_SITE_KEY}>
+      <LoginPageContent />
+    </GoogleReCaptchaProvider>
+  );
 };
 
 export default LoginPage;
