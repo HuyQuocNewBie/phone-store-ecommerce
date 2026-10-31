@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import {
   Bot,
   Sparkles,
@@ -373,7 +374,49 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                         : 'bg-white text-slate-800 rounded-bl-xs border border-slate-200/70 shadow-slate-200/50'
                     } ${hasRichContent ? 'w-full' : ''}`}
                   >
-                    {msg.content && <p className="whitespace-pre-line font-normal">{msg.content}</p>}
+                    {msg.content &&
+                      (isUser ? (
+                        <p className="whitespace-pre-line font-normal">{msg.content}</p>
+                      ) : (
+                        <div className="text-[13px] text-slate-800 font-normal leading-relaxed break-words">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ node, ...props }) => (
+                                <p className="mb-2 last:mb-0 leading-relaxed" {...props} />
+                              ),
+                              ul: ({ node, ...props }) => (
+                                <ul className="list-disc pl-4 space-y-1 my-1.5" {...props} />
+                              ),
+                              ol: ({ node, ...props }) => (
+                                <ol className="list-decimal pl-4 space-y-1 my-1.5" {...props} />
+                              ),
+                              li: ({ node, ...props }) => (
+                                <li className="leading-relaxed" {...props} />
+                              ),
+                              strong: ({ node, ...props }) => (
+                                <strong className="font-semibold text-slate-900" {...props} />
+                              ),
+                              em: ({ node, ...props }) => <em className="italic" {...props} />,
+                              code: ({ node, inline, ...props }) => (
+                                <code
+                                  className="bg-slate-100 text-pink-600 px-1 py-0.5 rounded text-[12px] font-mono"
+                                  {...props}
+                                />
+                              ),
+                              a: ({ node, ...props }) => (
+                                <a
+                                  className="text-blue-600 underline font-medium hover:text-blue-800"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  {...props}
+                                />
+                              ),
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      ))}
 
                     {/* Rich Content Cards: ProductList, CompareMatrix, OrderStatus, VoucherList */}
                     {hasRichContent && (
