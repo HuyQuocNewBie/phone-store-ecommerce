@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { pool } = require('../../../config/db');
 const {
   checkCooldown,
@@ -7,6 +8,7 @@ const {
   deleteOtp,
   incrementAttempts,
   setResetToken,
+  consumeResetToken,
   hashOtp,
   normalizeEmail
 } = require('../../utils/otpStoreUtil');
@@ -205,9 +207,90 @@ const verifyOtp = async (req, res, next) => {
   }
 };
 
+/**
+ * Controller cập nhật mật khẩu mới sau khi đã xác thực OTP thành công:
+ * - Bắt buộc nhận `resetToken`, `matKhauMoi`, `xacNhanMatKhau`.
+ * - Kiểm tra `resetToken` trong otpStoreUtil (consumeResetToken): Nếu không hợp lệ hoặc hết hạn -> HTTP 401.
+ * - Validate `matKhauMoi` theo Password Policy: tối thiểu 8 ký tự, phải có chữ hoa, chữ thường, số và ký tự đặc biệt.
+ * - Kiểm tra `matKhauMoi === xacNhanMatKhau`.
+ * - Băm mật khẩu bằng bcrypt (saltRounds = 10).
+ * - Cập nhật MatKhau và NgayCapNhatMatKhau vào bảng nguoidung.
+ * - Token bị xóa khỏi store ngay sau khi consumeResetToken thành công (chống tái sử dụng).
+ *
+ * @route POST /api/v1/auth/forgot-password/reset-password
+ */
+const resetPassword = async (req, res, next) => {
+  try {
+    const { resetToken, matKhauMoi, xacNhanMatKhau } = req.body;
+
+    // 1. Kiểm tra các trường bắt buộc
+    if (!resetToken || !matKhauMoi || !xacNhanMatKhau) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp đầy đủ resetToken, matKhauMoi và xacNhanMatKhau'
+      });
+    }
+
+    // 2. Xác thực resetToken (đồng thời xóa khỏi store để chặn tái sử dụng)
+    const tokenResult = await consumeResetToken(resetToken);
+    if (!tokenResult.success) {
+      return res.status(401).json({
+        success: false,
+        message: 'Phiên đổi mật khẩu đã hết hạn'
+      });
+    }
+
+    const email = tokenResult.email;
+
+    // 3. Validate mật khẩu mới theo Password Policy
+    const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordPolicy.test(matKhauMoi)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Mật khẩu phải có tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số và 1 ký tự đặc biệt (@$!%*?&)'
+      });
+    }
+
+    // 4. Kiểm tra mật khẩu xác nhận khớp
+    if (matKhauMoi !== xacNhanMatKhau) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu xác nhận không khớp với mật khẩu mới'
+      });
+    }
+
+    // 5. Băm mật khẩu mới
+    const hashedPassword = await bcrypt.hash(matKhauMoi, 10);
+
+    // 6. Cập nhật mật khẩu và thời gian đổi vào CSDL
+    const [result] = await pool.query(
+      'UPDATE nguoidung SET MatKhau = ?, NgayCapNhatMatKhau = NOW() WHERE Email = ?',
+      [hashedPassword, email]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản liên kết với phiên đổi mật khẩu này'
+      });
+    }
+
+    // 7. Trả về phản hồi thành công
+    return res.status(200).json({
+      success: true,
+      message: 'Mật khẩu đã được cập nhật thành công. Vui lòng đăng nhập lại bằng mật khẩu mới.'
+    });
+  } catch (error) {
+    console.error('[resetPassword] Lỗi cập nhật mật khẩu mới:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   sendOtp,
   verifyOtp,
+  resetPassword,
   isEmail
 };
 

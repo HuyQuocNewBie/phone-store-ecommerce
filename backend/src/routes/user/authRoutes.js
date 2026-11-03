@@ -24,6 +24,9 @@ router.post('/forgot-password/send-otp', forgotPasswordController.sendOtp);
 // POST /api/v1/auth/forgot-password/verify-otp -> Xác thực mã OTP 2 lớp cấp phép cho bước đổi mật khẩu
 router.post('/forgot-password/verify-otp', forgotPasswordController.verifyOtp);
 
+// POST /api/v1/auth/forgot-password/reset-password -> Cập nhật mật khẩu mới (có kiểm tra Password Policy)
+router.post('/forgot-password/reset-password', forgotPasswordController.resetPassword);
+
 // 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API (Họ tên, Avatar, Giới tính, Ngày sinh, Mật khẩu)
 router.post('/google', authController.googleLogin);
 
