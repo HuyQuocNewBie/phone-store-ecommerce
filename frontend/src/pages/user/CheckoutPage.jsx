@@ -882,16 +882,16 @@ const CheckoutPage = () => {
                           <div className="flex items-center gap-unit-xs flex-wrap">
                             <ZaloPayLogo className="h-6 w-auto shrink-0" />
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              Thanh toán qua Ví ZaloPay / ZaloPay QR
+                              ZaloPay (Thanh toán qua Thẻ ATM nội địa)
                             </span>
                             <span className="font-label-spec text-label-spec bg-[#0068FF] text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
-                              ZaloPay QR
+                              Thẻ ATM
                             </span>
                           </div>
-                          <span className="font-body-sm text-body-sm text-[#0068FF] font-semibold">Ví ZaloPay</span>
+                          <span className="font-body-sm text-body-sm text-[#0068FF] font-semibold">Thẻ ATM / Ngân hàng</span>
                         </div>
                         <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
-                          Quét mã QR bằng ứng dụng ZaloPay hoặc Zalo để thanh toán tức thì, an toàn và bảo mật 100%.
+                          Thanh toán an toàn qua cổng ZaloPay bằng Thẻ ATM nội địa hoặc Tài khoản ngân hàng.
                         </p>
                       </div>
                     </label>
