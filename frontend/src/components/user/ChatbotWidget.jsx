@@ -376,7 +376,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         aria-label="Cửa sổ trò chuyện SmartZone AI"
         aria-hidden={!isOpen}
         className={`fixed bottom-24 right-4 sm:right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[580px] max-h-[calc(100vh-7.5rem)]
-          flex flex-col bg-white rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden
+          flex flex-col bg-white/95 backdrop-blur-xl rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden
           transition-all duration-300 ease-out origin-bottom-right transform
           ${
             isOpen
@@ -385,16 +385,21 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
           }
         `}
       >
-        {/* ── Header: Avatar AI tích xanh Online 24/7 + Nút xóa lịch sử & Thu gọn kính mờ ── */}
-        <div className="relative px-4 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex items-center justify-between shadow-md select-none border-b border-white/10">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Avatar AI: Viền trắng mờ, tích xanh trạng thái "Online 24/7" phát sáng nhẹ */}
+        {/* ── Header Gradient mềm mại: bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 ── */}
+        <div className="relative px-4 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex items-center justify-between shadow-md select-none border-b border-white/10 overflow-hidden">
+          {/* Lớp ánh sáng phản chiếu Glassmorphism mờ nhẹ trong Header */}
+          <div className="absolute -top-10 -right-10 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-blue-400/20 rounded-full blur-lg pointer-events-none" />
+
+          <div className="relative flex items-center gap-3 min-w-0">
+            {/* Avatar AI: Viền kính mờ, tích xanh Online nhấp nháy nhẹ */}
             <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 ring-2 ring-white/20 flex items-center justify-center shadow-inner">
-                <Bot className="w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] animate-pulse" />
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 ring-2 ring-white/20 flex items-center justify-center shadow-inner group transition-transform duration-200 hover:scale-105">
+                <Bot className="w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
               </div>
+              {/* Tích xanh Online nhấp nháy nhẹ */}
               <span
-                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-[0_0_8px_rgba(16,185,129,0.85)] ring-1 ring-emerald-300/50"
+                className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-[0_0_8px_rgba(16,185,129,0.85)] ring-1 ring-emerald-300/50 animate-pulse"
                 title="Online 24/7"
               >
                 <Check className="w-2.5 h-2.5 stroke-[3]" />
@@ -407,7 +412,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                 <h3 className="font-bold text-sm text-white truncate tracking-tight drop-shadow-xs">
                   SmartZone AI Assistant
                 </h3>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs border border-white/20 shadow-xs">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs border border-white/25 shadow-xs">
                   24/7
                 </span>
               </div>
@@ -418,19 +423,19 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                 </span>
                 <span className="font-medium text-emerald-300 drop-shadow-xs">Online 24/7</span>
                 <span className="text-white/40">•</span>
-                <span className="font-normal text-blue-100/90">Sẵn sàng hỗ trợ</span>
+                <span className="font-normal text-blue-100/90 truncate">Sẵn sàng hỗ trợ</span>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons (Xóa lịch sử, Thu gọn): Icon dạng Button kính mờ */}
-          <div className="flex items-center gap-1.5">
+          {/* Action Buttons: Nút kính mờ phản hồi siêu nhạy */}
+          <div className="relative flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleClearHistory}
               title="Xóa lịch sử trò chuyện"
               aria-label="Xóa lịch sử trò chuyện"
-              className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-all active:scale-90 flex items-center justify-center backdrop-blur-sm"
+              className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-90 text-white transition-all duration-200 flex items-center justify-center backdrop-blur-md border border-white/10 hover:shadow-xs"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -439,15 +444,15 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               onClick={() => setIsOpen(false)}
               title="Thu gọn"
               aria-label="Thu gọn"
-              className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-all active:scale-90 flex items-center justify-center backdrop-blur-sm"
+              className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-90 text-white transition-all duration-200 flex items-center justify-center backdrop-blur-md border border-white/10 hover:shadow-xs"
             >
               <ChevronDown className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* ── Body: Danh sách tin nhắn dạng bong bóng ── */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden chat-scrollbar p-3.5 space-y-3.5 bg-slate-50/70 text-slate-800 text-[13px] scroll-smooth">
+        {/* ── Body: Danh sách tin nhắn dạng bong bóng + Custom Scrollbar siêu mảnh ── */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden w-1.5 custom-scrollbar p-3.5 space-y-3.5 bg-gradient-to-b from-slate-50/70 via-white/50 to-slate-50/80 backdrop-blur-xs text-slate-800 text-[13px] scroll-smooth">
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
             const hasRichContent =
@@ -477,8 +482,8 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                   <div
                     className={`px-3.5 py-2.5 text-[13px] leading-relaxed break-words min-w-0 ${
                       isUser
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl rounded-br-xs shadow-sm'
-                        : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-xs shadow-xs'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl rounded-br-xs shadow-sm shadow-blue-500/15'
+                        : 'bg-slate-100 text-slate-800 rounded-2xl rounded-bl-xs leading-relaxed shadow-xs border border-slate-200/50'
                     } ${hasRichContent ? 'flex-1 w-full min-w-0 overflow-hidden' : ''}`}
                   >
                     {msg.content &&
@@ -558,7 +563,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs mb-1">
                 <Bot className="w-3.5 h-3.5" />
               </div>
-              <div className="px-4 py-3 bg-slate-100 text-slate-800 rounded-2xl rounded-bl-xs shadow-xs flex items-center gap-1.5">
+              <div className="px-3.5 py-2.5 bg-slate-100 text-slate-800 rounded-2xl rounded-bl-xs leading-relaxed shadow-xs border border-slate-200/50 flex items-center gap-1.5">
                 <span
                   className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
                   style={{ animationDelay: '0ms' }}
@@ -572,13 +577,13 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                   style={{ animationDelay: '300ms' }}
                 />
                 <span className="text-[11px] text-slate-500 font-medium ml-1.5">
-                  SmartZone AI đang soạn trả lời...
+                  SmartZone AI đang trả lời...
                 </span>
               </div>
             </div>
           )}
 
-          {/* Gợi ý câu hỏi nhanh (Chỉ hiển thị khi ít hơn hoặc bằng 2 tin nhắn) */}
+          {/* Gợi ý câu hỏi nhanh (Nút gợi ý nhanh - Quick Chips thẻ Pill tròn) */}
           {messages.length <= 2 && !isLoading && (
             <div className="pt-2">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -590,7 +595,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                     key={idx}
                     type="button"
                     onClick={() => handleSendMessage(prompt)}
-                    className="rounded-full border border-blue-100 bg-blue-50/50 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all duration-200 text-xs font-medium text-blue-700 px-3.5 py-2 cursor-pointer shadow-xs active:scale-95 text-left inline-flex items-center"
+                    className="rounded-full border border-blue-100 bg-blue-50/50 hover:bg-blue-600 hover:text-white transition-all text-xs text-blue-700 px-3.5 py-2 cursor-pointer shadow-xs active:scale-95 text-left inline-flex items-center font-medium"
                   >
                     {prompt}
                   </button>
@@ -603,13 +608,13 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         </div>
 
         {/* ── Footer: Input nhập câu hỏi + Nút Micro + Nút gửi ── */}
-        <div className="p-3 bg-white border-t border-slate-100 flex flex-col gap-1.5">
+        <div className="p-3 bg-white/95 backdrop-blur-md border-t border-slate-100 flex flex-col gap-1.5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="bg-slate-50 border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 rounded-full pl-3.5 pr-1.5 py-1.5 transition-all flex items-center gap-1.5"
+            className="bg-slate-50/90 border border-slate-200/90 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 focus-within:bg-white rounded-full pl-3.5 pr-1.5 py-1.5 transition-all duration-200 flex items-center gap-1.5 shadow-xs"
           >
             <input
               ref={inputRef}
@@ -628,10 +633,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               disabled={isLoading}
               aria-label={isListening ? 'Dừng thu âm' : 'Nhập bằng giọng nói'}
               title={isListening ? 'Đang lắng nghe... Bấm để dừng' : 'Nói vào Micro (Tiếng Việt)'}
-              className={`p-2 rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 ${
+              className={`w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center flex-shrink-0 active:scale-90 ${
                 isListening
-                  ? 'animate-pulse bg-red-100 text-red-600'
-                  : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200/60'
+                  ? 'animate-pulse bg-red-100 text-red-600 ring-2 ring-red-400/40'
+                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
               }`}
             >
               <Mic className="w-4 h-4 stroke-[2.2]" />
@@ -642,14 +647,14 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               disabled={!inputValue.trim() || isLoading}
               aria-label="Gửi tin nhắn"
               title="Gửi câu hỏi"
-              className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+              className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:shadow-md hover:scale-105 active:scale-90 transition-all duration-200 flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none shadow-blue-500/20"
             >
               <SendHorizontal className="w-4 h-4 stroke-[2.2]" />
             </button>
           </form>
 
           {/* Micro Footer Attribution */}
-          <div className="flex items-center justify-between px-1 text-[10px] text-slate-400 select-none">
+          <div className="flex items-center justify-between px-1.5 text-[10px] text-slate-400 select-none">
             <span className="flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5 text-amber-500" />
               {isListening ? (
@@ -671,7 +676,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full
-          bg-gradient-to-r from-blue-600 to-indigo-600 text-white
+          bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white
           flex items-center justify-center shadow-2xl shadow-blue-600/40
           hover:shadow-indigo-600/50 hover:scale-105 active:scale-95
           transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-400/30 group
@@ -688,7 +693,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         {/* Chấm xanh trạng thái trực tuyến 24/7 */}
         {!isOpen && (
           <span
-            className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)]"
+            className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse"
             title="Online 24/7"
           />
         )}
