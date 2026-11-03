@@ -803,9 +803,8 @@ const CheckoutPage = () => {
                         3. Phương thức thanh toán
                       </h2>
                     </div>
-                    <span className="font-body-sm text-body-sm text-secondary flex items-center gap-unit-2xs font-semibold">
-                      <span className="material-symbols-outlined text-base">verified_user</span>
-                      100% Bảo mật
+                    <span className="font-label-spec text-label-spec text-secondary bg-secondary-fixed px-unit-xs py-unit-2xs rounded">
+                      Bước 3/3
                     </span>
                   </div>
 
