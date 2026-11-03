@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/user/authController');
+const forgotPasswordController = require('../../controllers/user/forgotPasswordController');
 const rateLimitMiddleware = require('../../middlewares/rateLimitMiddleware');
 const recaptchaMiddleware = require('../../middlewares/recaptchaMiddleware');
 
@@ -16,6 +17,9 @@ router.post('/login', rateLimitMiddleware, recaptchaMiddleware, authController.l
 
 // 4. POST /api/v1/auth/forgot-password -> Gửi OTP khôi phục mật khẩu qua Mail & Redis
 router.post('/forgot-password', authController.forgotPassword);
+
+// POST /api/v1/auth/forgot-password/send-otp -> Tiếp nhận yêu cầu Quên mật khẩu và gửi mã OTP (có Cooldown 60s)
+router.post('/forgot-password/send-otp', forgotPasswordController.sendOtp);
 
 // 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API (Họ tên, Avatar, Giới tính, Ngày sinh, Mật khẩu)
 router.post('/google', authController.googleLogin);
