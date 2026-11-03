@@ -76,6 +76,34 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const [isListening, setIsListening] = useState(false);
 
   const recognitionRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+
+  // Dọn dẹp timer đếm ngược ngưng nói
+  const clearSilenceTimer = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  };
+
+  // Tự động dừng thu âm sau 3 giây không có tiếng nói
+  const startSilenceTimer = (delayMs = 3000) => {
+    clearSilenceTimer();
+    silenceTimerRef.current = setTimeout(() => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
+        }
+      }
+      setIsListening(false);
+    }, delayMs);
+  };
 
   // Lời chào cá nhân hóa theo thông tin tài khoản đăng nhập
   const createWelcomeMessage = () => {
@@ -127,6 +155,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   // Dọn dẹp nhận diện giọng nói khi unmount hoặc khi đóng cửa sổ chat
   useEffect(() => {
     return () => {
+      clearSilenceTimer();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -139,6 +168,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
 
   useEffect(() => {
     if (!isOpen && isListening) {
+      clearSilenceTimer();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -198,6 +228,19 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const handleSendMessage = async (textToSend) => {
     const text = (textToSend || inputValue).trim();
     if (!text || isLoading) return;
+
+    // Dừng thu âm và trả micro về trạng thái bình thường nếu đang bật
+    if (isListening) {
+      clearSilenceTimer();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false);
+    }
 
     const userMessage = {
       id: `user-${Date.now()}`,
@@ -297,16 +340,22 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      toast.error('Trình duyệt không hỗ trợ nhận diện giọng nói');
+      toast.error('Trình duyệt không hỗ trợ nhận diện giọng nói (Web Speech API)');
       return;
     }
 
+    // Nếu đang thu âm -> Dừng ngay lập tức và trả nút micro về trạng thái bình thường
     if (isListening) {
+      clearSilenceTimer();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch (err) {
-          console.warn('[SpeechRecognition] Lỗi khi dừng:', err);
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
         }
       }
       setIsListening(false);
@@ -316,50 +365,116 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = 'vi-VN';
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = false;
 
       recognition.onstart = () => {
         setIsListening(true);
+        // Bắt đầu đếm ngược 3s: nếu người dùng bấm mic nhưng ngưng nói quá 3s -> tự động dừng
+        startSilenceTimer(3000);
+      };
+
+      recognition.onspeechstart = () => {
+        // Đang nói -> Hủy đếm ngược để không ngắt lời người dùng
+        clearSilenceTimer();
+      };
+
+      recognition.onspeechend = () => {
+        // Vừa dứt câu nói -> Bắt đầu đếm ngược 3s im lặng
+        startSilenceTimer(3000);
+      };
+
+      recognition.onsoundend = () => {
+        // Hết âm thanh -> Đếm ngược 3s
+        startSilenceTimer(3000);
       };
 
       recognition.onresult = (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript;
-        if (transcript) {
+        let recognizedChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item && item[0]?.transcript) {
+            recognizedChunk += ' ' + item[0].transcript;
+          }
+        }
+        recognizedChunk = recognizedChunk.trim();
+
+        if (recognizedChunk) {
           // Chèn nối tiếp vào value của ô input (TUYỆT ĐỐI KHÔNG TỰ ĐỘNG GỬI)
           setInputValue((prev) => {
             const trimmedPrev = (prev || '').trim();
-            const trimmedTranscript = transcript.trim();
-            return trimmedPrev ? `${trimmedPrev} ${trimmedTranscript}` : trimmedTranscript;
+            return trimmedPrev ? `${trimmedPrev} ${recognizedChunk}` : recognizedChunk;
           });
           setTimeout(() => {
             inputRef.current?.focus();
           }, 100);
         }
+
+        // Sau khi đã nhận kết quả, nếu ngưng nói quá 3 giây -> Tự động dừng thu âm
+        startSilenceTimer(3000);
       };
 
       recognition.onerror = (event) => {
-        console.error('[SpeechRecognition] Lỗi:', event.error);
+        clearSilenceTimer();
         setIsListening(false);
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          toast.error('Quyền truy cập micro bị từ chối. Vui lòng cấp quyền trong trình duyệt!');
-        } else if (event.error === 'no-speech') {
-          toast('Không nhận diện được giọng nói, vui lòng thử lại!', { icon: '🎙️' });
+        const errType = event.error;
+        console.warn('[SpeechRecognition] Lỗi nhận diện giọng nói:', errType);
+
+        if (errType === 'not-allowed') {
+          // Bắt lỗi micro not-allowed khi dùng trên trình duyệt Brave/Chrome bị chặn permission
+          toast.error(
+            'Quyền truy cập micro bị từ chối hoặc bị chặn bởi trình duyệt (Brave Shields/Chrome). Vui lòng nhấn vào biểu tượng ổ khóa/lá chắn trên thanh địa chỉ và bật Micro!',
+            { id: 'mic-not-allowed', duration: 6000 }
+          );
+        } else if (errType === 'service-not-allowed') {
+          toast.error(
+            'Trình duyệt chặn dịch vụ nhận diện giọng nói (Brave Shields). Vui lòng tắt Khiên chắn Brave cho trang này hoặc cấp quyền micro!',
+            { id: 'mic-service-not-allowed', duration: 6000 }
+          );
+        } else if (errType === 'audio-capture') {
+          toast.error('Không tìm thấy thiết bị thu âm (micro). Vui lòng kiểm tra lại phần cứng!', {
+            id: 'mic-audio-capture',
+          });
+        } else if (errType === 'network') {
+          toast.error('Lỗi kết nối mạng đến máy chủ nhận diện giọng nói!', { id: 'mic-network' });
+        } else if (errType === 'no-speech') {
+          // Người dùng không nói gì, tự động dừng êm ái về trạng thái bình thường
+        } else if (errType === 'aborted') {
+          // Dừng thu âm chủ động, không báo lỗi
         } else {
-          toast.error(`Lỗi nhận diện giọng nói: ${event.error || 'Vui lòng thử lại'}`);
+          toast.error(`Lỗi nhận diện giọng nói: ${errType || 'Vui lòng thử lại'}`, {
+            id: 'mic-general-error',
+          });
         }
       };
 
       recognition.onend = () => {
+        clearSilenceTimer();
         setIsListening(false);
       };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error('[SpeechRecognition] Lỗi khởi động:', err);
+      clearSilenceTimer();
       setIsListening(false);
-      toast.error('Không thể kích hoạt nhận diện giọng nói.');
+      console.error('[SpeechRecognition] Lỗi khởi động:', err);
+
+      const errName = err.name || '';
+      const errMsg = err.message || '';
+      if (
+        errName === 'NotAllowedError' ||
+        errName === 'SecurityError' ||
+        errMsg.toLowerCase().includes('not-allowed') ||
+        errMsg.toLowerCase().includes('permission denied')
+      ) {
+        toast.error(
+          'Quyền truy cập micro bị chặn (Brave/Chrome). Vui lòng cấp quyền micro trên thanh địa chỉ trình duyệt!',
+          { id: 'mic-not-allowed', duration: 6000 }
+        );
+      } else {
+        toast.error('Không thể kích hoạt nhận diện giọng nói. Vui lòng kiểm tra lại quyền trình duyệt!');
+      }
     }
   };
 
@@ -631,8 +746,8 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               type="button"
               onClick={handleToggleVoice}
               disabled={isLoading}
-              aria-label={isListening ? 'Dừng thu âm' : 'Nhập bằng giọng nói'}
-              title={isListening ? 'Đang lắng nghe... Bấm để dừng' : 'Nói vào Micro (Tiếng Việt)'}
+              aria-label={isListening ? 'Dừng thu âm (Tự động dừng sau 3s im lặng)' : 'Nhập bằng giọng nói'}
+              title={isListening ? 'Đang lắng nghe... Tự dừng sau 3s ngưng nói hoặc bấm để dừng' : 'Nói vào Micro (Tiếng Việt)'}
               className={`w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center flex-shrink-0 active:scale-90 ${
                 isListening
                   ? 'animate-pulse bg-red-100 text-red-600 ring-2 ring-red-400/40'
@@ -658,7 +773,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
             <span className="flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5 text-amber-500" />
               {isListening ? (
-                <span className="text-red-500 font-medium animate-pulse">Đang thu âm giọng nói...</span>
+                <span className="text-red-500 font-medium animate-pulse flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
+                  Đang thu âm (Tự dừng sau 3s ngưng nói)...
+                </span>
               ) : (
                 'Trợ lý AI SmartZone 24/7'
               )}

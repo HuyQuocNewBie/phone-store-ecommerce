@@ -9,6 +9,7 @@ import {
 // ─── Hằng số thời gian ─────────────────────────────────────────────────────
 const OTP_TTL_SECONDS     = 300; // 5 phút hết hạn OTP
 const RESEND_COOLDOWN_SEC =  60; // Cooldown 60s nút "Gửi lại mã"
+const MAX_OTP_ATTEMPTS    =   5; // Tối đa 5 lần nhập sai OTP
 const EMAIL_REGEX         = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── Điều kiện mật khẩu ─────────────────────────────────────────────────────
@@ -49,11 +50,16 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
   // ── Bước 2: OTP ──────────────────────────────────────────────────────────
   const [otpDigits, setOtpDigits]           = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError]             = useState('');
+  const [otpAttempts, setOtpAttempts]       = useState(0); // Đếm số lần nhập sai OTP
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isResending, setIsResending]       = useState(false);
 
   // ── Đồng hồ đếm ngược hết hạn OTP (5 phút) ──────────────────────────────
   const [otpCountdown, setOtpCountdown] = useState(OTP_TTL_SECONDS);
+
+  // ── Trạng thái biên OTP ──────────────────────────────────────────────────
+  const isOtpLocked      = otpAttempts >= MAX_OTP_ATTEMPTS;
+  const countdownExpired = otpCountdown <= 0;
 
   // ── Cooldown 60s nút "Gửi lại mã" ───────────────────────────────────────
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -121,7 +127,11 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
     setOtpCountdown(OTP_TTL_SECONDS);
     otpIntervalRef.current = setInterval(() => {
       setOtpCountdown((prev) => {
-        if (prev <= 1) { clearInterval(otpIntervalRef.current); return 0; }
+        if (prev <= 1) {
+          clearInterval(otpIntervalRef.current);
+          setOtpError('Mã OTP đã hết hiệu lực sau 5 phút. Vui lòng bấm "Gửi lại mã OTP" để nhận mã mới.');
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -186,6 +196,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
     setEmailError('');
     setOtpDigits(['', '', '', '', '', '']);
     setOtpError('');
+    setOtpAttempts(0);
     setIsVerifyingOtp(false);
     setIsResending(false);
     setOtpCountdown(OTP_TTL_SECONDS);
@@ -225,13 +236,35 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
 
     setIsSendingOtp(true);
     try {
-      const res = await api.post('/auth/send-otp', { email: email.trim().toLowerCase() });
+      let res;
+      try {
+        res = await api.post('/auth/forgot-password/send-otp', { email: email.trim().toLowerCase() });
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          try {
+            res = await api.post('/auth/send-otp', { email: email.trim().toLowerCase() });
+          } catch (err2) {
+            if (err2.response?.status === 404) {
+              res = await api.post('/auth/forgot-password', {
+                Email: email.trim().toLowerCase(),
+                email: email.trim().toLowerCase(),
+              });
+            } else {
+              throw err2;
+            }
+          }
+        } else {
+          throw err1;
+        }
+      }
+
       if (res.data?.success) {
         toast.success(res.data.message || 'Mã OTP đã được gửi đến email của bạn!', {
           id: 'send-otp-success',
         });
         setOtpDigits(['', '', '', '', '', '']);
         setOtpError('');
+        setOtpAttempts(0);
         setStep(2);
         startResendCooldown();
       } else {
@@ -256,15 +289,41 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
     setIsResending(true);
     setOtpError('');
     try {
-      const res = await api.post('/auth/send-otp', { email: email.trim().toLowerCase() });
+      let res;
+      try {
+        res = await api.post('/auth/forgot-password/send-otp', { email: email.trim().toLowerCase() });
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          try {
+            res = await api.post('/auth/send-otp', { email: email.trim().toLowerCase() });
+          } catch (err2) {
+            if (err2.response?.status === 404) {
+              res = await api.post('/auth/forgot-password', {
+                Email: email.trim().toLowerCase(),
+                email: email.trim().toLowerCase(),
+              });
+            } else {
+              throw err2;
+            }
+          }
+        } else {
+          throw err1;
+        }
+      }
+
       if (res.data?.success) {
         toast.success('Mã OTP mới đã được gửi đến email của bạn!', { id: 'resend-otp-success' });
         setOtpDigits(['', '', '', '', '', '']);
+        setOtpAttempts(0); // Reset số lần thử sai khi đã gửi mã mới!
         setOtpCountdown(OTP_TTL_SECONDS);
         clearInterval(otpIntervalRef.current);
         otpIntervalRef.current = setInterval(() => {
           setOtpCountdown((prev) => {
-            if (prev <= 1) { clearInterval(otpIntervalRef.current); return 0; }
+            if (prev <= 1) {
+              clearInterval(otpIntervalRef.current);
+              setOtpError('Mã OTP đã hết hiệu lực sau 5 phút. Vui lòng bấm "Gửi lại mã OTP" để nhận mã mới.');
+              return 0;
+            }
             return prev - 1;
           });
         }, 1000);
@@ -283,8 +342,36 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
     }
   };
 
+  // ─── Xử lý thất bại khi xác thực OTP (Đếm số lần thử) ────────────────────
+  const handleOtpFailure = (serverMsg, status) => {
+    const isLockedByBackend =
+      status === 429 ||
+      (serverMsg && (serverMsg.includes('5 lần') || serverMsg.includes('quá 5 lần')));
+
+    const nextAttempts = isLockedByBackend ? MAX_OTP_ATTEMPTS : otpAttempts + 1;
+    setOtpAttempts(nextAttempts);
+
+    if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+      const lockMsg =
+        'Bạn đã nhập sai OTP 5 lần! Ô nhập mã đã bị vô hiệu hóa. Bắt buộc bấm "Gửi lại mã OTP" để nhận mã mới.';
+      setOtpError(lockMsg);
+      toast.error(lockMsg, { id: 'otp-locked-error', duration: 6000 });
+    } else {
+      const remaining = MAX_OTP_ATTEMPTS - nextAttempts;
+      const failMsg = serverMsg || 'Mã OTP không chính xác hoặc đã hết hiệu lực.';
+      const displayMsg = `${failMsg} (Còn ${remaining} lần thử)`;
+      setOtpError(displayMsg);
+      toast.error(displayMsg, { id: 'verify-otp-error' });
+      // Reset các ô OTP để người dùng nhập lại từ đầu
+      setOtpDigits(['', '', '', '', '', '']);
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+    }
+  };
+
   // ─── BƯỚC 2: Xử lý nhập OTP ──────────────────────────────────────────────
   const handleOtpChange = (index, value) => {
+    if (isOtpLocked || countdownExpired) return;
+
     const clean = value.replace(/\D/g, '');
     if (!clean && value !== '') return;
 
@@ -300,6 +387,8 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
   };
 
   const handleOtpKeyDown = (index, e) => {
+    if (isOtpLocked || countdownExpired) return;
+
     if (e.key === 'Backspace') {
       if (!otpDigits[index] && index > 0) {
         otpInputRefs.current[index - 1]?.focus();
@@ -314,6 +403,11 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
   };
 
   const handleOtpPaste = (e) => {
+    if (isOtpLocked || countdownExpired) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
     const raw = e.clipboardData.getData('text/plain').trim();
     const digits = raw.replace(/\D/g, '').slice(0, 6).split('');
@@ -331,39 +425,68 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
     e?.preventDefault();
     setOtpError('');
 
+    // Edge case 1: Đã nhập sai 5 lần -> bị khóa
+    if (isOtpLocked) {
+      const msg = 'Bạn đã nhập sai OTP 5 lần! Bắt buộc bấm "Gửi lại mã OTP" để nhận mã mới.';
+      setOtpError(msg);
+      toast.error(msg, { id: 'otp-locked-error' });
+      return;
+    }
+
+    // Edge case 2: OTP đã hết hạn sau 5 phút
+    if (countdownExpired || otpCountdown <= 0) {
+      const msg = 'Mã OTP đã hết hiệu lực sau 5 phút. Vui lòng bấm "Gửi lại mã OTP" để nhận mã mới.';
+      setOtpError(msg);
+      toast.error(msg, { id: 'otp-expired-error' });
+      return;
+    }
+
     const otpCode = otpDigits.join('').trim();
 
     if (otpCode.length < 6) {
       const msg = 'Vui lòng nhập đủ 6 chữ số mã OTP!';
       setOtpError(msg);
-      toast.error(msg);
+      toast.error(msg, { id: 'otp-incomplete-error' });
       const emptyIdx = otpDigits.findIndex((d) => !d);
       if (emptyIdx !== -1) otpInputRefs.current[emptyIdx]?.focus();
       return;
     }
 
-    if (otpCountdown === 0) {
-      const msg = 'Mã OTP đã hết hiệu lực. Vui lòng bấm "Gửi lại mã".';
-      setOtpError(msg);
-      toast.error(msg);
-      return;
-    }
-
     setIsVerifyingOtp(true);
     try {
-      const res = await api.post('/auth/verify-otp', {
-        email: email.trim().toLowerCase(),
-        otp:   otpCode,
-        otp_code: otpCode,
-        purpose: 'forgot_password',
-      });
+      let res;
+      try {
+        res = await api.post('/auth/forgot-password/verify-otp', {
+          email: email.trim().toLowerCase(),
+          otp: otpCode,
+          otp_code: otpCode,
+          purpose: 'forgot_password',
+        });
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          res = await api.post('/auth/verify-otp', {
+            email: email.trim().toLowerCase(),
+            otp: otpCode,
+            otp_code: otpCode,
+            purpose: 'forgot_password',
+          });
+        } else {
+          throw err1;
+        }
+      }
 
       if (res.data?.success) {
-        const token = res.data?.data?.resetToken || res.data?.data?.token || '';
+        const token =
+          res.data?.data?.resetToken ||
+          res.data?.data?.token ||
+          res.data?.resetToken ||
+          '';
         toast.success(
           res.data.message || 'Xác thực OTP thành công! Hãy đặt mật khẩu mới.',
           { id: 'verify-otp-success', duration: 3000 }
         );
+        // Reset số lần thử sai
+        setOtpAttempts(0);
         // Lưu resetToken và chuyển sang Bước 3 (thay vì đóng modal)
         setResetToken(token);
         setNewPassword('');
@@ -375,16 +498,12 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
         // Gọi callback ngược lại để tương thích (nếu có)
         onVerified?.({ email: email.trim().toLowerCase(), resetToken: token });
       } else {
-        const msg = res.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.';
-        setOtpError(msg);
-        toast.error(msg, { id: 'verify-otp-error' });
+        handleOtpFailure(res.data?.message);
       }
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        'Mã OTP không chính xác hoặc đã hết hiệu lực. Vui lòng thử lại!';
-      setOtpError(msg);
-      toast.error(msg, { id: 'verify-otp-error' });
+      const status = err.response?.status;
+      const apiMsg = err.response?.data?.message;
+      handleOtpFailure(apiMsg, status);
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -409,13 +528,28 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
 
     setIsResettingPw(true);
     try {
-      const res = await api.post('/auth/reset-password', {
-        resetToken,
-        token:       resetToken,
-        newPassword,
-        password:    newPassword,
-        email:       email.trim().toLowerCase(),
-      });
+      let res;
+      try {
+        res = await api.post('/auth/forgot-password/reset-password', {
+          resetToken,
+          token: resetToken,
+          newPassword,
+          password: newPassword,
+          email: email.trim().toLowerCase(),
+        });
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          res = await api.post('/auth/reset-password', {
+            resetToken,
+            token: resetToken,
+            newPassword,
+            password: newPassword,
+            email: email.trim().toLowerCase(),
+          });
+        } else {
+          throw err1;
+        }
+      }
 
       if (res.data?.success) {
         toast.success(
@@ -445,8 +579,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
   if (!isOpen) return null;
 
   // ─── Màu đồng hồ hết hạn ─────────────────────────────────────────────────
-  const countdownUrgent  = otpCountdown <= 60 && otpCountdown > 0;
-  const countdownExpired = otpCountdown === 0;
+  const countdownUrgent = otpCountdown <= 60 && otpCountdown > 0;
 
   return (
     /* ── Backdrop ── */
@@ -720,7 +853,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                       value={digit}
                       placeholder="·"
                       autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                      disabled={isVerifyingOtp}
+                      disabled={isVerifyingOtp || isOtpLocked || countdownExpired}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={handleOtpPaste}
@@ -731,11 +864,15 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                         placeholder:text-slate-300
                         disabled:opacity-60 disabled:cursor-not-allowed
                         ${
-                          otpError
-                            ? 'border-red-400 bg-red-50 text-red-600'
-                            : isFilled
-                              ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
-                              : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20'
+                          isOtpLocked
+                            ? 'border-red-300 bg-red-50 text-slate-400 cursor-not-allowed'
+                            : countdownExpired
+                              ? 'border-amber-200 bg-amber-50 text-slate-400 cursor-not-allowed'
+                              : otpError
+                                ? 'border-red-400 bg-red-50 text-red-600'
+                                : isFilled
+                                  ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                                  : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20'
                         }
                       `}
                     />
@@ -743,8 +880,42 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                 })}
               </div>
 
-              {/* Error OTP */}
-              {otpError && (
+              {/* ── Banners thông báo trạng thái & Lỗi biên ── */}
+              {isOtpLocked && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-red-50 border border-red-200
+                             text-red-700 text-xs sm:text-sm w-full animate-shake shadow-xs"
+                >
+                  <AlertCircle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-bold text-red-900">Đã nhập sai OTP 5 lần!</p>
+                    <p className="mt-0.5 text-red-700 text-xs leading-relaxed">
+                      Ô nhập mã đã bị vô hiệu hóa vì lý do bảo mật. Bắt buộc bấm{' '}
+                      <strong className="underline font-bold">"Gửi lại mã OTP"</strong> bên dưới để nhận mã mới.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {countdownExpired && !isOtpLocked && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200
+                             text-amber-800 text-xs sm:text-sm w-full shadow-xs"
+                >
+                  <AlertCircle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-bold text-amber-900">Mã OTP đã hết hiệu lực</p>
+                    <p className="mt-0.5 text-amber-700 text-xs leading-relaxed">
+                      Thời hạn 5 phút của mã OTP đã kết thúc. Nút xác nhận đã được tự động vô hiệu hóa. Vui lòng bấm{' '}
+                      <strong>"Gửi lại mã OTP mới"</strong> để lấy mã khác.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {otpError && !isOtpLocked && !countdownExpired && (
                 <div
                   role="alert"
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50
@@ -758,7 +929,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
               {/* ── Gửi lại mã + Cooldown ── */}
               <div className="flex flex-col items-center gap-1.5 w-full text-center">
                 <p className="text-sm text-slate-500">
-                  Không nhận được mã?
+                  {isOtpLocked ? 'Cần mã mới để tiếp tục:' : 'Không nhận được mã?'}
                 </p>
                 <button
                   type="button"
@@ -766,11 +937,13 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                   disabled={resendCooldown > 0 || isResending}
                   className={`
                     flex items-center gap-1.5 text-sm font-semibold transition-all
-                    rounded-lg px-3 py-1.5
+                    rounded-xl px-4 py-2
                     ${
-                      resendCooldown > 0 || isResending
-                        ? 'text-slate-400 cursor-not-allowed'
-                        : 'text-primary hover:text-primary/80 hover:bg-primary/5 cursor-pointer'
+                      isOtpLocked
+                        ? 'bg-red-50 text-red-700 hover:bg-red-100 ring-2 ring-red-400 font-bold shadow-sm'
+                        : resendCooldown > 0 || isResending
+                          ? 'text-slate-400 cursor-not-allowed'
+                          : 'text-primary hover:text-primary/80 hover:bg-primary/5 cursor-pointer'
                     }
                   `}
                 >
@@ -792,7 +965,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                   ) : (
                     <>
                       <RotateCcw className="w-4 h-4" />
-                      <span>Gửi lại mã OTP mới</span>
+                      <span>{isOtpLocked ? 'Bấm vào đây để nhận mã OTP mới' : 'Gửi lại mã OTP mới'}</span>
                     </>
                   )}
                 </button>
@@ -808,23 +981,33 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
                 </p>
               </div>
 
-              {/* ── Nút Xác nhận OTP ── */}
+              {/* ── Nút Xác nhận OTP (Vô hiệu hóa khi hết hạn 5 phút hoặc nhập sai 5 lần) ── */}
               <button
                 type="submit"
-                disabled={isVerifyingOtp || countdownExpired}
+                disabled={isVerifyingOtp || countdownExpired || isOtpLocked || otpDigits.join('').trim().length < 6}
                 className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white
                            bg-gradient-to-r from-primary to-primary-container
                            shadow-lg shadow-primary/25
                            hover:shadow-primary/40 hover:scale-[1.008]
                            active:scale-[0.985] transition-all
                            flex items-center justify-center gap-2
-                           disabled:opacity-60 disabled:cursor-not-allowed
-                           disabled:hover:scale-100"
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           disabled:hover:scale-100 disabled:shadow-none"
               >
                 {isVerifyingOtp ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Đang xác thực OTP...</span>
+                  </>
+                ) : isOtpLocked ? (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Đã khóa (Nhập sai 5 lần)</span>
+                  </>
+                ) : countdownExpired ? (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Mã OTP đã hết hạn</span>
                   </>
                 ) : (
                   <>
@@ -1106,6 +1289,14 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) =>
         @keyframes modalSlideUp {
           from { opacity: 0; transform: translateY(24px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-4px); }
+          40%, 80% { transform: translateX(4px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
         }
       `}</style>
     </div>
