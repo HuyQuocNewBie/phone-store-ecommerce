@@ -53,8 +53,6 @@ const sendOtpEmail = async (toEmail, otpCode, type = 'register') => {
     </div>
   `;
 
-  console.log(`[OTP DEBUG] OTP for ${toEmail} (${type}): ${otpCode}`);
-
   if (transporter) {
     try {
       await transporter.sendMail({
@@ -63,15 +61,13 @@ const sendOtpEmail = async (toEmail, otpCode, type = 'register') => {
         subject,
         html
       });
-      console.log(`Email OTP sent successfully to ${toEmail}`);
       return true;
     } catch (error) {
-      console.error(`Failed to send OTP email to ${toEmail}:`, error.message);
-      // Giữ cho luồng API không bị sập nếu SMTP chập chờn, log OTP ở console
+      console.error(`[mailer.sendOtpEmail] Gửi email OTP thất bại tới ${toEmail}:`, error.message);
       return false;
     }
   } else {
-    console.log(`[MAIL CONFIG MISSING] SMTP credentials not set in .env. Logged OTP: ${otpCode}`);
+    console.warn('[mailer.sendOtpEmail] Chưa cấu hình SMTP trong .env — bỏ qua gửi email OTP.');
     return true;
   }
 };
@@ -200,8 +196,6 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
     </div>
   `;
 
-  console.log(`[INVOICE DEBUG] Order invoice email prepared for order ${orderSN} -> ${toEmail}`);
-
   if (transporter) {
     try {
       await transporter.sendMail({
@@ -210,14 +204,13 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
         subject: `[SmartZone] Hóa đơn xác nhận đơn hàng ${orderSN}`,
         html
       });
-      console.log(`Invoice email for order ${orderSN} sent successfully to ${toEmail}`);
       return true;
     } catch (error) {
-      console.error(`Failed to send order invoice email to ${toEmail}:`, error.message);
+      console.error(`[mailer.sendOrderInvoiceEmail] Gửi email hóa đơn thất bại tới ${toEmail}:`, error.message);
       return false;
     }
   } else {
-    console.log(`[MAIL CONFIG MISSING] SMTP credentials not set in .env. Logged invoice for order ${orderSN}`);
+    console.warn(`[mailer.sendOrderInvoiceEmail] Chưa cấu hình SMTP trong .env — bỏ qua gửi email hóa đơn đơn hàng ${orderSN}.`);
     return true;
   }
 };
@@ -306,7 +299,7 @@ const sendInvoiceEmail = async (orderId) => {
       TongTien: Number(order.TongTien)
     };
 
-    console.log(`[sendInvoiceEmail] Bắt đầu gửi email hóa đơn đơn hàng #${order.MaDonHang} tới ${targetEmail} (Trạng thái: ${invoiceData.TrangThaiDonHang})...`);
+    // Gửi email hóa đơn (không log thông tin nhạy cảm — email được che ẩn trong môi trường Production)
     return await sendOrderInvoiceEmail(targetEmail, invoiceData);
   } catch (error) {
     console.error(`[sendInvoiceEmail] Lỗi khi gửi hóa đơn đơn hàng #${orderId}:`, error.message);

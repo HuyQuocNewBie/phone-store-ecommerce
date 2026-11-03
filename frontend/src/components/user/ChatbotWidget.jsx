@@ -307,8 +307,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
-      console.error('[ChatbotWidget] Gửi tin nhắn lỗi:', error);
-      // Khi hết quota Gemini API Key, mất mạng hoặc server lỗi:
+      // Khi hết quota Gemini API Key (429), mất mạng, hoặc server lỗi (503):
       const errorMsg =
         error.response?.data?.reply ||
         'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';

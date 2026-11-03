@@ -261,8 +261,6 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
         const functionArgs = call.args || {};
         executedCall = call;
 
-        console.log(`[chatbotController] Gemini yêu cầu Tool Call [${functionName}]:`, functionArgs);
-
         // 1. Thực thi hàm tương ứng trong registry chatbotTools.js
         const rawToolResult = await executeChatbotTool(functionName, functionArgs);
 
@@ -408,13 +406,17 @@ QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
       errorMsg.includes('API key not valid') ||
       errorMsg.includes('API_KEY');
 
-    let clientMessage = 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';
+    let httpStatus = 503; // Service Unavailable (Gemini API không khả dụng)
 
-    if (!isQuotaOrLimit && !isNetworkOrTimeout && !isApiKeyIssue) {
-      clientMessage = 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!';
+    if (isQuotaOrLimit) {
+      httpStatus = 429; // Too Many Requests
+    } else if (isApiKeyIssue) {
+      httpStatus = 503; // Service Unavailable
+    } else if (isNetworkOrTimeout) {
+      httpStatus = 503; // Service Unavailable
     }
 
-    return res.status(200).json({
+    return res.status(httpStatus).json({
       success: false,
       reply: 'Hệ thống AI đang bảo trì, vui lòng quay lại sau!',
       type: 'TEXT',
