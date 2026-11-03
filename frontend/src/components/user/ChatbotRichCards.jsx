@@ -44,7 +44,7 @@ const FALLBACK_IMAGE =
  * Render danh sách sản phẩm nằm ngang (Ảnh, Tên, Giá, Cấu hình chính, Nút "Xem chi tiết").
  * Hỗ trợ cuộn ngang mượt mà kèm nút bấm điều hướng trái/phải.
  */
-export const ProductListCard = ({ products = [], data, onNavigate }) => {
+export const ProductListCard = ({ products = [], data, onNavigate, onSelectPrompt }) => {
   const scrollContainerRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -93,6 +93,27 @@ export const ProductListCard = ({ products = [], data, onNavigate }) => {
           <span>Xem tất cả sản phẩm</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
+
+        {/* Nút gợi ý câu hỏi khi tìm kiếm rỗng */}
+        <div className="w-full mt-2 pt-2.5 border-t border-slate-200/60 text-left">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+            💡 Gợi ý câu hỏi:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {['📱 iPhone dưới 20 triệu', '⚡ Samsung Galaxy S24', '🎟️ Mã giảm giá hot hôm nay'].map(
+              (prompt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onSelectPrompt?.(prompt)}
+                  className="rounded-full border border-blue-100 bg-blue-50/50 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all duration-200 text-xs font-medium text-blue-700 px-3.5 py-2 cursor-pointer shadow-xs active:scale-95"
+                >
+                  {prompt}
+                </button>
+              )
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -926,29 +947,90 @@ export const PaymentGuideCard = ({ data = [], onNavigate }) => {
 };
 
 // ============================================================================
+// 6. QuickSuggestionsCard: Nút câu hỏi gợi ý nhanh (Quick Suggestion Chips)
+// ============================================================================
+/**
+ * Render danh sách câu hỏi gợi ý nhanh dạng Chip bo tròn viền nhạt
+ */
+export const QuickSuggestionsCard = ({ suggestions = [], onSelectPrompt }) => {
+  const rawList = Array.isArray(suggestions)
+    ? suggestions
+    : suggestions?.suggestions && Array.isArray(suggestions.suggestions)
+    ? suggestions.suggestions
+    : [
+        '📱 Tư vấn iPhone dưới 20 triệu',
+        '⚡ So sánh iPhone 15 vs Galaxy S24',
+        '🎟️ Mã giảm giá hot hôm nay',
+        '📦 Tra cứu đơn hàng gần đây',
+      ];
+
+  const list = rawList.filter(Boolean);
+  if (list.length === 0) return null;
+
+  return (
+    <div className="w-full my-2 space-y-2 text-left">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+        💡 Gợi ý câu hỏi:
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {list.map((prompt, idx) => {
+          const text = typeof prompt === 'string' ? prompt : prompt.text || prompt.label || '';
+          if (!text) return null;
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onSelectPrompt?.(text)}
+              className="rounded-full border border-blue-100 bg-blue-50/50 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all duration-200 text-xs font-medium text-blue-700 px-3.5 py-2 cursor-pointer shadow-xs active:scale-95 inline-flex items-center text-left"
+            >
+              {text}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // MAIN COMPONENT: ChatbotRichCards
 // ============================================================================
 /**
  * Component chính điều phối (dispatcher) các Rich Content Card tương ứng dựa vào `type` và `data`
  *
  * @param {Object} props
- * @param {string} props.type - Loại Rich Card: 'PRODUCT_LIST' | 'COMPARE' | 'ORDER_STATUS' | 'VOUCHER_LIST' | 'PAYMENT_GUIDE'
+ * @param {string} props.type - Loại Rich Card: 'PRODUCT_LIST' | 'COMPARE' | 'ORDER_STATUS' | 'VOUCHER_LIST' | 'PAYMENT_GUIDE' | 'SUGGESTIONS'
  * @param {any} props.data - Dữ liệu trả về từ backend API
  * @param {Function} [props.onNavigate] - Hàm điều hướng (thường là navigate từ useNavigate())
  * @param {Function} [props.onCopyVoucher] - Hàm callback khi sao chép mã voucher
+ * @param {Function} [props.onSelectPrompt] - Hàm callback khi bấm vào thẻ chip câu hỏi gợi ý
  */
-const ChatbotRichCards = ({ type, data, onNavigate, onCopyVoucher }) => {
+const ChatbotRichCards = ({ type, data, onNavigate, onCopyVoucher, onSelectPrompt }) => {
   if (!type) return null;
 
   const normalizedType = String(type).trim().toUpperCase();
 
   // Các thẻ khác yêu cầu có data, riêng PRODUCT_LIST sẽ hiển thị giao diện Empty State khi data rỗng
-  if (!data && normalizedType !== 'PRODUCT_LIST' && normalizedType !== 'PRODUCTS') return null;
+  if (
+    !data &&
+    normalizedType !== 'PRODUCT_LIST' &&
+    normalizedType !== 'PRODUCTS' &&
+    normalizedType !== 'SUGGESTIONS' &&
+    normalizedType !== 'QUICK_SUGGESTIONS'
+  )
+    return null;
 
   switch (normalizedType) {
     case 'PRODUCT_LIST':
     case 'PRODUCTS':
-      return <ProductListCard products={data} data={data} onNavigate={onNavigate} />;
+      return (
+        <ProductListCard
+          products={data}
+          data={data}
+          onNavigate={onNavigate}
+          onSelectPrompt={onSelectPrompt}
+        />
+      );
 
     case 'COMPARE':
     case 'COMPARE_MATRIX':
@@ -973,6 +1055,12 @@ const ChatbotRichCards = ({ type, data, onNavigate, onCopyVoucher }) => {
 
     case 'PAYMENT_GUIDE':
       return <PaymentGuideCard data={data} onNavigate={onNavigate} />;
+
+    case 'SUGGESTIONS':
+    case 'QUICK_SUGGESTIONS':
+    case 'QUICK_PROMPTS':
+    case 'SUGGESTION_CHIPS':
+      return <QuickSuggestionsCard suggestions={data} onSelectPrompt={onSelectPrompt} />;
 
     default:
       return null;

@@ -65,10 +65,15 @@ export default {
         "on-secondary-fixed-variant": "#004e5c"
       },
       borderRadius: {
+        "xs": "0.25rem",
         "DEFAULT": "0.25rem",
         "lg": "0.5rem",
         "xl": "0.75rem",
         "full": "9999px"
+      },
+      boxShadow: {
+        "xs": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.05)",
       },
       spacing: {
         "unit-xl": "2rem",
