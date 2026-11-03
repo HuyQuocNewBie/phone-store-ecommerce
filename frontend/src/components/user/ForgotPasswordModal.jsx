@@ -1,27 +1,43 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Loader2, X, Mail, ShieldCheck, KeyRound, ArrowRight, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Loader2, X, Mail, ShieldCheck, KeyRound, ArrowRight, RotateCcw,
+  AlertCircle, CheckCircle2, Eye, EyeOff, Lock,
+} from 'lucide-react';
 
 // ─── Hằng số thời gian ─────────────────────────────────────────────────────
 const OTP_TTL_SECONDS     = 300; // 5 phút hết hạn OTP
 const RESEND_COOLDOWN_SEC =  60; // Cooldown 60s nút "Gửi lại mã"
 const EMAIL_REGEX         = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ─── Điều kiện mật khẩu ─────────────────────────────────────────────────────
+const PW_RULES = [
+  { id: 'length',   label: 'Ít nhất 8 ký tự',           test: (v) => v.length >= 8 },
+  { id: 'upper',    label: 'Có ít nhất 1 chữ hoa (A-Z)', test: (v) => /[A-Z]/.test(v) },
+  { id: 'number',   label: 'Có ít nhất 1 chữ số (0-9)',  test: (v) => /[0-9]/.test(v) },
+  { id: 'special',  label: 'Có ít nhất 1 ký tự đặc biệt (!@#…)', test: (v) => /[^A-Za-z0-9]/.test(v) },
+];
+
+/** Tính điểm mạnh mật khẩu: 0–4 */
+const calcStrength = (value) => PW_RULES.reduce((acc, r) => acc + (r.test(value) ? 1 : 0), 0);
+
 /**
  * ForgotPasswordModal — SmartZone Ecommerce
  *
  * Bước 1: Nhập Email → Gửi mã OTP
  * Bước 2: Nhập 6 ô OTP → Xác thực
+ * Bước 3: Đặt mật khẩu mới → Hoàn tất
  *
  * Props:
- *  - isOpen       {boolean}   : Hiển thị / ẩn modal
- *  - onClose      {function}  : Callback đóng modal
- *  - onVerified   {function}  : Callback sau khi OTP xác thực thành công
- *                               Nhận { email, resetToken } để bước tiếp theo đổi mật khẩu
+ *  - isOpen         {boolean}   : Hiển thị / ẩn modal
+ *  - onClose        {function}  : Callback đóng modal
+ *  - onVerified     {function}  : (Không còn dùng để điều hướng ngoài, giữ để tương thích ngược)
+ *  - onResetSuccess {function}  : Callback sau khi đổi mật khẩu thành công
+ *                                 Nhận { email } để trang Login tự điền email
  */
-const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
-  // ── Bước hiện tại: 1 = Nhập Email, 2 = Nhập OTP ────────────────────────
+const ForgotPasswordModal = ({ isOpen, onClose, onVerified, onResetSuccess }) => {
+  // ── Bước hiện tại: 1 = Nhập Email, 2 = Nhập OTP, 3 = Đặt mật khẩu mới ──
   const [step, setStep] = useState(1);
 
   // ── Bước 1: Email ────────────────────────────────────────────────────────
@@ -31,10 +47,10 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
   const [emailError, setEmailError]     = useState('');
 
   // ── Bước 2: OTP ──────────────────────────────────────────────────────────
-  const [otpDigits, setOtpDigits]       = useState(['', '', '', '', '', '']);
-  const [otpError, setOtpError]         = useState('');
+  const [otpDigits, setOtpDigits]           = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError]             = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [isResending, setIsResending]   = useState(false);
+  const [isResending, setIsResending]       = useState(false);
 
   // ── Đồng hồ đếm ngược hết hạn OTP (5 phút) ──────────────────────────────
   const [otpCountdown, setOtpCountdown] = useState(OTP_TTL_SECONDS);
@@ -42,11 +58,24 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
   // ── Cooldown 60s nút "Gửi lại mã" ───────────────────────────────────────
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  // ── Bước 3: Reset Password ───────────────────────────────────────────────
+  const [resetToken, setResetToken]             = useState('');
+  const [newPassword, setNewPassword]           = useState('');
+  const [confirmPassword, setConfirmPassword]   = useState('');
+  const [showNewPw, setShowNewPw]               = useState(false);
+  const [showConfirmPw, setShowConfirmPw]       = useState(false);
+  const [isResettingPw, setIsResettingPw]       = useState(false);
+  const [resetPwError, setResetPwError]         = useState('');
+  const [pwTouched, setPwTouched]               = useState(false);
+  const [confirmTouched, setConfirmTouched]     = useState(false);
+  const pwStrength                              = calcStrength(newPassword);
+
   // ── Refs ─────────────────────────────────────────────────────────────────
-  const emailInputRef                   = useRef(null);
-  const otpInputRefs                    = useRef([]);
-  const otpIntervalRef                  = useRef(null);
-  const resendIntervalRef               = useRef(null);
+  const emailInputRef   = useRef(null);
+  const newPwInputRef   = useRef(null);
+  const otpInputRefs    = useRef([]);
+  const otpIntervalRef  = useRef(null);
+  const resendIntervalRef = useRef(null);
 
   // ── Khóa scroll + phím Escape ────────────────────────────────────────────
   useEffect(() => {
@@ -73,6 +102,14 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
   useEffect(() => {
     if (step === 2) {
       const t = setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  // ── Auto-focus ô mật khẩu khi vào Bước 3 ────────────────────────────────
+  useEffect(() => {
+    if (step === 3) {
+      const t = setTimeout(() => newPwInputRef.current?.focus(), 150);
       return () => clearTimeout(t);
     }
   }, [step]);
@@ -123,6 +160,23 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
     ? (!email.trim() ? 'Vui lòng nhập địa chỉ email.' : 'Địa chỉ email không đúng định dạng.')
     : '';
 
+  // ── Kiểm tra điều kiện mật khẩu ─────────────────────────────────────────
+  const allRulesPassed   = PW_RULES.every((r) => r.test(newPassword));
+  const passwordsMatch   = newPassword === confirmPassword && confirmPassword !== '';
+  const confirmError     = confirmTouched && confirmPassword && !passwordsMatch
+    ? 'Mật khẩu xác nhận không khớp.'
+    : '';
+  const canSubmitReset   = allRulesPassed && passwordsMatch && !isResettingPw;
+
+  // ── Màu sắc thanh độ mạnh ────────────────────────────────────────────────
+  const strengthMeta = (() => {
+    if (!newPassword) return { label: '', color: 'bg-slate-200', textColor: 'text-slate-400', bars: 0 };
+    if (pwStrength <= 1) return { label: 'Rất yếu',  color: 'bg-red-500',    textColor: 'text-red-500',    bars: 1 };
+    if (pwStrength === 2) return { label: 'Yếu',      color: 'bg-orange-400', textColor: 'text-orange-500', bars: 2 };
+    if (pwStrength === 3) return { label: 'Trung bình', color: 'bg-yellow-400', textColor: 'text-yellow-600', bars: 3 };
+    return                       { label: 'Mạnh',     color: 'bg-emerald-500', textColor: 'text-emerald-600', bars: 4 };
+  })();
+
   // ── Reset toàn bộ state về ban đầu ───────────────────────────────────────
   const resetAll = useCallback(() => {
     setStep(1);
@@ -136,6 +190,15 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
     setIsResending(false);
     setOtpCountdown(OTP_TTL_SECONDS);
     setResendCooldown(0);
+    setResetToken('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+    setIsResettingPw(false);
+    setResetPwError('');
+    setPwTouched(false);
+    setConfirmTouched(false);
     clearInterval(otpIntervalRef.current);
     clearInterval(resendIntervalRef.current);
   }, []);
@@ -167,7 +230,6 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
         toast.success(res.data.message || 'Mã OTP đã được gửi đến email của bạn!', {
           id: 'send-otp-success',
         });
-        // Chuyển sang Bước 2
         setOtpDigits(['', '', '', '', '', '']);
         setOtpError('');
         setStep(2);
@@ -264,7 +326,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
     otpInputRefs.current[focus]?.focus();
   };
 
-  // ─── BƯỚC 2: Xác thực OTP ────────────────────────────────────────────────
+  // ─── BƯỚC 2: Xác thực OTP → Chuyển sang Bước 3 ───────────────────────────
   const handleVerifyOtp = async (e) => {
     e?.preventDefault();
     setOtpError('');
@@ -297,14 +359,21 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
       });
 
       if (res.data?.success) {
-        const resetToken = res.data?.data?.resetToken || res.data?.data?.token || '';
+        const token = res.data?.data?.resetToken || res.data?.data?.token || '';
         toast.success(
-          res.data.message || 'Xác thực OTP thành công!',
+          res.data.message || 'Xác thực OTP thành công! Hãy đặt mật khẩu mới.',
           { id: 'verify-otp-success', duration: 3000 }
         );
-        // Gọi callback với email + resetToken để màn hình cha xử lý bước đặt mật khẩu mới
-        onVerified?.({ email: email.trim().toLowerCase(), resetToken });
-        handleClose();
+        // Lưu resetToken và chuyển sang Bước 3 (thay vì đóng modal)
+        setResetToken(token);
+        setNewPassword('');
+        setConfirmPassword('');
+        setPwTouched(false);
+        setConfirmTouched(false);
+        setResetPwError('');
+        setStep(3);
+        // Gọi callback ngược lại để tương thích (nếu có)
+        onVerified?.({ email: email.trim().toLowerCase(), resetToken: token });
       } else {
         const msg = res.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.';
         setOtpError(msg);
@@ -321,11 +390,62 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
     }
   };
 
+  // ─── BƯỚC 3: Đặt mật khẩu mới ────────────────────────────────────────────
+  const handleResetPassword = async (e) => {
+    e?.preventDefault();
+    setPwTouched(true);
+    setConfirmTouched(true);
+    setResetPwError('');
+
+    if (!allRulesPassed) {
+      setResetPwError('Mật khẩu chưa đáp ứng đủ các điều kiện bên dưới.');
+      newPwInputRef.current?.focus();
+      return;
+    }
+    if (!passwordsMatch) {
+      setResetPwError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setIsResettingPw(true);
+    try {
+      const res = await api.post('/auth/reset-password', {
+        resetToken,
+        token:       resetToken,
+        newPassword,
+        password:    newPassword,
+        email:       email.trim().toLowerCase(),
+      });
+
+      if (res.data?.success) {
+        toast.success(
+          res.data.message || 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.',
+          { id: 'reset-pw-success', duration: 5000 }
+        );
+        // Callback trả email để trang Login tự điền
+        onResetSuccess?.({ email: email.trim().toLowerCase() });
+        handleClose();
+      } else {
+        const msg = res.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.';
+        setResetPwError(msg);
+        toast.error(msg, { id: 'reset-pw-error' });
+      }
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        'Đặt lại mật khẩu thất bại. Liên kết có thể đã hết hạn, vui lòng thử lại từ đầu.';
+      setResetPwError(msg);
+      toast.error(msg, { id: 'reset-pw-error' });
+    } finally {
+      setIsResettingPw(false);
+    }
+  };
+
   // ─── Không render nếu modal đóng ─────────────────────────────────────────
   if (!isOpen) return null;
 
   // ─── Màu đồng hồ hết hạn ─────────────────────────────────────────────────
-  const countdownUrgent = otpCountdown <= 60 && otpCountdown > 0;
+  const countdownUrgent  = otpCountdown <= 60 && otpCountdown > 0;
   const countdownExpired = otpCountdown === 0;
 
   return (
@@ -348,7 +468,6 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
                    overflow-hidden
                    animate-[modalSlideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)_both]"
         style={{
-          // Fallback nếu Tailwind chưa có keyframe này
           animation: 'modalSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1) both',
         }}
       >
@@ -731,6 +850,255 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
             </form>
           </div>
         )}
+
+        {/* ══════════════════════════════════════════════
+            BƯỚC 3: ĐẶT MẬT KHẨU MỚI
+        ══════════════════════════════════════════════ */}
+        {step === 3 && (
+          <div className="px-7 pt-7 pb-8 flex flex-col gap-6">
+
+            {/* Header */}
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center
+                              shadow-inner shadow-emerald-500/10">
+                <Lock className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div>
+                <h2
+                  id="forgot-pw-modal-title"
+                  className="text-xl font-extrabold text-slate-900 tracking-tight"
+                >
+                  Đặt mật khẩu mới
+                </h2>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed max-w-xs mx-auto">
+                  Tạo mật khẩu mạnh để bảo vệ tài khoản <strong className="text-slate-700">{email}</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Stepper mini */}
+            <StepIndicator currentStep={3} />
+
+            {/* Form đặt mật khẩu mới */}
+            <form onSubmit={handleResetPassword} noValidate className="flex flex-col gap-5">
+
+              {/* Lỗi tổng từ API hoặc validate */}
+              {resetPwError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 px-4 py-3 rounded-xl bg-red-50
+                             border border-red-200 text-red-600 text-sm"
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-500" />
+                  <span>{resetPwError}</span>
+                </div>
+              )}
+
+              {/* ── Ô Mật khẩu mới ── */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="new-password-input" className="text-sm font-semibold text-slate-700">
+                  Mật khẩu mới <span className="text-red-500">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <Lock className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    ref={newPwInputRef}
+                    id="new-password-input"
+                    type={showNewPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Nhập mật khẩu mới"
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      if (resetPwError) setResetPwError('');
+                    }}
+                    onBlur={() => setPwTouched(true)}
+                    disabled={isResettingPw}
+                    className={`w-full pl-10 pr-12 py-3 rounded-xl text-sm font-medium text-slate-800
+                               bg-slate-50 border transition-all outline-none
+                               placeholder:text-slate-400
+                               focus:bg-white focus:ring-2 focus:ring-primary/30
+                               disabled:opacity-60 disabled:cursor-not-allowed
+                               ${
+                                 pwTouched && !allRulesPassed
+                                   ? 'border-red-400 focus:ring-red-200'
+                                   : pwTouched && allRulesPassed
+                                     ? 'border-emerald-400 focus:ring-emerald-200'
+                                     : 'border-slate-200 focus:border-primary'
+                               }`}
+                  />
+                  {/* Toggle icon mắt */}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowNewPw((v) => !v)}
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label={showNewPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showNewPw
+                      ? <EyeOff className="w-4 h-4" />
+                      : <Eye    className="w-4 h-4" />
+                    }
+                  </button>
+                </div>
+
+                {/* ── Thanh đo độ mạnh mật khẩu ── */}
+                {newPassword && (
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {/* 4 thanh bar */}
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4].map((bar) => (
+                        <div
+                          key={bar}
+                          className={`h-1.5 flex-1 rounded-full transition-all duration-300
+                                      ${bar <= strengthMeta.bars ? strengthMeta.color : 'bg-slate-200'}`}
+                        />
+                      ))}
+                    </div>
+                    {/* Label độ mạnh */}
+                    <p className={`text-xs font-semibold ${strengthMeta.textColor}`}>
+                      Độ mạnh: {strengthMeta.label}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Ô Xác nhận mật khẩu ── */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="confirm-password-input" className="text-sm font-semibold text-slate-700">
+                  Xác nhận mật khẩu <span className="text-red-500">*</span>
+                </label>
+                <div className="relative flex items-center">
+                  <Lock className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    id="confirm-password-input"
+                    type={showConfirmPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Nhập lại mật khẩu mới"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (resetPwError) setResetPwError('');
+                    }}
+                    onBlur={() => setConfirmTouched(true)}
+                    disabled={isResettingPw}
+                    className={`w-full pl-10 pr-12 py-3 rounded-xl text-sm font-medium text-slate-800
+                               bg-slate-50 border transition-all outline-none
+                               placeholder:text-slate-400
+                               focus:bg-white focus:ring-2 focus:ring-primary/30
+                               disabled:opacity-60 disabled:cursor-not-allowed
+                               ${
+                                 confirmError
+                                   ? 'border-red-400 focus:ring-red-200'
+                                   : confirmTouched && passwordsMatch
+                                     ? 'border-emerald-400 focus:ring-emerald-200'
+                                     : 'border-slate-200 focus:border-primary'
+                               }`}
+                  />
+                  {/* Toggle icon mắt */}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowConfirmPw((v) => !v)}
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label={showConfirmPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showConfirmPw
+                      ? <EyeOff className="w-4 h-4" />
+                      : <Eye    className="w-4 h-4" />
+                    }
+                  </button>
+                </div>
+                {/* Lỗi xác nhận không khớp */}
+                {confirmError && (
+                  <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3" />
+                    {confirmError}
+                  </p>
+                )}
+                {/* Khớp rồi */}
+                {confirmTouched && passwordsMatch && (
+                  <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Mật khẩu khớp!
+                  </p>
+                )}
+              </div>
+
+              {/* ── Danh sách điều kiện ── */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1">
+                  Yêu cầu mật khẩu
+                </p>
+                {PW_RULES.map((rule) => {
+                  const passed = rule.test(newPassword);
+                  return (
+                    <div key={rule.id} className="flex items-center gap-2">
+                      <span
+                        className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center
+                                    transition-all duration-200
+                                    ${passed
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-slate-200 text-slate-400'
+                                    }`}
+                      >
+                        {passed
+                          ? <CheckCircle2 className="w-3 h-3" />
+                          : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 block" />
+                        }
+                      </span>
+                      <span
+                        className={`text-xs font-medium transition-colors duration-200
+                                    ${passed ? 'text-emerald-700' : 'text-slate-500'}`}
+                      >
+                        {rule.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Nút Hoàn tất ── */}
+              <button
+                type="submit"
+                disabled={!canSubmitReset}
+                className="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white
+                           bg-gradient-to-r from-emerald-500 to-teal-500
+                           shadow-lg shadow-emerald-500/25
+                           hover:shadow-emerald-500/40 hover:scale-[1.008]
+                           active:scale-[0.985] transition-all
+                           flex items-center justify-center gap-2
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           disabled:hover:scale-100 disabled:hover:shadow-emerald-500/25"
+              >
+                {isResettingPw ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Đang đặt lại mật khẩu...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Hoàn tất đổi mật khẩu</span>
+                  </>
+                )}
+              </button>
+
+              {/* Nút quay lại */}
+              <button
+                type="button"
+                onClick={() => { setStep(2); setResetPwError(''); }}
+                className="text-sm text-slate-500 hover:text-slate-700 font-medium
+                           flex items-center justify-center gap-1 transition-colors"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Quay lại nhập OTP
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Keyframe CSS nhúng inline */}
@@ -744,9 +1112,10 @@ const ForgotPasswordModal = ({ isOpen, onClose, onVerified }) => {
   );
 };
 
-// ─── Sub-component: Step Indicator ────────────────────────────────────────────
+// ─── Sub-component: Step Indicator (3 Bước) ────────────────────────────────
 const StepIndicator = ({ currentStep }) => (
   <div className="flex items-center justify-center gap-0">
+
     {/* Bước 1 */}
     <div className="flex items-center gap-2">
       <div
@@ -767,8 +1136,8 @@ const StepIndicator = ({ currentStep }) => (
       </span>
     </div>
 
-    {/* Thanh nối */}
-    <div className="flex-1 mx-3 h-0.5 w-16 rounded-full overflow-hidden bg-slate-200">
+    {/* Thanh nối 1→2 */}
+    <div className="flex-1 mx-3 h-0.5 w-10 rounded-full overflow-hidden bg-slate-200">
       <div
         className={`h-full transition-all duration-500 rounded-full
                     ${currentStep > 1 ? 'w-full bg-primary' : 'w-0'}`}
@@ -781,19 +1150,46 @@ const StepIndicator = ({ currentStep }) => (
         className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
                     transition-all shadow-sm
                     ${currentStep >= 2
-                      ? 'bg-primary text-white ring-4 ring-primary/20'
+                      ? currentStep > 2
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-primary text-white ring-4 ring-primary/20'
                       : 'bg-slate-100 text-slate-400'
                     }`}
       >
-        2
+        {currentStep > 2 ? <CheckCircle2 className="w-4 h-4" /> : '2'}
       </div>
       <span className={`text-xs font-semibold hidden sm:inline
-                        ${currentStep >= 2 ? 'text-primary' : 'text-slate-400'}`}>
+                        ${currentStep >= 2 ? (currentStep > 2 ? 'text-emerald-600' : 'text-primary') : 'text-slate-400'}`}>
         Nhập OTP
+      </span>
+    </div>
+
+    {/* Thanh nối 2→3 */}
+    <div className="flex-1 mx-3 h-0.5 w-10 rounded-full overflow-hidden bg-slate-200">
+      <div
+        className={`h-full transition-all duration-500 rounded-full
+                    ${currentStep > 2 ? 'w-full bg-emerald-500' : 'w-0'}`}
+      />
+    </div>
+
+    {/* Bước 3 */}
+    <div className="flex items-center gap-2">
+      <div
+        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                    transition-all shadow-sm
+                    ${currentStep >= 3
+                      ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20'
+                      : 'bg-slate-100 text-slate-400'
+                    }`}
+      >
+        {currentStep >= 3 ? <Lock className="w-3.5 h-3.5" /> : '3'}
+      </div>
+      <span className={`text-xs font-semibold hidden sm:inline
+                        ${currentStep >= 3 ? 'text-emerald-600' : 'text-slate-400'}`}>
+        Mật khẩu mới
       </span>
     </div>
   </div>
 );
 
 export default ForgotPasswordModal;
-

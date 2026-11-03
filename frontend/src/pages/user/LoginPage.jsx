@@ -454,9 +454,16 @@ const LoginPageContent = () => {
       <ForgotPasswordModal
         isOpen={isForgotPasswordOpen}
         onClose={() => setIsForgotPasswordOpen(false)}
-        onVerified={({ email: verifiedEmail, resetToken }) => {
-          // TODO: Điều hướng sang trang đặt mật khẩu mới với resetToken
-          toast.success(`Xác thực thành công! Kiểm tra email ${verifiedEmail} để đặt mật khẩu mới.`, {
+        onVerified={() => {
+          // onVerified giữ để tương thích ngược — xử lý hoàn tất bằng onResetSuccess
+        }}
+        onResetSuccess={({ email: verifiedEmail }) => {
+          // Đóng modal (handleClose trong ForgotPasswordModal đã gọi onClose),
+          // tự điền email vào ô Tài Khoản và bắn toast thành công
+          setIsForgotPasswordOpen(false);
+          setForm((prev) => ({ ...prev, TaiKhoan: verifiedEmail }));
+          toast.success('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.', {
+            id: 'reset-pw-done',
             duration: 5000,
           });
         }}
