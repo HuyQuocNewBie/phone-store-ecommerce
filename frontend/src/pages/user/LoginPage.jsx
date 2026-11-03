@@ -42,8 +42,8 @@ const LoginPageContent = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isZaloLoading, setIsZaloLoading] = useState(false);
 
-  // Forgot Password Modal
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  // Forgot Password Modal State
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   // ── 3. Third-party Auth Hooks ───────────────────────────────────────────────
   // Google OAuth Login Hook
@@ -452,16 +452,13 @@ const LoginPageContent = () => {
 
       {/* ── Modal Quên Mật Khẩu ── */}
       <ForgotPasswordModal
-        isOpen={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
-        onVerified={() => {
-          // onVerified giữ để tương thích ngược — xử lý hoàn tất bằng onResetSuccess
-        }}
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
         onResetSuccess={({ email: verifiedEmail }) => {
-          // Đóng modal (handleClose trong ForgotPasswordModal đã gọi onClose),
-          // tự điền email vào ô Tài Khoản và bắn toast thành công
-          setIsForgotPasswordOpen(false);
-          setForm((prev) => ({ ...prev, TaiKhoan: verifiedEmail }));
+          setIsForgotModalOpen(false);
+          if (verifiedEmail) {
+            setForm((prev) => ({ ...prev, TaiKhoan: verifiedEmail }));
+          }
           toast.success('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.', {
             id: 'reset-pw-done',
             duration: 5000,
@@ -760,7 +757,7 @@ const LoginPageContent = () => {
                       </label>
                       <button
                         type="button"
-                        onClick={() => setIsForgotPasswordOpen(true)}
+                        onClick={() => setIsForgotModalOpen(true)}
                         className="font-semibold text-primary hover:underline hover:text-primary-container transition-colors bg-transparent border-none cursor-pointer p-0"
                       >
                         Quên mật khẩu?
