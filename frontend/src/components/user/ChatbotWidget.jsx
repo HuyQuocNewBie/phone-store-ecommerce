@@ -14,7 +14,8 @@ import {
   ShoppingBag,
   RotateCcw,
   Copy,
-  CheckCheck
+  CheckCheck,
+  Mic
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -72,6 +73,9 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedVoucher, setCopiedVoucher] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+
+  const recognitionRef = useRef(null);
 
   // Lời chào cá nhân hóa theo thông tin tài khoản đăng nhập
   const createWelcomeMessage = () => {
@@ -119,6 +123,32 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const scrollToBottom = (behavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
+
+  // Dọn dẹp nhận diện giọng nói khi unmount hoặc khi đóng cửa sổ chat
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // Bỏ qua lỗi dọn dẹp
+        }
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen && isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // Bỏ qua lỗi
+        }
+      }
+      setIsListening(false);
+    }
+  }, [isOpen, isListening]);
 
   useEffect(() => {
     if (isOpen) {
@@ -258,6 +288,78 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  // Nhận diện giọng nói Tiếng Việt bằng Web Speech API
+  const handleToggleVoice = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.error('Trình duyệt không hỗ trợ nhận diện giọng nói');
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {
+          console.warn('[SpeechRecognition] Lỗi khi dừng:', err);
+        }
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'vi-VN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          // Chèn nối tiếp vào value của ô input (TUYỆT ĐỐI KHÔNG TỰ ĐỘNG GỬI)
+          setInputValue((prev) => {
+            const trimmedPrev = (prev || '').trim();
+            const trimmedTranscript = transcript.trim();
+            return trimmedPrev ? `${trimmedPrev} ${trimmedTranscript}` : trimmedTranscript;
+          });
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 100);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('[SpeechRecognition] Lỗi:', event.error);
+        setIsListening(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          toast.error('Quyền truy cập micro bị từ chối. Vui lòng cấp quyền trong trình duyệt!');
+        } else if (event.error === 'no-speech') {
+          toast('Không nhận diện được giọng nói, vui lòng thử lại!', { icon: '🎙️' });
+        } else {
+          toast.error(`Lỗi nhận diện giọng nói: ${event.error || 'Vui lòng thử lại'}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('[SpeechRecognition] Lỗi khởi động:', err);
+      setIsListening(false);
+      toast.error('Không thể kích hoạt nhận diện giọng nói.');
     }
   };
 
@@ -500,14 +602,14 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Footer: Input nhập câu hỏi + Nút gửi ── */}
+        {/* ── Footer: Input nhập câu hỏi + Nút Micro + Nút gửi ── */}
         <div className="p-3 bg-white border-t border-slate-100 flex flex-col gap-1.5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="bg-slate-50 border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 rounded-full px-4 py-1.5 transition-all flex items-center"
+            className="bg-slate-50 border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 rounded-full pl-3.5 pr-1.5 py-1.5 transition-all flex items-center gap-1.5"
           >
             <input
               ref={inputRef}
@@ -516,15 +618,31 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
-              placeholder="Nhập câu hỏi cho SmartZone AI..."
-              className="flex-1 bg-transparent border-none focus:outline-none text-sm placeholder:text-slate-400 text-slate-700 disabled:opacity-60"
+              placeholder={isListening ? 'Đang lắng nghe bạn nói...' : 'Nhập câu hỏi cho SmartZone AI...'}
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm placeholder:text-slate-400 text-slate-700 disabled:opacity-60 min-w-0"
             />
+            {/* Nút Micro tròn nhận diện giọng nói Tiếng Việt */}
+            <button
+              type="button"
+              onClick={handleToggleVoice}
+              disabled={isLoading}
+              aria-label={isListening ? 'Dừng thu âm' : 'Nhập bằng giọng nói'}
+              title={isListening ? 'Đang lắng nghe... Bấm để dừng' : 'Nói vào Micro (Tiếng Việt)'}
+              className={`p-2 rounded-full transition-all flex items-center justify-center flex-shrink-0 active:scale-95 ${
+                isListening
+                  ? 'animate-pulse bg-red-100 text-red-600'
+                  : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200/60'
+              }`}
+            >
+              <Mic className="w-4 h-4 stroke-[2.2]" />
+            </button>
+            {/* Nút Gửi câu hỏi */}
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
               aria-label="Gửi tin nhắn"
               title="Gửi câu hỏi"
-              className="p-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+              className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
             >
               <SendHorizontal className="w-4 h-4 stroke-[2.2]" />
             </button>
@@ -534,7 +652,11 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
           <div className="flex items-center justify-between px-1 text-[10px] text-slate-400 select-none">
             <span className="flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-              Trợ lý AI SmartZone 24/7
+              {isListening ? (
+                <span className="text-red-500 font-medium animate-pulse">Đang thu âm giọng nói...</span>
+              ) : (
+                'Trợ lý AI SmartZone 24/7'
+              )}
             </span>
             <span>Nhấn Enter để gửi</span>
           </div>
