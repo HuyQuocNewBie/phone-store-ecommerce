@@ -197,7 +197,7 @@ const sendMessage = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
         if (decoded && decoded.MaNguoiDung) {
           const [userRows] = await pool.query(
-            'SELECT MaNguoiDung, TaiKhoan, HoTen, Email, SoDienThoai FROM nguoidung WHERE MaNguoiDung = ?',
+            'SELECT MaNguoiDung, TaiKhoan, Email, AnhDaiDien, MaVaiTro, SoDienThoai FROM nguoidung WHERE MaNguoiDung = ?',
             [decoded.MaNguoiDung]
           );
           if (userRows && userRows.length > 0) {
@@ -221,12 +221,12 @@ const sendMessage = async (req, res, next) => {
 
 --- THÔNG TIN KHÁCH HÀNG ĐANG ĐĂNG NHẬP (USER CONTEXT) ---
 - Mã người dùng (userId): ${currentUser.MaNguoiDung}
-- Họ tên khách hàng: ${currentUser.HoTen || currentUser.TaiKhoan}
+- Tên tài khoản khách hàng: ${currentUser.TaiKhoan || currentUser.HoTen || 'Khách hàng'}
 - Số điện thoại: ${currentUser.SoDienThoai || 'Chưa cập nhật'}
 - Email: ${currentUser.Email || 'Chưa cập nhật'}
 
 QUY TẮC CÁ NHÂN HÓA QUAN TRỌNG DÀNH CHO KHÁCH HÀNG NÀY:
-1. Khách hàng đã đăng nhập tài khoản trên hệ thống. Hãy xưng "Em" và xưng hô thân mật với khách là "${currentUser.HoTen || currentUser.TaiKhoan}".
+1. Khách hàng đã đăng nhập tài khoản trên hệ thống. Hãy xưng "Em" và xưng hô thân mật với khách là "${currentUser.TaiKhoan || currentUser.HoTen || 'Quý khách'}".
 2. KHI KHÁCH HÀNG YÊU CẦU: "tra cứu đơn hàng", "đơn hàng của tôi", "kiểm tra đơn hàng", "tôi đã mua gì", "đơn hàng gần đây", "tiến độ giao hàng", v.v.:
    - TUYỆT ĐỐI KHÔNG HỎI LẠI số điện thoại hay bắt khách cung cấp lại mã/thông tin cá nhân!
    - HÃY TỰ ĐỘNG gọi tool \`getOrderStatus\` ngay lập tức với:
