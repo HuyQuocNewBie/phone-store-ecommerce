@@ -74,12 +74,9 @@ const LoginPageContent = () => {
           }
         }
 
-        toast.success(
-          userData?.NgaySinh
-            ? `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
-            : `Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
-          { id: 'login-toast' }
-        );
+        toast.success(`Đăng nhập Google thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`, {
+          id: 'login-toast',
+        });
 
         // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
         const intentRaw = sessionStorage.getItem('cart_action_intent');
@@ -397,12 +394,9 @@ const LoginPageContent = () => {
             localStorage.setItem('user', JSON.stringify(userData));
           }
 
-          toast.success(
-            userData?.NgaySinh
-              ? `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`
-              : `Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}. Bạn có thể cập nhật thêm ngày sinh trong trang Cá nhân.`,
-            { id: 'login-toast' }
-          );
+          toast.success(`Đăng nhập Zalo thành công! Chào mừng ${userData?.TaiKhoan || 'bạn'}.`, {
+            id: 'login-toast',
+          });
 
           const target = event.data.redirectTarget || (userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/');
           navigate(target, { replace: true });

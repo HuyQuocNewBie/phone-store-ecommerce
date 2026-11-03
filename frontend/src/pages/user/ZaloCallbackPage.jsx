@@ -156,10 +156,9 @@ const ZaloCallbackPage = () => {
           }, 600);
         } else {
           // Tiến hành chuyển hướng về trang chủ (navigate('/'))
-          toast.success(
-            `Đăng nhập Zalo thành công! Chào mừng ${user?.TaiKhoan || user?.HoTen || 'bạn'}.`,
-            { id: 'login-toast' }
-          );
+          toast.success(`Đăng nhập Zalo thành công! Chào mừng ${user?.TaiKhoan || 'bạn'}.`, {
+            id: 'login-toast',
+          });
           navigate('/');
         }
       } catch (err) {
