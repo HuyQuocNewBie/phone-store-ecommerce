@@ -851,18 +851,18 @@ const CheckoutPage = () => {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-unit-xs">
-                            <span className="material-symbols-outlined text-blue-600 text-xl">qr_code_scanner</span>
+                            <span className="material-symbols-outlined text-blue-600 text-xl">credit_card</span>
                             <span className="font-body-md text-body-md font-bold text-on-surface">
-                              VNPay (Thanh toán qua VNPAY QR / Thẻ ATM)
+                              VNPay (Thanh toán qua Thẻ ATM nội địa)
                             </span>
                             <span className="font-label-spec text-label-spec bg-blue-600 text-white px-unit-xs py-unit-2xs rounded font-bold uppercase">
-                              VNPAY-QR
+                              Thẻ ATM
                             </span>
                           </div>
-                          <span className="font-body-sm text-body-sm text-blue-600 font-semibold">ATM / QR / Visa</span>
+                          <span className="font-body-sm text-body-sm text-blue-600 font-semibold">Thẻ ATM / Ngân hàng</span>
                         </div>
                         <p className="font-body-sm text-body-sm text-on-surface-variant pt-unit-2xs leading-relaxed">
-                          Thanh toán an toàn qua VNPAY-QR, Thẻ ATM nội địa hoặc Thẻ quốc tế Visa/Mastercard.
+                          Thanh toán an toàn qua cổng VNPay bằng Thẻ ATM nội địa hoặc Tài khoản ngân hàng liên kết.
                         </p>
                       </div>
                     </label>
