@@ -507,7 +507,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center gap-2"
+            className="bg-slate-50 border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 rounded-full px-4 py-1.5 transition-all flex items-center"
           >
             <input
               ref={inputRef}
@@ -517,14 +517,14 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
               onKeyDown={handleKeyDown}
               disabled={isLoading}
               placeholder="Nhập câu hỏi cho SmartZone AI..."
-              className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-slate-400 disabled:opacity-60"
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm placeholder:text-slate-400 text-slate-700 disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
               aria-label="Gửi tin nhắn"
               title="Gửi câu hỏi"
-              className="p-2.5 rounded-2xl bg-primary hover:bg-[#003ea8] active:scale-95 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-blue-600/20 flex-shrink-0"
+              className="p-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
             >
               <SendHorizontal className="w-4 h-4 stroke-[2.2]" />
             </button>
