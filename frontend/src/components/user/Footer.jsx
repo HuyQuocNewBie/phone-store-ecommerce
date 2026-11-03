@@ -77,22 +77,18 @@ const Footer = () => {
           <div className="flex flex-col gap-unit-sm">
             <h4 className="font-title-card text-title-card text-on-surface font-semibold">Phương thức thanh toán</h4>
             <p className="font-body-md text-body-md text-on-surface-variant">Đa dạng cổng thanh toán an toàn và bảo mật tiêu chuẩn quốc tế:</p>
-            <div className="grid grid-cols-2 gap-unit-xs font-body-md text-body-md text-on-surface">
+            <div className="flex flex-col gap-unit-xs font-body-md text-body-md text-on-surface">
               <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
-                <span className="material-symbols-outlined text-primary leading-none">credit_card</span>
-                <span>Visa / Master</span>
+                <span className="material-symbols-outlined text-primary leading-none">payments</span>
+                <span>Tiền mặt (COD)</span>
               </div>
               <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
-                <span className="material-symbols-outlined text-secondary leading-none">qr_code_scanner</span>
-                <span>VNPay-QR</span>
+                <span className="material-symbols-outlined text-blue-600 leading-none">credit_card</span>
+                <span>Cổng VNPay</span>
               </div>
               <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
                 <span className="material-symbols-outlined text-primary leading-none">account_balance_wallet</span>
-                <span>Ví ZaloPay</span>
-              </div>
-              <div className="px-unit-sm py-unit-xs bg-surface-container-lowest rounded-xl flex items-center gap-unit-xs shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-surface-container/60">
-                <span className="material-symbols-outlined text-primary leading-none">percent</span>
-                <span>Trả góp 0%</span>
+                <span>Cổng ZaloPay</span>
               </div>
             </div>
             <div className="pt-unit-xs">
