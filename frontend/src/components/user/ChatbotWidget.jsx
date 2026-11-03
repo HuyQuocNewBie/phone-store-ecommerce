@@ -49,9 +49,9 @@ const STORAGE_KEY = 'smartzone_chatbot_history';
  * ChatbotWidget — Floating Chatbot Widget trượt mượt góc phải màn hình
  *
  * Tính năng chính:
- *  - Floating FAB hình tròn cố định ở `fixed bottom-6 right-6 z-50` kèm hiệu ứng gợn sóng (Pulse).
- *  - Cửa sổ Chat Drawer (380px x 580px, bo góc rounded-3xl, shadow lớn) trượt mượt mà.
- *  - Header: Avatar AI tích xanh "SmartZone AI Assistant 24/7" + Nút xóa lịch sử + Nút X đóng.
+ *  - Floating FAB hình tròn cố định ở `fixed bottom-6 right-6 z-50` gradient xanh công nghệ kèm icon dập nổi và hiệu ứng Glow Pulse.
+ *  - Cửa sổ Chat Drawer (380px x 580px, bo góc rounded-[28px], viền border-slate-100, shadow-2xl).
+ *  - Header: Gradient sang trọng blue-600 via indigo-600 to blue-700, Avatar AI viền trắng mờ tích xanh Online 24/7 phát sáng, nút kính mờ.
  *  - Body: Danh sách tin nhắn bong bóng (User xanh bên phải, AI xám nhạt bên trái).
  *  - Footer: Input câu hỏi + Nút gửi + phím tắt Enter.
  *  - Hỗ trợ hiển thị rich cards (sản phẩm, voucher, so sánh) trả về từ Gemini AI.
@@ -268,13 +268,13 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
 
   return (
     <>
-      {/* ─── 1. CỬA SỔ CHAT DRAWER (Rộng 380px, Cao 580px, bo góc rounded-3xl) ─── */}
+      {/* ─── 1. CỬA SỔ CHAT DRAWER (Rộng 380px, Cao 580px, bo góc rounded-[28px]) ─── */}
       <div
         role="dialog"
         aria-label="Cửa sổ trò chuyện SmartZone AI"
         aria-hidden={!isOpen}
         className={`fixed bottom-24 right-4 sm:right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[580px] max-h-[calc(100vh-7.5rem)]
-          flex flex-col bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] border border-slate-200/90 overflow-hidden
+          flex flex-col bg-white rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden
           transition-all duration-300 ease-out origin-bottom-right transform
           ${
             isOpen
@@ -283,17 +283,17 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
           }
         `}
       >
-        {/* ── Header: Avatar AI tích xanh + Nút xóa lịch sử + Nút X đóng ── */}
-        <div className="relative px-4 py-3.5 bg-gradient-to-r from-blue-600 via-primary to-indigo-600 text-white flex items-center justify-between shadow-sm select-none">
+        {/* ── Header: Avatar AI tích xanh Online 24/7 + Nút xóa lịch sử & Thu gọn kính mờ ── */}
+        <div className="relative px-4 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex items-center justify-between shadow-md select-none border-b border-white/10">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Avatar AI tích xanh */}
+            {/* Avatar AI: Viền trắng mờ, tích xanh trạng thái "Online 24/7" phát sáng nhẹ */}
             <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-inner">
-                <Bot className="w-5 h-5 text-white animate-pulse" />
+              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 ring-2 ring-white/20 flex items-center justify-center shadow-inner">
+                <Bot className="w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] animate-pulse" />
               </div>
               <span
-                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-xs"
-                title="Đã xác thực 24/7"
+                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-[0_0_8px_rgba(16,185,129,0.85)] ring-1 ring-emerald-300/50"
+                title="Online 24/7"
               >
                 <Check className="w-2.5 h-2.5 stroke-[3]" />
               </span>
@@ -302,39 +302,44 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
             {/* Title & Subtitle */}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 className="font-bold text-sm text-white truncate tracking-tight">
+                <h3 className="font-bold text-sm text-white truncate tracking-tight drop-shadow-xs">
                   SmartZone AI Assistant
                 </h3>
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs border border-white/20 shadow-xs">
                   24/7
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-blue-100/90 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-                <span className="font-medium">Sẵn sàng phản hồi tức thì</span>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                </span>
+                <span className="font-medium text-emerald-300 drop-shadow-xs">Online 24/7</span>
+                <span className="text-white/40">•</span>
+                <span className="font-normal text-blue-100/90">Sẵn sàng hỗ trợ</span>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons: Nút xóa lịch sử + Nút X đóng */}
-          <div className="flex items-center gap-1">
+          {/* Action Buttons (Xóa lịch sử, Thu gọn): Icon dạng Button kính mờ */}
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleClearHistory}
               title="Xóa lịch sử trò chuyện"
               aria-label="Xóa lịch sử trò chuyện"
-              className="p-2 text-white/80 hover:text-white hover:bg-white/15 rounded-xl transition-all duration-200 active:scale-90"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-all active:scale-90 flex items-center justify-center backdrop-blur-sm"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              title="Đóng cửa sổ chat"
-              aria-label="Đóng cửa sổ chat"
-              className="p-2 text-white/80 hover:text-white hover:bg-white/15 rounded-xl transition-all duration-200 active:scale-90"
+              title="Thu gọn"
+              aria-label="Thu gọn"
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-all active:scale-90 flex items-center justify-center backdrop-blur-sm"
             >
-              <X className="w-4 h-4" />
+              <ChevronDown className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -536,7 +541,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         </div>
       </div>
 
-      {/* ─── 2. FLOATING ACTION BUTTON (Hình tròn cố định `fixed bottom-6 right-6 z-50`) ─── */}
+      {/* ─── 2. FLOATING ACTION BUTTON (Nút Nổi Mở Chatbot: Gradient xanh công nghệ, Glow Pulse) ─── */}
       <button
         type="button"
         id="btn-chatbot-widget-fab"
@@ -544,36 +549,36 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full
-          bg-gradient-to-tr from-blue-700 via-primary to-indigo-600 text-white
-          flex items-center justify-center shadow-xl shadow-blue-600/35
-          hover:shadow-2xl hover:shadow-blue-600/50 hover:scale-105 active:scale-95
+          bg-gradient-to-r from-blue-600 to-indigo-600 text-white
+          flex items-center justify-center shadow-2xl shadow-blue-600/40
+          hover:shadow-indigo-600/50 hover:scale-105 active:scale-95
           transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-400/30 group
         `}
       >
-        {/* Hiệu ứng gợn sóng (Pulse / Ping) khi cửa sổ đang đóng */}
+        {/* Vòng phát sáng xung quanh (Glow Pulse) khi đóng */}
         {!isOpen && (
           <>
-            <span className="absolute -inset-1.5 rounded-full bg-blue-500/35 animate-ping opacity-75 pointer-events-none" />
-            <span className="absolute inset-0 rounded-full bg-primary/20 animate-pulse pointer-events-none" />
+            <span className="absolute -inset-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 opacity-70 blur-md animate-pulse pointer-events-none" />
+            <span className="absolute -inset-2.5 rounded-full bg-blue-500/25 animate-ping pointer-events-none" />
           </>
         )}
 
         {/* Chấm xanh trạng thái trực tuyến 24/7 */}
         {!isOpen && (
           <span
-            className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs"
-            title="Sẵn sàng 24/7"
+            className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-[0_0_8px_rgba(16,185,129,0.9)]"
+            title="Online 24/7"
           />
         )}
 
-        {/* Icon chuyển đổi mượt mà giữa Bot/Sparkles và ChevronDown/X khi mở */}
+        {/* Icon Sparkles/Robot dập nổi chuyển đổi mượt mà */}
         <div className="relative w-7 h-7 flex items-center justify-center transition-transform duration-300">
           {isOpen ? (
-            <ChevronDown className="w-7 h-7 stroke-[2.5] transform transition-transform duration-200 group-hover:translate-y-0.5" />
+            <ChevronDown className="w-7 h-7 stroke-[2.5] drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] transform transition-transform duration-200 group-hover:translate-y-0.5" />
           ) : (
-            <div className="relative">
-              <Bot className="w-7 h-7 stroke-[2.2]" />
-              <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
+            <div className="relative flex items-center justify-center">
+              <Bot className="w-7 h-7 stroke-[2.2] drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1 -right-1 drop-shadow-[0_0_8px_rgba(252,211,77,0.9)] animate-pulse" />
             </div>
           )}
         </div>
