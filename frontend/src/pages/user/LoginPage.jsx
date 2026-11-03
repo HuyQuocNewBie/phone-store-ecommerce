@@ -8,6 +8,7 @@ import api from '../../services/api';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import { Loader2, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
+import ForgotPasswordModal from '../../components/user/ForgotPasswordModal';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuAAAAAHATGbDWPmg2432V6GA8uFLpatuu';
 
@@ -40,6 +41,9 @@ const LoginPageContent = () => {
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isZaloLoading, setIsZaloLoading] = useState(false);
+
+  // Forgot Password Modal
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
   // ── 3. Third-party Auth Hooks ───────────────────────────────────────────────
   // Google OAuth Login Hook
@@ -446,6 +450,18 @@ const LoginPageContent = () => {
     <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col justify-between">
       <Navbar />
 
+      {/* ── Modal Quên Mật Khẩu ── */}
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+        onVerified={({ email: verifiedEmail, resetToken }) => {
+          // TODO: Điều hướng sang trang đặt mật khẩu mới với resetToken
+          toast.success(`Xác thực thành công! Kiểm tra email ${verifiedEmail} để đặt mật khẩu mới.`, {
+            duration: 5000,
+          });
+        }}
+      />
+
       <main className="w-full bg-surface flex-grow">
         <div className="flex flex-col w-full">
           <div className="relative w-full overflow-hidden py-unit-lg lg:py-unit-2xl">
@@ -735,12 +751,13 @@ const LoginPageContent = () => {
                           Ghi nhớ đăng nhập trên thiết bị này
                         </span>
                       </label>
-                      <Link
-                        className="font-semibold text-primary hover:underline hover:text-primary-container transition-colors"
-                        to="/forgot-password"
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotPasswordOpen(true)}
+                        className="font-semibold text-primary hover:underline hover:text-primary-container transition-colors bg-transparent border-none cursor-pointer p-0"
                       >
                         Quên mật khẩu?
-                      </Link>
+                      </button>
                     </div>
 
                     {/* Nút Đăng nhập "ĐĂNG NHẬP NGAY" */}
