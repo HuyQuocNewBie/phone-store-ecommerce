@@ -502,6 +502,47 @@ const deleteOtp = async (email) => {
 };
 
 /**
+ * Lấy dữ liệu OTP hiện tại của email từ Redis hoặc Memory Cache
+ * Tự động xóa và trả về null nếu đã hết hạn
+ * @param {string} email
+ * @returns {Promise<object|null>}
+ */
+const getOtp = async (email) => {
+  const targetEmail = normalizeEmail(email);
+  if (!targetEmail) return null;
+
+  let otpData = null;
+
+  // 1. Kiểm tra từ Redis
+  if (isRedisReady()) {
+    try {
+      const redisKey = `otp:data:${targetEmail}`;
+      const raw = await redis.get(redisKey);
+      if (raw) {
+        otpData = JSON.parse(raw);
+      }
+    } catch (err) {
+      console.warn('[OTPStore] Lỗi đọc OTP từ Redis trong getOtp:', err.message);
+    }
+  }
+
+  // 2. Fallback sang Memory Cache
+  if (!otpData) {
+    otpData = memoryStore.otps.get(targetEmail);
+  }
+
+  if (!otpData) return null;
+
+  // 3. Kiểm tra thời gian hết hạn
+  if (Date.now() > otpData.expiresAt) {
+    await deleteOtp(targetEmail);
+    return null;
+  }
+
+  return otpData;
+};
+
+/**
  * Sinh mã OTP số ngẫu nhiên an toàn bằng crypto.randomInt
  * @param {number} [length=6] 
  * @returns {string}
@@ -530,6 +571,7 @@ module.exports = {
   verifyResetToken,
   verifyOtp,
   deleteOtp,
+  getOtp,
   generateOtp,
   generateResetToken,
   hashOtp,

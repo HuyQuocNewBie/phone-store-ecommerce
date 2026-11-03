@@ -21,6 +21,9 @@ router.post('/forgot-password', authController.forgotPassword);
 // POST /api/v1/auth/forgot-password/send-otp -> Tiếp nhận yêu cầu Quên mật khẩu và gửi mã OTP (có Cooldown 60s)
 router.post('/forgot-password/send-otp', forgotPasswordController.sendOtp);
 
+// POST /api/v1/auth/forgot-password/verify-otp -> Xác thực mã OTP 2 lớp cấp phép cho bước đổi mật khẩu
+router.post('/forgot-password/verify-otp', forgotPasswordController.verifyOtp);
+
 // 5. POST /api/v1/auth/google -> Đăng nhập bằng Google People API (Họ tên, Avatar, Giới tính, Ngày sinh, Mật khẩu)
 router.post('/google', authController.googleLogin);
 
