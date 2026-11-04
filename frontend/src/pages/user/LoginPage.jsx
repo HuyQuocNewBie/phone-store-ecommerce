@@ -8,7 +8,6 @@ import api from '../../services/api';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import { Loader2, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
-import ForgotPasswordModal from '../../components/user/ForgotPasswordModal';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuAAAAAHATGbDWPmg2432V6GA8uFLpatuu';
 
@@ -41,9 +40,6 @@ const LoginPageContent = () => {
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isZaloLoading, setIsZaloLoading] = useState(false);
-
-  // Forgot Password Modal State
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   // ── 3. Third-party Auth Hooks ───────────────────────────────────────────────
   // Google OAuth Login Hook
@@ -469,22 +465,6 @@ const LoginPageContent = () => {
     <div className="min-h-screen bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col justify-between">
       <Navbar />
 
-      {/* ── Modal Quên Mật Khẩu ── */}
-      <ForgotPasswordModal
-        isOpen={isForgotModalOpen}
-        onClose={() => setIsForgotModalOpen(false)}
-        onResetSuccess={({ email: verifiedEmail }) => {
-          setIsForgotModalOpen(false);
-          if (verifiedEmail) {
-            setForm((prev) => ({ ...prev, TaiKhoan: verifiedEmail }));
-          }
-          toast.success('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.', {
-            id: 'reset-pw-done',
-            duration: 5000,
-          });
-        }}
-      />
-
       <main className="w-full bg-surface flex-grow">
         <div className="flex flex-col w-full">
           <div className="relative w-full overflow-hidden py-unit-lg lg:py-unit-2xl">
@@ -774,13 +754,13 @@ const LoginPageContent = () => {
                           Ghi nhớ đăng nhập trên thiết bị này
                         </span>
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsForgotModalOpen(true)}
+                      <Link
+                        to="/forgot-password"
+                        state={{ email: form.TaiKhoan }}
                         className="font-semibold text-primary hover:underline hover:text-primary-container transition-colors bg-transparent border-none cursor-pointer p-0"
                       >
                         Quên mật khẩu?
-                      </button>
+                      </Link>
                     </div>
 
                     {/* Nút Đăng nhập "ĐĂNG NHẬP NGAY" */}

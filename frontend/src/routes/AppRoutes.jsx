@@ -35,6 +35,7 @@ import AccountLayout from '../components/user/AccountLayout';
 
 import RegisterPage from '../pages/user/RegisterPage';
 import VerifyOtpPage from '../pages/user/VerifyOtpPage';
+import ForgotPasswordPage from '../pages/user/ForgotPasswordPage';
 import PaymentReturnPage from '../pages/user/PaymentReturnPage';
 import ZaloCallbackPage from '../pages/user/ZaloCallbackPage';
 
@@ -51,12 +52,14 @@ const AppRoutes = () => {
         <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/auth/zalo/callback" element={<ZaloCallbackPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<VerifyOtpPage />} />
         <Route path="/payment-return" element={<PaymentReturnPage />} />
         <Route path="/dang-ky" element={<Navigate to="/register" replace />} />
         <Route path="/xac-thuc-otp" element={<Navigate to="/verify-otp" replace />} />
+        <Route path="/quen-mat-khau" element={<Navigate to="/forgot-password" replace />} />
         <Route path="/404" element={<NotFoundPage />} />
 
         {/* ── Compatibility / Legacy Redirects (Ngăn ngừa lỗi mất layout khi chuyển trang trực tiếp bằng URL) ── */}
