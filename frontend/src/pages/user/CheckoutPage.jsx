@@ -430,7 +430,6 @@ const CheckoutPage = () => {
             toast.dismiss('redirect-pay');
             const payUrl = zalopayRes.data?.payUrl || zalopayRes.data?.order_url || zalopayRes.data?.data?.payUrl;
             if (zalopayRes.data && zalopayRes.data.success && payUrl) {
-              console.log('[FRONTEND REDIRECTING TO ZALOPAY]:', payUrl);
               window.location.href = payUrl;
               return;
             } else {

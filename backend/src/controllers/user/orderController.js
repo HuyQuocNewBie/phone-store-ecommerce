@@ -545,8 +545,6 @@ const createOrder = async (req, res, next) => {
     // 7. Thêm bản ghi giao dịch trong bảng `thanhtoan` (COD = 1 thành công, online = 2 chờ thanh toán xác nhận qua callback)
     const initialPaymentStatus = maPhuongThucId === 1 ? 1 : 2;
 
-    console.log("-> Processing Payment Method:", rawMethod, "Mapped ID:", maPhuongThucId);
-
     const [thanhToanResult] = await connection.query(
       `INSERT INTO thanhtoan (MaDonHang, MaNguoiDung, SoTien, NgayThanhToan, MaTrangThaiThanhToan, MaPhuongThucThanhToan) VALUES (?, ?, ?, NOW(), ?, ?)`,
       [maDonHang, MaNguoiDung, tongTien, initialPaymentStatus, maPhuongThucId]

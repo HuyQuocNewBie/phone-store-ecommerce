@@ -236,9 +236,6 @@ const processSuccessfulPayment = async (params) => {
 
     let maThanhToan;
 
-    // Log debug kiểm tra Terminal
-    console.log("-> Processing Payment Method:", rawMethod, "Mapped ID:", maPhuongThucId);
-
     if (pendingPayments.length > 0) {
       maThanhToan = pendingPayments[0].MaThanhToan;
       await connection.query(
@@ -429,7 +426,6 @@ const createZalopayPayment = async (req, res, next) => {
 
     // 3. Gọi hàm createZalopayPaymentUrl và trả về JSON: { success: true, payUrl: order_url }
     const payUrl = await createZalopayPaymentUrl(orderData);
-    console.log('[CONTROLLER ZALOPAY PAYURL SUCCESS]:', payUrl);
     return res.status(200).json({
       success: true,
       payUrl
