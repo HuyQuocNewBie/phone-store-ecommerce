@@ -74,6 +74,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedVoucher, setCopiedVoucher] = useState(null);
   const [isListening, setIsListening] = useState(false);
+  const [voiceDoneStatus, setVoiceDoneStatus] = useState(false);
 
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
@@ -253,6 +254,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
     setMessages(newMessages);
     setInputValue('');
     setIsLoading(true);
+    setVoiceDoneStatus(false);
 
     try {
       // Chuẩn hóa conversationHistory gửi lên Backend theo định dạng Gemini SDK
@@ -358,6 +360,7 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
         }
       }
       setIsListening(false);
+      setVoiceDoneStatus(false);
       return;
     }
 
@@ -435,7 +438,10 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
             id: 'mic-audio-capture',
           });
         } else if (errType === 'network') {
-          toast.error('Lỗi kết nối mạng đến máy chủ nhận diện giọng nói!', { id: 'mic-network' });
+          toast.error(
+            'Trình duyệt Brave/Firefox bị chặn kết nối nhận diện giọng nói Google. Vui lòng chuyển sang Chrome/Edge hoặc gõ phím!',
+            { id: 'mic-network', duration: 7000 }
+          );
         } else if (errType === 'no-speech') {
           // Người dùng không nói gì, tự động dừng êm ái về trạng thái bình thường
         } else if (errType === 'aborted') {
@@ -450,6 +456,14 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
       recognition.onend = () => {
         clearSilenceTimer();
         setIsListening(false);
+        // Nếu ô input đã có văn bản nhận diện được -> hiển thị tooltip "Đã nhận diện xong!" trong 2.5s
+        setInputValue((prev) => {
+          if (prev && prev.trim()) {
+            setVoiceDoneStatus(true);
+            setTimeout(() => setVoiceDoneStatus(false), 2500);
+          }
+          return prev;
+        });
       };
 
       recognitionRef.current = recognition;
@@ -775,6 +789,11 @@ const ChatbotWidget = ({ user: propUser, token: propToken }) => {
                 <span className="text-red-500 font-medium animate-pulse flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
                   Đang thu âm (Tự dừng sau 3s ngưng nói)...
+                </span>
+              ) : voiceDoneStatus ? (
+                <span className="text-emerald-600 font-medium flex items-center gap-1 transition-opacity duration-300">
+                  <Check className="w-3 h-3 text-emerald-500" />
+                  Đã nhận diện xong!
                 </span>
               ) : (
                 'Trợ lý AI SmartZone 24/7'
