@@ -418,6 +418,7 @@ const ForgotPasswordPage = () => {
           res.data?.data?.resetToken ||
           res.data?.data?.token ||
           res.data?.resetToken ||
+          res.data?.token ||
           '';
         toast.success(
           res.data.message || 'Xác thực OTP thành công! Hãy đặt mật khẩu mới.',
@@ -466,6 +467,9 @@ const ForgotPasswordPage = () => {
       try {
         res = await api.post('/auth/forgot-password/reset-password', {
           resetToken,
+          matKhauMoi: newPassword,
+          xacNhanMatKhau: confirmPassword,
+          // Các alias tương thích ngược với backend cũ
           token: resetToken,
           newPassword,
           password: newPassword,
@@ -475,6 +479,9 @@ const ForgotPasswordPage = () => {
         if (err1.response?.status === 404) {
           res = await api.post('/auth/reset-password', {
             resetToken,
+            matKhauMoi: newPassword,
+            xacNhanMatKhau: confirmPassword,
+            // Các alias tương thích ngược với backend cũ
             token: resetToken,
             newPassword,
             password: newPassword,
