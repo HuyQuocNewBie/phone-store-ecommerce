@@ -236,18 +236,14 @@ const ProfilePage = () => {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4">
           {/* Avatar Thumbnail */}
-          <div
-            className="relative shrink-0 group cursor-pointer"
-            onClick={() => setIsEditModalOpen(true)}
-            title="Nhấp để thay đổi thông tin cá nhân"
-          >
+          <div className="relative shrink-0">
             {!avatarError && displayAvatar ? (
               <img
                 src={displayAvatar}
                 alt={displayName}
                 referrerPolicy="no-referrer"
                 onError={() => setAvatarError(true)}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 shadow-md transition-all group-hover:scale-105"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 shadow-md"
               />
             ) : (
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-2xl shadow-md shadow-blue-500/20">
