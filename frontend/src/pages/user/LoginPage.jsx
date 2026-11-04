@@ -133,13 +133,21 @@ const LoginPageContent = () => {
   });
 
   // ── 4. Effect Hooks (Tất cả useEffect tập trung tại đây) ───────────────────
-  // Điền sẵn số điện thoại / email khi điều hướng từ trang Đăng ký thành công
+  // Điền sẵn email và mật khẩu khi điều hướng từ trang Đăng ký / Xác thực OTP thành công
   useEffect(() => {
-    if (location.state?.registeredAccount) {
-      setForm((prev) => ({ ...prev, TaiKhoan: location.state.registeredAccount }));
-      if (location.state?.message) {
-        setSuccessBanner(location.state.message);
-      }
+    const autofillEmail = location.state?.email || location.state?.registeredAccount || '';
+    const autofillPassword = location.state?.password || location.state?.registeredPassword || '';
+
+    if (autofillEmail || autofillPassword) {
+      setForm((prev) => ({
+        ...prev,
+        ...(autofillEmail ? { TaiKhoan: autofillEmail } : {}),
+        ...(autofillPassword ? { MatKhau: autofillPassword } : {})
+      }));
+    }
+
+    if (location.state?.message) {
+      setSuccessBanner(location.state.message);
     }
   }, [location.state]);
 
@@ -230,7 +238,15 @@ const LoginPageContent = () => {
     setLocalErr(null);
 
     if (!form.TaiKhoan.trim() || !form.MatKhau.trim()) {
-      const errMsg = 'Vui lòng nhập đầy đủ số điện thoại/email và mật khẩu.';
+      const errMsg = 'Vui lòng nhập đầy đủ email và mật khẩu.';
+      setLocalErr(errMsg);
+      toast.error(errMsg, { id: 'login-toast' });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.TaiKhoan.trim())) {
+      const errMsg = 'Địa chỉ email không đúng định dạng.';
       setLocalErr(errMsg);
       toast.error(errMsg, { id: 'login-toast' });
       return;
@@ -443,7 +459,10 @@ const LoginPageContent = () => {
   };
 
   const displayError = localErr || error;
-  const taiKhoanBad = touched.TaiKhoan && !form.TaiKhoan.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const taiKhoanEmpty = touched.TaiKhoan && !form.TaiKhoan.trim();
+  const taiKhoanInvalid = touched.TaiKhoan && form.TaiKhoan.trim() && !emailRegex.test(form.TaiKhoan.trim());
+  const taiKhoanBad = taiKhoanEmpty || taiKhoanInvalid;
   const matKhauBad  = touched.MatKhau  && !form.MatKhau.trim();
 
   return (
@@ -651,17 +670,17 @@ const LoginPageContent = () => {
                     onSubmit={handleSubmit}
                     noValidate
                   >
-                    {/* Ô nhập Số điện thoại / Email (Đã xóa bỏ dòng VD: 0988xxx hoặc user@gmail.com) */}
+                    {/* Ô nhập Email */}
                     <div className="flex flex-col gap-unit-2xs">
                       <label
                         className="font-body-sm text-body-sm font-semibold text-on-surface"
                         htmlFor="identifier"
                       >
-                        Số điện thoại hoặc Email <span className="text-red-500">*</span>
+                        Email <span className="text-red-500">*</span>
                       </label>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3 text-outline leading-none pointer-events-none">
-                          contact_phone
+                          mail
                         </span>
                         <input
                           className={`w-full pl-11 pr-unit-md py-unit-sm bg-surface-container-low rounded-xl text-body-md font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -671,9 +690,9 @@ const LoginPageContent = () => {
                           }`}
                           id="identifier"
                           name="TaiKhoan"
-                          placeholder="Nhập số điện thoại hoặc email của bạn"
-                          type="text"
-                          autoComplete="username"
+                          placeholder="Nhập địa chỉ email của bạn"
+                          type="email"
+                          autoComplete="email"
                           autoFocus
                           value={form.TaiKhoan}
                           onChange={handleChange}
@@ -684,7 +703,7 @@ const LoginPageContent = () => {
                       </div>
                       {taiKhoanBad && (
                         <p className="text-xs text-red-500 font-medium mt-1">
-                          Vui lòng nhập số điện thoại hoặc email
+                          {taiKhoanEmpty ? 'Vui lòng nhập email' : 'Địa chỉ email không đúng định dạng'}
                         </p>
                       )}
                     </div>
@@ -695,7 +714,7 @@ const LoginPageContent = () => {
                         className="font-body-sm text-body-sm font-semibold text-on-surface"
                         htmlFor="password"
                       >
-                        Mật khẩu tài khoản <span className="text-red-500">*</span>
+                        Mật khẩu <span className="text-red-500">*</span>
                       </label>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3 text-outline leading-none pointer-events-none">

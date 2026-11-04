@@ -189,8 +189,11 @@ const VerifyOtpPage = () => {
         navigate('/login', {
           replace: true,
           state: {
-            registeredAccount: username || email,
-            message: 'Đăng ký tài khoản thành công! Vui lòng nhập mật khẩu để đăng nhập.'
+            email: email.trim().toLowerCase(),
+            password: password,
+            registeredAccount: email.trim().toLowerCase(),
+            registeredPassword: password,
+            message: 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.'
           }
         });
       } else {

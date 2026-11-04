@@ -128,13 +128,12 @@ const RegisterPage = () => {
 
     switch (name) {
       case 'TaiKhoan':
-      case 'username':
         if (!trimmed) {
-          error = 'Vui lòng nhập tên tài khoản';
+          error = 'Vui lòng nhập họ và tên';
         } else if (trimmed.length < 3) {
-          error = 'Tài khoản tối thiểu 3 ký tự';
-        } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmed)) {
-          error = 'Chỉ được dùng chữ, số, gạch dưới, gạch ngang';
+          error = 'Họ và tên tối thiểu 3 ký tự';
+        } else if (!/^[\p{L}\p{M}\s0-9_-]+$/u.test(trimmed)) {
+          error = 'Họ và tên chỉ được chứa chữ cái, số, khoảng trắng, gạch dưới hoặc gạch ngang';
         }
         break;
 
@@ -366,8 +365,11 @@ const RegisterPage = () => {
         navigate('/login', {
           replace: true,
           state: {
-            registeredAccount: form.TaiKhoan.trim(),
-            message: 'Đăng ký tài khoản thành công! Vui lòng nhập mật khẩu để đăng nhập.'
+            email: form.Email.trim().toLowerCase(),
+            password: form.MatKhau,
+            registeredAccount: form.Email.trim().toLowerCase(),
+            registeredPassword: form.MatKhau,
+            message: 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.'
           }
         });
       } else {

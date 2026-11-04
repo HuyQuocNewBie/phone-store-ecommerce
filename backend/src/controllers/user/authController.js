@@ -351,25 +351,25 @@ const verifyOtp = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { TaiKhoan, Email, MatKhau, recaptchaToken } = req.body;
-    const loginIdentifier = String(TaiKhoan || Email || '').trim();
+    const loginEmail = String(Email || TaiKhoan || '').trim();
 
-    if (!loginIdentifier || !MatKhau) {
+    if (!loginEmail || !MatKhau) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng nhập đầy đủ tài khoản/email và mật khẩu'
+        message: 'Vui lòng nhập đầy đủ email và mật khẩu'
       });
     }
 
-    // Query tìm người dùng theo TaiKhoan = ? OR Email = ?
+    // Chỉ cho phép đăng nhập bằng Email
     const [rows] = await pool.query(
-      'SELECT * FROM nguoidung WHERE LOWER(TaiKhoan) = LOWER(?) OR LOWER(Email) = LOWER(?)',
-      [loginIdentifier, loginIdentifier]
+      'SELECT * FROM nguoidung WHERE LOWER(Email) = LOWER(?)',
+      [loginEmail]
     );
 
     if (rows.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Tài khoản hoặc mật khẩu không chính xác'
+        message: 'Email hoặc mật khẩu không chính xác'
       });
     }
 
