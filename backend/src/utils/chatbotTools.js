@@ -143,7 +143,6 @@ const searchProducts = async ({ keyword, minPrice, maxPrice, category } = {}) =>
       LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
       ${whereSql}
       ORDER BY sp.MaSanPham DESC
-      LIMIT 10
     `;
 
     const [rows] = await pool.query(sql, queryParams);
