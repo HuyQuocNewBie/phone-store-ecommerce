@@ -41,6 +41,7 @@ import VerifyOtpPage from '../pages/user/VerifyOtpPage';
 import ForgotPasswordPage from '../pages/user/ForgotPasswordPage';
 import PaymentReturnPage from '../pages/user/PaymentReturnPage';
 import ZaloCallbackPage from '../pages/user/ZaloCallbackPage';
+import WarehouseFulfillmentPage from '../pages/warehouse/WarehouseFulfillmentPage';
 
 /**
  * Placeholder tạm thời cho các màn hình kho trước khi module Warehouse UI được hoàn thiện.
@@ -172,12 +173,7 @@ const AppRoutes = () => {
       {/* ── Warehouse Routes (Protected: MaVaiTro === 3 hoặc 1) ── */}
       <Route path="/warehouse" element={<WarehouseRoute />}>
         <Route index element={<Navigate to="fulfillment" replace />} />
-        <Route
-          path="fulfillment"
-          element={
-            <WarehousePlaceholder title="Đóng gói & Bàn giao Shipper (Fulfillment)" />
-          }
-        />
+        <Route path="fulfillment" element={<WarehouseFulfillmentPage />} />
         <Route
           path="*"
           element={<WarehousePlaceholder title="Cổng Quản lý Kho SmartZone" />}
