@@ -8,6 +8,9 @@ router.get('/', userController.getAllUsers);
 // GET /api/v1/admin/users/:id
 router.get('/:id', userController.getUserById);
 
+// PUT /api/v1/admin/users/:id/role
+router.put('/:id/role', userController.updateUserRole);
+
 // PUT /api/v1/admin/users/:id
 router.put('/:id', userController.updateUser);
 

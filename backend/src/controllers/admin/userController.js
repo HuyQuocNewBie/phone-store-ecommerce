@@ -153,6 +153,19 @@ const updateUser = async (req, res, next) => {
       });
     }
 
+    // Ngăn Admin tự hạ quyền chính mình
+    if (
+      req.user &&
+      Number(req.user.MaNguoiDung) === userId &&
+      Number(currentUser.MaVaiTro) === 1 &&
+      newMaVaiTro !== 1
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không thể tự hạ quyền tài khoản Admin đang đăng nhập'
+      });
+    }
+
     // Kiểm tra trùng lặp TaiKhoan hoặc Email với người dùng khác
     const [duplicates] = await pool.query(
       `SELECT MaNguoiDung, TaiKhoan, Email 
@@ -236,7 +249,100 @@ const updateUser = async (req, res, next) => {
 };
 
 /**
- * 3. DELETE /api/v1/admin/users/:id
+ * 3. PUT /api/v1/admin/users/:id/role
+ * Phân quyền vai trò người dùng (ví dụ: { maVaiTro: 3 } để gán Nhân viên Kho)
+ * Ngăn Admin tự hạ quyền chính mình.
+ */
+const updateUserRole = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const targetUserId = Number(id);
+
+    if (!id || !Number.isInteger(targetUserId) || targetUserId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã người dùng không hợp lệ'
+      });
+    }
+
+    const rawRole = req.body?.maVaiTro !== undefined ? req.body.maVaiTro : req.body?.MaVaiTro;
+
+    if (rawRole === undefined || rawRole === null || String(rawRole).trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp mã vai trò (maVaiTro)'
+      });
+    }
+
+    const newMaVaiTro = Number(rawRole);
+    if (!Number.isInteger(newMaVaiTro) || newMaVaiTro <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã vai trò không hợp lệ'
+      });
+    }
+
+    // Kiểm tra ngăn Admin tự hạ quyền chính mình
+    if (req.user && Number(req.user.MaNguoiDung) === targetUserId && newMaVaiTro !== 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không thể tự hạ quyền tài khoản Admin đang đăng nhập'
+      });
+    }
+
+    // Kiểm tra người dùng có tồn tại không
+    const [existingUsers] = await pool.query(
+      `SELECT MaNguoiDung, TaiKhoan, Email, MaVaiTro FROM nguoidung WHERE MaNguoiDung = ?`,
+      [targetUserId]
+    );
+
+    if (existingUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Người dùng không tồn tại'
+      });
+    }
+
+    // Kiểm tra MaVaiTro có tồn tại trong bảng vaitro không
+    const [roleRows] = await pool.query(
+      `SELECT MaVaiTro, TenVaiTro FROM vaitro WHERE MaVaiTro = ?`,
+      [newMaVaiTro]
+    );
+
+    if (roleRows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã vai trò không tồn tại trong hệ thống'
+      });
+    }
+
+    // Thực hiện UPDATE MaVaiTro trong bảng nguoidung
+    await pool.query(
+      `UPDATE nguoidung SET MaVaiTro = ? WHERE MaNguoiDung = ?`,
+      [newMaVaiTro, targetUserId]
+    );
+
+    const targetUser = existingUsers[0];
+    const roleInfo = roleRows[0];
+
+    return res.status(200).json({
+      success: true,
+      message: 'Cập nhật phân quyền người dùng thành công',
+      data: {
+        MaNguoiDung: targetUser.MaNguoiDung,
+        TaiKhoan: targetUser.TaiKhoan,
+        Email: targetUser.Email,
+        MaVaiTro: newMaVaiTro,
+        TenVaiTro: roleInfo.TenVaiTro
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 4. DELETE /api/v1/admin/users/:id
  * Hard Delete tài khoản khỏi CSDL. Bắt lỗi không cho phép Admin tự xóa chính mình.
  */
 const deleteUser = async (req, res, next) => {
@@ -298,5 +404,6 @@ module.exports = {
   getAllUsers,
   getUserById,
   updateUser,
+  updateUserRole,
   deleteUser
 };
