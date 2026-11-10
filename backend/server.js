@@ -32,8 +32,10 @@ const userAddressRoutes = require('./src/routes/user/addressRoutes');
 const userProfileRoutes = require('./src/routes/user/profileRoutes');
 const paymentRoutes = require('./src/routes/user/paymentRoutes');
 const chatbotRoutes = require('./src/routes/user/chatbotRoutes');
+const userRoutes = require('./src/routes/user/userRoutes');
 const warehouseOrderRoutes = require('./src/routes/warehouse/warehouseOrderRoutes');
 const warehouseInventoryRoutes = require('./src/routes/warehouse/warehouseInventoryRoutes');
+const warehouseRoutes = require('./src/routes/warehouse/warehouseRoutes');
 const { verifyToken } = require('./src/middlewares/authMiddleware');
 const { uploadAvatar } = require('./src/controllers/user/profileController');
 
@@ -62,8 +64,10 @@ app.use('/api/v1/addresses', userAddressRoutes);
 app.use('/api/v1/profile', userProfileRoutes);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/chatbot', chatbotRoutes);
+app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/warehouse/orders', warehouseOrderRoutes);
 app.use('/api/v1/warehouse/inventory', warehouseInventoryRoutes);
+app.use('/api/v1/warehouse', warehouseRoutes);
 // POST /api/v1/upload/avatar – upload ảnh đại diện (yêu cầu JWT)
 app.post('/api/v1/upload/avatar', verifyToken, ...uploadAvatar);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
