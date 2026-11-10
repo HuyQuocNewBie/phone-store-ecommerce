@@ -11,11 +11,13 @@ const categoryRoutes = require('./categoryRoutes');
 const manufacturerRoutes = require('./manufacturerRoutes');
 const voucherRoutes = require('./voucherRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
+const adminApprovalRoutes = require('./adminApprovalRoutes');
 
 // Áp dụng middleware verifyRole bọc toàn bộ các tuyến đường Admin (quyền Admin: MaVaiTro = 1)
 router.use(verifyRole(1, 'Admin'));
 
 // Đăng ký các route con Admin
+router.use('/', adminApprovalRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/products', productRoutes);
 router.use('/inventory', inventoryRoutes);
