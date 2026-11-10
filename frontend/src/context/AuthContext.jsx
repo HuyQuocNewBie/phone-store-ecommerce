@@ -4,6 +4,27 @@ import useIdleTimer from '../hooks/useIdleTimer';
 
 const AuthContext = createContext(null);
 
+const decodeJwtPayload = (jwtToken) => {
+  if (!jwtToken || typeof jwtToken !== 'string') return null;
+  const parts = jwtToken.split('.');
+  if (parts.length !== 3) return null;
+
+  try {
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const jsonPayload = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Chuẩn hoá thông tin người dùng từ Backend / Social Provider:
  * Đảm bảo các trường Họ tên, Avatar, Giới tính, Ngày sinh, SĐT luôn có dữ liệu đầy đủ 100%,
@@ -239,9 +260,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
 
       // Đồng bộ profile & địa chỉ mặc định
-      await syncProfile(validToken);
+      const syncedUser = await syncProfile(validToken);
 
-      return { success: true, user: userData };
+      return { success: true, user: syncedUser || userData, token: validToken };
     } catch (err) {
       const message =
         err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
@@ -369,6 +390,31 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/';
   }, []);
 
+  const decodedToken = decodeJwtPayload(token);
+  const tokenRole =
+    decodedToken?.MaVaiTro !== undefined &&
+    decodedToken?.MaVaiTro !== null &&
+    !Number.isNaN(Number(decodedToken.MaVaiTro))
+      ? Number(decodedToken.MaVaiTro)
+      : null;
+  const userRole =
+    user?.MaVaiTro !== undefined &&
+    user?.MaVaiTro !== null &&
+    !Number.isNaN(Number(user.MaVaiTro))
+      ? Number(user.MaVaiTro)
+      : null;
+  const roleId = tokenRole !== null ? tokenRole : userRole;
+
+  const isAdmin =
+    (tokenRole === 1 || userRole === 1) &&
+    (tokenRole === null || tokenRole === 1) &&
+    (userRole === null || userRole === 1);
+
+  const isWarehouse =
+    (tokenRole === 3 || tokenRole === 1 || userRole === 3 || userRole === 1) &&
+    (tokenRole === null || tokenRole === 3 || tokenRole === 1) &&
+    (userRole === null || userRole === 3 || userRole === 1);
+
   const value = {
     user,
     setUser,
@@ -382,8 +428,10 @@ export const AuthProvider = ({ children }) => {
     loginWithGoogle,
     loginWithZalo,
     logout,
+    roleId,
     isAuthenticated: !!token && !!user,
-    isAdmin: user?.MaVaiTro === 1,
+    isAdmin,
+    isWarehouse,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

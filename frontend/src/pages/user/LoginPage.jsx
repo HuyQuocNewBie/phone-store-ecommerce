@@ -12,6 +12,64 @@ import { Loader2, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuAAAAAHATGbDWPmg2432V6GA8uFLpatuu';
 
 /**
+ * Giải mã payload JWT Token (UTF-8 safe) để đọc MaVaiTro.
+ */
+const decodeJwtPayload = (jwtToken) => {
+  if (!jwtToken || typeof jwtToken !== 'string') return null;
+  const parts = jwtToken.split('.');
+  if (parts.length !== 3) return null;
+
+  try {
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const jsonPayload = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Lấy MaVaiTro từ JWT Token (ưu tiên) hoặc từ user object.
+ */
+const getRoleFromAuth = (userData, jwtToken) => {
+  const activeToken =
+    jwtToken ||
+    (typeof window !== 'undefined'
+      ? localStorage.getItem('token') || localStorage.getItem('accessToken')
+      : null);
+  const decoded = decodeJwtPayload(activeToken);
+  if (decoded?.MaVaiTro !== undefined && decoded?.MaVaiTro !== null) {
+    const tokenRole = Number(decoded.MaVaiTro);
+    if (!Number.isNaN(tokenRole)) return tokenRole;
+  }
+  if (userData?.MaVaiTro !== undefined && userData?.MaVaiTro !== null) {
+    const userRole = Number(userData.MaVaiTro);
+    if (!Number.isNaN(userRole)) return userRole;
+  }
+  return null;
+};
+
+/**
+ * Xác định đường dẫn điều hướng sau khi đăng nhập dựa theo MaVaiTro:
+ *  - 1 (Admin)         -> /admin/dashboard
+ *  - 3 (Nhân viên Kho) -> /warehouse/fulfillment
+ *  - 2 (Khách hàng)    -> /
+ */
+const getRedirectPathByRole = (userData, jwtToken) => {
+  const roleId = getRoleFromAuth(userData, jwtToken);
+  if (roleId === 1) return '/admin/dashboard';
+  if (roleId === 3) return '/warehouse/fulfillment';
+  return '/';
+};
+
+/**
  * LoginPageContent – SmartZone Ecommerce
  * Refactored từ Stitch AI HTML Design System:
  * - Cột trái: VIP Member Privileges, công nghệ flagship, danh sách 4 đặc quyền thành viên
@@ -19,7 +77,7 @@ const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LcWRQkuA
  */
 const LoginPageContent = () => {
   // ── 1. Context & Navigation Hooks ──────────────────────────────────────────
-  const { login, loginWithGoogle, loginWithZalo, setToken, setUser, loading, error, isAuthenticated, user } = useAuth();
+  const { login, loginWithGoogle, loginWithZalo, setToken, setUser, loading, error, isAuthenticated, user, token } = useAuth();
   const googleReCaptcha = useGoogleReCaptcha();
   const executeRecaptcha = googleReCaptcha?.executeRecaptcha;
   const navigate = useNavigate();
@@ -49,6 +107,7 @@ const LoginPageContent = () => {
       setIsGoogleLoading(true);
       try {
         let userData;
+        let jwtToken;
         if (typeof loginWithGoogle === 'function') {
           const res = await loginWithGoogle(tokenResponse.access_token);
           if (!res.success) {
@@ -56,6 +115,7 @@ const LoginPageContent = () => {
             return;
           }
           userData = res.user;
+          jwtToken = res.token;
         } else {
           const response = await api.post('/auth/google', {
             accessToken: tokenResponse.access_token,
@@ -63,7 +123,7 @@ const LoginPageContent = () => {
           });
           const data = response.data.data;
           userData = data.user;
-          const jwtToken = data.token || data.accessToken;
+          jwtToken = data.token || data.accessToken;
           if (setToken) setToken(jwtToken);
           if (setUser) setUser(userData);
           localStorage.setItem('token', jwtToken);
@@ -78,9 +138,11 @@ const LoginPageContent = () => {
           id: 'login-toast',
         });
 
-        // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
+        const roleId = getRoleFromAuth(userData, jwtToken);
+
+        // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu là Khách hàng (MaVaiTro === 2)
         const intentRaw = sessionStorage.getItem('cart_action_intent');
-        if (intentRaw) {
+        if (intentRaw && (roleId === 2 || roleId === null)) {
           try {
             const intent = JSON.parse(intentRaw);
             sessionStorage.removeItem('cart_action_intent');
@@ -107,9 +169,11 @@ const LoginPageContent = () => {
           } catch {
             // fallback nếu thêm giỏ hàng lỗi
           }
+        } else if (intentRaw) {
+          sessionStorage.removeItem('cart_action_intent');
         }
 
-        const dest = userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
+        const dest = getRedirectPathByRole(userData, jwtToken);
         navigate(dest, { replace: true });
       } catch (err) {
         console.error('Lỗi khi đăng nhập Google:', err);
@@ -199,7 +263,7 @@ const LoginPageContent = () => {
 
   // ── 5. Early Return (Đảm bảo đặt SAU TOÀN BỘ khai báo Hook) ────────────────
   if (isAuthenticated) {
-    const dest = user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
+    const dest = getRedirectPathByRole(user, token);
     return <Navigate to={dest} replace />;
   }
 
@@ -273,9 +337,12 @@ const LoginPageContent = () => {
       localStorage.removeItem('login_failed_attempts');
       localStorage.removeItem('login_lockout_until');
 
-      // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
+      const roleId = getRoleFromAuth(result.user, result.token);
+      const dest = getRedirectPathByRole(result.user, result.token);
+
+      // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu là Khách hàng (MaVaiTro === 2)
       const intentRaw = sessionStorage.getItem('cart_action_intent');
-      if (intentRaw) {
+      if (intentRaw && (roleId === 2 || roleId === null)) {
         try {
           const intent = JSON.parse(intentRaw);
           sessionStorage.removeItem('cart_action_intent');
@@ -299,12 +366,13 @@ const LoginPageContent = () => {
           }
         } catch {
           toast.success('Đăng nhập thành công!', { id: 'login-toast' });
-          const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
           navigate(dest, { replace: true });
         }
       } else {
+        if (intentRaw) {
+          sessionStorage.removeItem('cart_action_intent');
+        }
         toast.success('Đăng nhập thành công! Đang chuyển hướng...', { id: 'login-toast' });
-        const dest = result.user?.MaVaiTro === 1 ? '/admin/dashboard' : '/';
         navigate(dest, { replace: true });
       }
     } else {
@@ -389,7 +457,7 @@ const LoginPageContent = () => {
       }
 
       // Lắng nghe kết quả từ ZaloCallbackPage gửi về qua postMessage
-      const handlePopupMessage = (event) => {
+      const handlePopupMessage = async (event) => {
         if (event.origin !== window.location.origin) return;
 
         if (event.data?.type === 'ZALO_AUTH_SUCCESS') {
@@ -400,7 +468,7 @@ const LoginPageContent = () => {
           const userData = event.data.user;
           const userToken = event.data.token;
           if (userData && userToken && typeof login === 'function') {
-            login(userData, userToken);
+            await login(userData, userToken);
           }
           if (userToken) {
             localStorage.setItem('token', userToken);
@@ -414,7 +482,11 @@ const LoginPageContent = () => {
             id: 'login-toast',
           });
 
-          const target = event.data.redirectTarget || (userData?.MaVaiTro === 1 ? '/admin/dashboard' : '/');
+          const roleDest = getRedirectPathByRole(userData, userToken);
+          const target =
+            event.data.redirectTarget && event.data.redirectTarget !== '/'
+              ? event.data.redirectTarget
+              : roleDest;
           navigate(target, { replace: true });
         } else if (event.data?.type === 'ZALO_AUTH_ERROR') {
           window.removeEventListener('message', handlePopupMessage);

@@ -1,6 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import AdminRoute from '../components/AdminRoute';
+import WarehouseRoute from '../components/common/WarehouseRoute';
 import UserProtectedRoute from '../components/user/UserProtectedRoute';
+import { useAuth } from '../context/AuthContext';
+import { Package, LogOut, LayoutDashboard } from 'lucide-react';
 import AdminLayout from '../layouts/AdminLayout';
 import MainLayout from '../layouts/MainLayout';
 import LoginPage from '../pages/user/LoginPage';
@@ -38,6 +41,53 @@ import VerifyOtpPage from '../pages/user/VerifyOtpPage';
 import ForgotPasswordPage from '../pages/user/ForgotPasswordPage';
 import PaymentReturnPage from '../pages/user/PaymentReturnPage';
 import ZaloCallbackPage from '../pages/user/ZaloCallbackPage';
+
+/**
+ * Placeholder tạm thời cho các màn hình kho trước khi module Warehouse UI được hoàn thiện.
+ */
+const WarehousePlaceholder = ({ title }) => {
+  const { user, logout, isAdmin } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
+      <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center">
+          <Package className="w-7 h-7" />
+        </div>
+        <span className="inline-block px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-semibold mb-3">
+          Phân hệ Kho vận SmartZone
+        </span>
+        <h1 className="text-xl font-bold text-slate-900 mb-2">{title}</h1>
+        <p className="text-sm text-slate-500 mb-6">
+          Xin chào{' '}
+          <strong className="text-slate-700">
+            {user?.HoTen || user?.TaiKhoan || 'Nhân viên Kho'}
+          </strong>
+          . Khu vực làm việc kho đã được bảo vệ phân quyền thành công.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {isAdmin && (
+            <Link
+              to="/admin/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Về Admin Dashboard
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-100 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /**
  * AppRoutes — Tập trung toàn bộ cấu hình routing của ứng dụng.
@@ -117,6 +167,21 @@ const AppRoutes = () => {
         <Route path="statistics" element={<Navigate to="../analytics" replace />} />
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
+      </Route>
+
+      {/* ── Warehouse Routes (Protected: MaVaiTro === 3 hoặc 1) ── */}
+      <Route path="/warehouse" element={<WarehouseRoute />}>
+        <Route index element={<Navigate to="fulfillment" replace />} />
+        <Route
+          path="fulfillment"
+          element={
+            <WarehousePlaceholder title="Đóng gói & Bàn giao Shipper (Fulfillment)" />
+          }
+        />
+        <Route
+          path="*"
+          element={<WarehousePlaceholder title="Cổng Quản lý Kho SmartZone" />}
+        />
       </Route>
 
       {/* ── Fallback Routes ── */}

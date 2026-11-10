@@ -5,6 +5,47 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
+const decodeJwtPayload = (jwtToken) => {
+  if (!jwtToken || typeof jwtToken !== 'string') return null;
+  const parts = jwtToken.split('.');
+  if (parts.length !== 3) return null;
+
+  try {
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const jsonPayload = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+const getRoleFromAuth = (userData, jwtToken) => {
+  const decoded = decodeJwtPayload(jwtToken);
+  if (decoded?.MaVaiTro !== undefined && decoded?.MaVaiTro !== null) {
+    const tokenRole = Number(decoded.MaVaiTro);
+    if (!Number.isNaN(tokenRole)) return tokenRole;
+  }
+  if (userData?.MaVaiTro !== undefined && userData?.MaVaiTro !== null) {
+    const userRole = Number(userData.MaVaiTro);
+    if (!Number.isNaN(userRole)) return userRole;
+  }
+  return null;
+};
+
+const getRedirectPathByRole = (userData, jwtToken) => {
+  const roleId = getRoleFromAuth(userData, jwtToken);
+  if (roleId === 1) return '/admin/dashboard';
+  if (roleId === 3) return '/warehouse/fulfillment';
+  return '/';
+};
+
 /**
  * ZaloCallbackPage — Trang hứng và xử lý callback từ Zalo OAuth 2.0
  * Route: /auth/zalo/callback
@@ -122,9 +163,12 @@ const ZaloCallbackPage = () => {
         // 3. Đăng nhập thành công
         setStatus('success');
 
-        // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu có
+        const roleId = getRoleFromAuth(user, token);
+        let redirectTarget = getRedirectPathByRole(user, token);
+
+        // Khôi phục hành vi mua ngay / thêm vào giỏ hàng nếu là Khách hàng (MaVaiTro === 2)
         const intentRaw = sessionStorage.getItem('cart_action_intent');
-        if (intentRaw) {
+        if (intentRaw && (roleId === 2 || roleId === null)) {
           try {
             const intent = JSON.parse(intentRaw);
             sessionStorage.removeItem('cart_action_intent');
@@ -135,9 +179,17 @@ const ZaloCallbackPage = () => {
               DungLuong: intent.DungLuong || intent.variant?.DungLuong || null,
               MauSac: intent.MauSac || intent.variant?.MauSac || null,
             });
+
+            if (intent.action_type === 'buy_now') {
+              redirectTarget = '/checkout';
+            } else if (intent.redirect_back) {
+              redirectTarget = intent.redirect_back;
+            }
           } catch (e) {
             console.warn('Lỗi xử lý cart_action_intent:', e);
           }
+        } else if (intentRaw) {
+          sessionStorage.removeItem('cart_action_intent');
         }
 
         // Nếu mở dưới dạng popup -> Báo cho tab cha và đóng popup
@@ -147,7 +199,7 @@ const ZaloCallbackPage = () => {
               type: 'ZALO_AUTH_SUCCESS',
               user,
               token,
-              redirectTarget: '/',
+              redirectTarget,
             },
             window.location.origin
           );
@@ -155,11 +207,11 @@ const ZaloCallbackPage = () => {
             window.close();
           }, 600);
         } else {
-          // Tiến hành chuyển hướng về trang chủ (navigate('/'))
+          // Tiến hành chuyển hướng theo đúng vai trò MaVaiTro
           toast.success(`Đăng nhập Zalo thành công! Chào mừng ${user?.TaiKhoan || 'bạn'}.`, {
             id: 'login-toast',
           });
-          navigate('/');
+          navigate(redirectTarget, { replace: true });
         }
       } catch (err) {
         console.error('Lỗi trong luồng Zalo Callback:', err);
