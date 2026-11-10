@@ -156,12 +156,14 @@ CREATE TABLE `giohang` (
   `MaNguoiDung` int(11) NOT NULL,
   `MaSanPham` int(11) NOT NULL,
   `SoLuong` int(11) NOT NULL CHECK (`SoLuong` > 0),
+  `DungLuong` varchar(50) DEFAULT NULL,
+  `MauSac` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`MaGioHang`),
   KEY `MaNguoiDung` (`MaNguoiDung`),
   KEY `MaSanPham` (`MaSanPham`),
   CONSTRAINT `GioHang_ibfk_1` FOREIGN KEY (`MaNguoiDung`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `GioHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
 -- 4. BẢNG ĐÁNH GIÁ, ĐƠN HÀNG & THANH TOÁN
@@ -177,6 +179,7 @@ CREATE TABLE `danhgia` (
   `NgayDanhGia` datetime DEFAULT current_timestamp(),
   `Anh` text DEFAULT NULL,
   `ChiTietDanhGia` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`ChiTietDanhGia`)),
+  `SoLuotThich` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`MaDanhGia`),
   KEY `MaSanPham` (`MaSanPham`),
   KEY `MaNguoiDung` (`MaNguoiDung`),
@@ -191,6 +194,7 @@ CREATE TABLE `danhgia_traloi` (
   `MaNguoiDung` int(11) NOT NULL,
   `NoiDung` text NOT NULL,
   `NgayTraLoi` datetime NOT NULL DEFAULT current_timestamp(),
+  `SoLuotThich` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`MaTraLoi`),
   KEY `idx_madanhgiatraloi` (`MaDanhGia`),
   KEY `MaNguoiDung` (`MaNguoiDung`),
@@ -227,12 +231,14 @@ CREATE TABLE `chitietdonhang` (
   `SoLuong` int(11) NOT NULL CHECK (`SoLuong` > 0),
   `DonGia` decimal(18,2) NOT NULL,
   `TongGia` decimal(18,2) GENERATED ALWAYS AS (`SoLuong` * `DonGia`) STORED,
+  `DungLuong` varchar(50) DEFAULT NULL,
+  `MauSac` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`MaChiTietDonHang`),
   KEY `MaDonHang` (`MaDonHang`),
   KEY `MaSanPham` (`MaSanPham`),
   CONSTRAINT `ChiTietDonHang_ibfk_1` FOREIGN KEY (`MaDonHang`) REFERENCES `donhang` (`MaDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `ChiTietDonHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=52 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4.5 Bảng Giao Dịch Thanh Toán
 CREATE TABLE `thanhtoan` (
@@ -338,6 +344,51 @@ CREATE TABLE `lichsutonkho` (
   PRIMARY KEY (`MaLichSuTon`),
   KEY `MaSanPham` (`MaSanPham`),
   CONSTRAINT `lichsutonkho_ibfk_1` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5.4 Bảng Phiếu Điều Chỉnh Kho (Quản lý báo lệch kho)
+CREATE TABLE IF NOT EXISTS `phieudieuchinhkho` (
+  `MaPhieuAdjust` int(11) NOT NULL AUTO_INCREMENT,
+  `MaSanPham` int(11) NOT NULL,
+  `MaNguoiDung_Kho` int(11) NOT NULL,
+  `SoLuongThucTe` int(11) NOT NULL,
+  `SoLuongChechLech` int(11) NOT NULL,
+  `LyDoGiaiTrinh` text NOT NULL,
+  `TrangThai` enum('ChoDuyet','DaDuyet','TuChoi') NOT NULL DEFAULT 'ChoDuyet',
+  `MaNguoiDung_Admin` int(11) DEFAULT NULL,
+  `NgayTao` datetime DEFAULT current_timestamp(),
+  `NgayDuyet` datetime DEFAULT NULL,
+  PRIMARY KEY (`MaPhieuAdjust`),
+  KEY `MaSanPham` (`MaSanPham`),
+  KEY `MaNguoiDung_Kho` (`MaNguoiDung_Kho`),
+  CONSTRAINT `fk_adjust_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_adjust_kho` FOREIGN KEY (`MaNguoiDung_Kho`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- 6. BẢNG ĐỔI TRẢ & DỮ LIỆU VAI TRÒ BỔ SUNG
+-- ============================================================================
+
+-- 6.1 Bảng Phiếu Đổi Trả (Quản lý yêu cầu đổi trả)
+CREATE TABLE IF NOT EXISTS `phieudoitra` (
+  `MaPhieuDoiTra` int(11) NOT NULL AUTO_INCREMENT,
+  `MaDonHang` int(11) NOT NULL,
+  `MaSanPham` int(11) NOT NULL,
+  `MaNguoiDung_User` int(11) NOT NULL,
+  `LyDo` text NOT NULL,
+  `HinhAnhProof` text DEFAULT NULL,
+  `KetQuaKiemDinh` enum('ChoKiemDinh','Dat','Loi_KhongDat') NOT NULL DEFAULT 'ChoKiemDinh',
+  `GhiChuKho` text DEFAULT NULL,
+  `TrangThaiHoanTien` enum('ChoDuyet','DaHoanTien','TuChoi') NOT NULL DEFAULT 'ChoDuyet',
+  `NgayTao` datetime DEFAULT current_timestamp(),
+  `NgayCapNhat` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`MaPhieuDoiTra`),
+  KEY `MaDonHang` (`MaDonHang`),
+  KEY `MaSanPham` (`MaSanPham`),
+  KEY `MaNguoiDung_User` (`MaNguoiDung_User`),
+  CONSTRAINT `fk_doitra_donhang` FOREIGN KEY (`MaDonHang`) REFERENCES `donhang` (`MaDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_doitra_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_doitra_user` FOREIGN KEY (`MaNguoiDung_User`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
