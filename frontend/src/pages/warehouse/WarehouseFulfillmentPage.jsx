@@ -399,6 +399,27 @@ const WarehouseFulfillmentPage = () => {
             </div>
           </div>
 
+          {/* Portal Switcher Navigation */}
+          <nav
+            aria-label="Điều hướng phân hệ Kho"
+            className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200"
+          >
+            <Link
+              to="/warehouse/fulfillment"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-blue-700 shadow-xs border border-slate-200/80"
+            >
+              <Truck className="w-3.5 h-3.5 text-blue-600" />
+              <span>Soạn hàng &amp; Đóng gói</span>
+            </Link>
+            <Link
+              to="/warehouse/inventory"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Tồn kho &amp; Lệch kho</span>
+            </Link>
+          </nav>
+
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Staff Info Pill */}
             <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">

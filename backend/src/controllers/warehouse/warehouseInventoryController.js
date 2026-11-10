@@ -1,6 +1,132 @@
 const { pool } = require('../../../config/db');
 
 /**
+ * 0a. GET /api/v1/warehouse/inventory/stock-list
+ * Lấy toàn bộ danh sách sản phẩm kèm TonKho thực tế từ bảng `sanpham` (bao gồm cả DangBan, HetHang, NgungBan)
+ * dành cho Nhân viên Kho (Role 3) và Admin (Role 1).
+ */
+const getWarehouseStockList = async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         sp.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh,
+         sp.Gia,
+         COALESCE(sp.TonKho, 0) AS TonKho,
+         sp.DungLuong,
+         sp.MauSac,
+         sp.TrangThai,
+         sp.MaLoaiSanPham,
+         lsp.TenLoaiSanPham,
+         sp.MaNhaSanXuat,
+         nsx.TenNhaSanXuat
+       FROM sanpham sp
+       LEFT JOIN loaisanpham lsp ON sp.MaLoaiSanPham = lsp.MaLoaiSanPham
+       LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
+       ORDER BY sp.MaSanPham DESC`
+    );
+
+    const data = rows.map((item) => {
+      const tonKho = Number(item.TonKho) || 0;
+      let trangThaiTonKho = 'Hết hàng';
+      if (tonKho >= 5) {
+        trangThaiTonKho = 'Còn hàng';
+      } else if (tonKho > 0) {
+        trangThaiTonKho = 'Sắp hết';
+      }
+
+      return {
+        MaSanPham: item.MaSanPham,
+        TenSanPham: item.TenSanPham,
+        Anh: item.Anh || null,
+        Gia: Number(item.Gia) || 0,
+        TonKho: tonKho,
+        DungLuong: item.DungLuong || null,
+        MauSac: item.MauSac || null,
+        TrangThai: item.TrangThai,
+        TrangThaiTonKho: trangThaiTonKho,
+        MaLoaiSanPham: item.MaLoaiSanPham || null,
+        TenLoaiSanPham: item.TenLoaiSanPham || null,
+        MaNhaSanXuat: item.MaNhaSanXuat || null,
+        TenNhaSanXuat: item.TenNhaSanXuat || null
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách tồn kho thành công',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 0b. GET /api/v1/warehouse/inventory/adjust-requests
+ * Lấy danh sách phiếu đề nghị điều chỉnh lệch kho từ bảng `phieudieuchinhkho`
+ * dành cho Nhân viên Kho (Role 3) và Admin (Role 1).
+ */
+const getAdjustRequests = async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         p.MaPhieuAdjust,
+         p.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh AS AnhSanPham,
+         sp.DungLuong,
+         sp.MauSac,
+         COALESCE(sp.TonKho, 0) AS TonKhoHeThong,
+         p.MaNguoiDung_Kho,
+         uk.TaiKhoan AS NguoiTaoKho,
+         p.SoLuongThucTe,
+         p.SoLuongChechLech,
+         p.LyDoGiaiTrinh,
+         p.TrangThai,
+         p.MaNguoiDung_Admin,
+         ua.TaiKhoan AS NguoiDuyetAdmin,
+         p.NgayTao,
+         p.NgayDuyet
+       FROM phieudieuchinhkho p
+       LEFT JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+       LEFT JOIN nguoidung uk ON p.MaNguoiDung_Kho = uk.MaNguoiDung
+       LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
+       ORDER BY p.NgayTao DESC, p.MaPhieuAdjust DESC`
+    );
+
+    const data = rows.map((row) => ({
+      MaPhieuAdjust: row.MaPhieuAdjust,
+      MaSanPham: row.MaSanPham,
+      TenSanPham: row.TenSanPham || `Sản phẩm #${row.MaSanPham}`,
+      AnhSanPham: row.AnhSanPham || null,
+      DungLuong: row.DungLuong || null,
+      MauSac: row.MauSac || null,
+      TonKhoHeThong: Number(row.TonKhoHeThong) || 0,
+      MaNguoiDung_Kho: row.MaNguoiDung_Kho,
+      NguoiTaoKho: row.NguoiTaoKho || null,
+      SoLuongThucTe: Number(row.SoLuongThucTe),
+      SoLuongChechLech: Number(row.SoLuongChechLech),
+      LyDoGiaiTrinh: row.LyDoGiaiTrinh,
+      TrangThai: row.TrangThai,
+      MaNguoiDung_Admin: row.MaNguoiDung_Admin,
+      NguoiDuyetAdmin: row.NguoiDuyetAdmin || null,
+      NgayTao: row.NgayTao,
+      NgayDuyet: row.NgayDuyet
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách phiếu điều chỉnh kho thành công',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * 1. POST /api/v1/warehouse/inventory/import
  * Nhập kho thực tế dành cho Nhân viên Kho (Role 3) và Admin (Role 1):
  * - Chèn 1 record vào bảng `phieunhapkho` (MaNhaSanXuat, MaNguoiDung, TongTienNhap, GhiChu).
@@ -360,6 +486,8 @@ const createAdjustRequest = async (req, res, next) => {
 };
 
 module.exports = {
+  getWarehouseStockList,
+  getAdjustRequests,
   importInventory,
   createAdjustRequest
 };
