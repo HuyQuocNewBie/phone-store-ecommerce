@@ -7,7 +7,9 @@ import {
   Tag,
   Building2,
   Boxes,
+  ClipboardCheck,
   ShoppingCart,
+  RotateCcw,
   TicketPercent,
   BarChart3,
   LogOut,
@@ -20,15 +22,17 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Navigation Items ──────────────────────────────────────────────────────────
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',    path: '/admin/dashboard' },
-  { icon: Package,         label: 'Sản phẩm',     path: '/admin/products' },
-  { icon: Users,           label: 'Người dùng',   path: '/admin/users' },
-  { icon: Tag,             label: 'Danh mục',     path: '/admin/categories' },
-  { icon: Building2,       label: 'Nhà sản xuất', path: '/admin/manufacturers' },
-  { icon: Boxes,           label: 'Tồn kho',      path: '/admin/inventory' },
-  { icon: ShoppingCart,    label: 'Đơn hàng',     path: '/admin/orders' },
-  { icon: TicketPercent,   label: 'Mã giảm giá',  path: '/admin/vouchers' },
-  { icon: BarChart3,       label: 'Thống kê',     path: '/admin/analytics' },
+  { icon: LayoutDashboard, label: 'Dashboard',        path: '/admin/dashboard' },
+  { icon: Package,         label: 'Sản phẩm',         path: '/admin/products' },
+  { icon: Users,           label: 'Người dùng',       path: '/admin/users' },
+  { icon: Tag,             label: 'Danh mục',         path: '/admin/categories' },
+  { icon: Building2,       label: 'Nhà sản xuất',     path: '/admin/manufacturers' },
+  { icon: Boxes,           label: 'Tồn kho',          path: '/admin/inventory' },
+  { icon: ClipboardCheck,  label: 'Duyệt lệch kho',   path: '/admin/inventory/adjustments' },
+  { icon: ShoppingCart,    label: 'Đơn hàng',         path: '/admin/orders' },
+  { icon: RotateCcw,       label: 'Duyệt hoàn tiền',  path: '/admin/returns' },
+  { icon: TicketPercent,   label: 'Mã giảm giá',      path: '/admin/vouchers' },
+  { icon: BarChart3,       label: 'Thống kê',         path: '/admin/analytics' },
 ];
 
 // ─── AdminSidebar Component ───────────────────────────────────────────────────
@@ -36,7 +40,12 @@ const AdminSidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
   const { logout } = useAuth();
   const location = useLocation();
 
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+  const activeNavPath = navItems
+    .map((item) => item.path)
+    .filter((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+
+  const isActive = (path) => path === activeNavPath;
 
   // Tự động đóng Mobile Drawer khi chuyển route
   useEffect(() => {

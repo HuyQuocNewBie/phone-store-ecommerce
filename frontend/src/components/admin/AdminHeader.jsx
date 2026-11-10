@@ -9,9 +9,11 @@ const ROUTE_TITLES = {
   '/admin/users':         'Người dùng',
   '/admin/categories':    'Danh mục',
   '/admin/manufacturers': 'Nhà sản xuất',
-  '/admin/inventory':     'Tồn kho',
-  '/admin/orders':        'Đơn hàng',
-  '/admin/vouchers':      'Mã giảm giá',
+  '/admin/inventory':              'Tồn kho',
+  '/admin/inventory/adjustments':  'Phê duyệt lệch kho',
+  '/admin/orders':                 'Đơn hàng',
+  '/admin/returns':                'Duyệt hoàn tiền đổi trả',
+  '/admin/vouchers':               'Mã giảm giá',
   '/admin/analytics':     'Thống kê',
 };
 

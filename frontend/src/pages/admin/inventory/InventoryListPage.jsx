@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Boxes, Plus, RefreshCw, Search, AlertCircle
+  Boxes, Plus, RefreshCw, Search, AlertCircle, ClipboardCheck
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -66,10 +66,17 @@ const InventoryListPage = () => {
     <div className="flex-1 p-6 space-y-6 overflow-auto">
 
       {/* ── Action Bar (Top Right) ── */}
-      <div className="flex justify-end items-center gap-3">
+      <div className="flex flex-wrap justify-end items-center gap-3">
+        <button
+          onClick={() => navigate('/admin/inventory/adjustments')}
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-all shadow-sm cursor-pointer"
+        >
+          <ClipboardCheck className="w-4 h-4 text-amber-600" />
+          Phiếu báo lệch kho
+        </button>
         <button
           onClick={fetchStockList}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 text-xs font-medium transition-all shadow-sm"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 text-xs font-medium transition-all shadow-sm cursor-pointer"
           title="Tải lại danh sách"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -77,7 +84,7 @@ const InventoryListPage = () => {
         </button>
         <button
           onClick={() => navigate('/admin/inventory/import')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-md shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 text-white font-semibold text-xs shadow-md shadow-sky-500/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Tạo phiếu nhập kho

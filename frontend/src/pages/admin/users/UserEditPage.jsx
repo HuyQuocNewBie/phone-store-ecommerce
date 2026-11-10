@@ -15,7 +15,8 @@ import {
   User,
   Lock,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Warehouse
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
@@ -269,6 +270,11 @@ const UserEditPage = () => {
                   <Shield className="w-4 h-4" />
                   Quản trị viên (Admin)
                 </span>
+              ) : Number(maVaiTro) === 3 ? (
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                  <Warehouse className="w-4 h-4" />
+                  Nhân viên Kho
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs">
                   <UserCheck className="w-4 h-4" />
@@ -472,7 +478,7 @@ const UserEditPage = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Option 1: Quản trị viên */}
               <label
                 className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all ${
@@ -497,7 +503,36 @@ const UserEditPage = () => {
                     <span className="text-sm font-bold text-slate-800">Quản trị viên (Admin)</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Toàn quyền quản trị Dashboard, sản phẩm, đơn hàng, khách hàng, voucher và cài đặt.
+                    Toàn quyền quản trị Dashboard, sản phẩm, duyệt tồn kho, hoàn tiền và phân quyền.
+                  </p>
+                </div>
+              </label>
+
+              {/* Option 3: Nhân viên Kho */}
+              <label
+                className={`flex items-start gap-3.5 p-4 rounded-xl border transition-all ${
+                  isSelf
+                    ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
+                    : Number(maVaiTro) === 3
+                    ? 'bg-amber-50/80 border-amber-300 text-amber-900 cursor-pointer shadow-xs ring-1 ring-amber-300'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="MaVaiTro"
+                  disabled={isSelf}
+                  checked={Number(maVaiTro) === 3}
+                  onChange={() => !isSelf && setMaVaiTro(3)}
+                  className="mt-1 text-amber-600 focus:ring-amber-500"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-bold text-slate-800">Nhân viên Kho</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Truy cập cổng Kho vận: đóng gói, nhập kho, báo lệch kho và kiểm định hàng đổi trả.
                   </p>
                 </div>
               </label>
