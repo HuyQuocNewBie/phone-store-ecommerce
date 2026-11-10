@@ -29,6 +29,7 @@ import {
   X,
   Loader2,
   Boxes,
+  RotateCcw,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -417,6 +418,13 @@ const WarehouseFulfillmentPage = () => {
             >
               <Boxes className="w-3.5 h-3.5" />
               <span>Tồn kho &amp; Lệch kho</span>
+            </Link>
+            <Link
+              to="/warehouse/returns"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Kiểm định Đổi trả</span>
             </Link>
           </nav>
 
