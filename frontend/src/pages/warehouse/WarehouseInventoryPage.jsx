@@ -517,12 +517,7 @@ const WarehouseInventoryPage = () => {
         setAdjustRequests((prev) => [enrichedTicket, ...prev]);
       }
 
-      toast.success(
-        `Đã gửi phiếu báo lệch kho #${
-          createdTicket?.MaPhieuAdjust || ''
-        } lên Admin chờ duyệt! Tồn kho hệ thống giữ nguyên chờ phê duyệt.`,
-        { id: 'adjust-ok', duration: 4500 }
-      );
+      toast.success('Đã gửi phiếu đề nghị điều chỉnh kho tới Admin');
 
       setIsAdjustModalOpen(false);
       fetchInventoryData({ silent: true });
@@ -1229,8 +1224,7 @@ const WarehouseInventoryPage = () => {
                   <option value="">-- Chọn Sản phẩm --</option>
                   {products.map((p) => (
                     <option key={p.MaSanPham} value={p.MaSanPham}>
-                      #{p.MaSanPham} - {p.TenSanPham}
-                      {p.DungLuong ? ` (${p.DungLuong})` : ''} — Tồn: {p.TonKho}
+                      {p.TenSanPham}
                     </option>
                   ))}
                 </select>
@@ -1296,9 +1290,14 @@ const WarehouseInventoryPage = () => {
                       if (importError) setImportError(null);
                     }}
                     disabled={isSubmittingImport}
-                    placeholder="Ví dụ: 18500000"
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   />
+                  {importTotalAmount > 0 && (
+                    <div className="mt-1 text-xs text-emerald-600 font-semibold flex items-center justify-between">
+                      <span className="text-slate-500 text-[11px]">Tổng tiền:</span>
+                      <span>{formatVND(importTotalAmount)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1349,7 +1348,7 @@ const WarehouseInventoryPage = () => {
                 <div className="flex items-center justify-between text-xs pt-1.5 border-t border-blue-200/60">
                   <span className="text-slate-600 flex items-center gap-1.5 font-medium">
                     <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-                    Tổng giá trị phiếu nhập:
+                    Tổng tiền (Đơn giá × Số lượng):
                   </span>
                   <span className="text-sm font-extrabold text-emerald-600">
                     {formatVND(importTotalAmount)}
@@ -1459,8 +1458,7 @@ const WarehouseInventoryPage = () => {
                   <option value="">-- Chọn Sản phẩm --</option>
                   {products.map((p) => (
                     <option key={p.MaSanPham} value={p.MaSanPham}>
-                      #{p.MaSanPham} - {p.TenSanPham}
-                      {p.DungLuong ? ` (${p.DungLuong})` : ''} — Tồn HT: {p.TonKho}
+                      {p.TenSanPham}
                     </option>
                   ))}
                 </select>
@@ -1519,7 +1517,7 @@ const WarehouseInventoryPage = () => {
                     {discrepancyQty > 0
                       ? `+${discrepancyQty} máy (Thừa)`
                       : discrepancyQty < 0
-                      ? `${discrepancyQty} máy (Thiếu)`
+                      ? `-${Math.abs(discrepancyQty)} máy (Thiếu)`
                       : '0 máy (Khớp kho)'}
                   </span>
                 </div>
