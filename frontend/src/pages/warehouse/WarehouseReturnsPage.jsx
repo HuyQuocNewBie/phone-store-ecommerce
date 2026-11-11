@@ -1,21 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Warehouse,
-  Truck,
-  Boxes,
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
   Clock,
   Search,
   RefreshCw,
-  LogOut,
-  LayoutDashboard,
   Smartphone,
   Eye,
-  FileText,
   User,
   Phone,
   Calendar,
@@ -34,7 +27,6 @@ import {
   Filter,
 } from 'lucide-react';
 import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
 
 // Format static or external image URLs safely
@@ -82,8 +74,6 @@ const INSPECTION_CHECKLIST = [
 ];
 
 const WarehouseReturnsPage = () => {
-  const { user, logout, isAdmin } = useAuth();
-
   // State
   const [returnsList, setReturnsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,8 +93,6 @@ const WarehouseReturnsPage = () => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  const staffName = user?.HoTen || user?.TaiKhoan || 'Nhân viên Kho';
 
   // Fetch returns list from GET /api/v1/warehouse/returns
   const fetchReturns = useCallback(async ({ silent = false } = {}) => {
@@ -275,120 +263,36 @@ const WarehouseReturnsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans pb-16">
-      {/* ── Top Warehouse Portal Header ── */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-600/20 shrink-0">
-              <Warehouse className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                  Kho Vận SmartZone
-                </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                  Kiểm định Đổi trả
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Tiếp nhận máy trả về, đối chiếu ảnh chụp khách gửi &amp; lưu biên bản kiểm định
-              </p>
-            </div>
-          </div>
-
-          {/* Portal Switcher Navigation */}
-          <nav
-            aria-label="Điều hướng phân hệ Kho"
-            className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200"
-          >
-            <Link
-              to="/warehouse/fulfillment"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
-            >
-              <Truck className="w-3.5 h-3.5" />
-              <span>Soạn hàng &amp; Đóng gói</span>
-            </Link>
-            <Link
-              to="/warehouse/inventory"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>Tồn kho &amp; Lệch kho</span>
-            </Link>
-            <Link
-              to="/warehouse/returns"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-blue-700 shadow-xs border border-slate-200/80"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
-              <span>Kiểm định Đổi trả</span>
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Staff Info Pill */}
-            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center overflow-hidden shrink-0">
-                {user?.AnhDaiDien ? (
-                  <img
-                    src={formatImageUrl(user.AnhDaiDien)}
-                    alt={staffName}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  staffName[0]?.toUpperCase() || 'K'
-                )}
-              </div>
-              <div className="leading-tight">
-                <p className="text-xs font-semibold text-slate-800 max-w-[140px] truncate">
-                  {staffName}
-                </p>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {user?.MaVaiTro === 1 ? 'Quản trị viên' : 'KTV Kiểm định Kho'}
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <button
-              type="button"
-              onClick={() => fetchReturns({ silent: true })}
-              disabled={refreshing || loading}
-              title="Làm mới dữ liệu"
-              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? 'animate-spin text-blue-600' : ''}`}
-              />
-            </button>
-
-            {isAdmin && (
-              <Link
-                to="/admin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition-colors"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </Link>
-            )}
-
-            <button
-              type="button"
-              onClick={logout}
-              title="Đăng xuất"
-              className="p-2 rounded-xl bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+    <div className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6 pb-12">
+      {/* ── Page Header & Action Bar ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2.5">
+            <RotateCcw className="w-6 h-6 text-blue-600 shrink-0" />
+            <span>Kiểm định Hàng Đổi trả</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500">
+            Tiếp nhận máy trả về, đối chiếu ảnh chụp bằng chứng khách gửi &amp; lập biên bản kiểm định gửi Admin duyệt hoàn tiền.
+          </p>
         </div>
-      </header>
 
-      {/* ── Main Container ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* ── Metrics Cards ── */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => fetchReturns({ silent: true })}
+            disabled={refreshing || loading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-blue-600 ${refreshing || loading ? 'animate-spin' : ''}`}
+            />
+            <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Metrics Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Tổng phiếu */}
           <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
@@ -887,7 +791,6 @@ const WarehouseReturnsPage = () => {
             })}
           </div>
         )}
-      </main>
 
       {/* ── MODAL: KIỂM ĐỊNH HÀNG ĐỔI TRẢ (PUT /warehouse/returns/:id/inspect) ── */}
       {inspectModalOpen && activeReturn && (

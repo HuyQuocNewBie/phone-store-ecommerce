@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Package, LogOut, LayoutDashboard } from 'lucide-react';
 import AdminLayout from '../layouts/AdminLayout';
 import MainLayout from '../layouts/MainLayout';
+import WarehouseLayout from '../layouts/WarehouseLayout';
 import LoginPage from '../pages/user/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import DashboardPage from '../pages/admin/dashboard/DashboardPage';
@@ -54,7 +55,7 @@ const WarehousePlaceholder = ({ title }) => {
   const { user, logout, isAdmin } = useAuth();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
+    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-slate-800">
       <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center">
         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center">
           <Package className="w-7 h-7" />
@@ -177,7 +178,14 @@ const AppRoutes = () => {
       </Route>
 
       {/* ── Warehouse Routes (Protected: MaVaiTro === 3 hoặc 1) ── */}
-      <Route path="/warehouse" element={<WarehouseRoute />}>
+      <Route
+        path="/warehouse"
+        element={
+          <WarehouseRoute>
+            <WarehouseLayout />
+          </WarehouseRoute>
+        }
+      >
         <Route index element={<Navigate to="fulfillment" replace />} />
         <Route path="fulfillment" element={<WarehouseFulfillmentPage />} />
         <Route path="inventory" element={<WarehouseInventoryPage />} />

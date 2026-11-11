@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Warehouse,
   Package,
   PackageCheck,
   Truck,
@@ -16,8 +14,6 @@ import {
   Clock,
   Copy,
   Check,
-  LogOut,
-  LayoutDashboard,
   Smartphone,
   Barcode,
   ClipboardCheck,
@@ -26,11 +22,8 @@ import {
   FileText,
   X,
   Loader2,
-  Boxes,
-  RotateCcw,
 } from 'lucide-react';
 import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
 import {
   notifyOrderStatusChanged,
@@ -134,8 +127,6 @@ const getOrderItems = (order) => {
 };
 
 const WarehouseFulfillmentPage = () => {
-  const { user, logout, isAdmin } = useAuth();
-
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -543,126 +534,39 @@ const WarehouseFulfillmentPage = () => {
     }
   };
 
-  const staffName = user?.HoTen || user?.TaiKhoan || 'Nhân viên Kho';
-
   return (
-    <div className="min-h-screen bg-[#faf8ff] text-slate-900 flex flex-col">
-      {/* ── Top Warehouse Portal Header ── */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-600/20 shrink-0">
-              <Warehouse className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                  Kho Vận SmartZone
-                </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                  Fulfillment
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Quản lý Soạn hàng, Đóng gói &amp; Bàn giao Shipper
-              </p>
-            </div>
-          </div>
-
-          {/* Portal Switcher Navigation */}
-          <nav
-            aria-label="Điều hướng phân hệ Kho"
-            className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200"
-          >
-            <Link
-              to="/warehouse/fulfillment"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-blue-700 shadow-xs border border-slate-200/80"
-            >
-              <Truck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Soạn hàng &amp; Đóng gói</span>
-            </Link>
-            <Link
-              to="/warehouse/inventory"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>Tồn kho &amp; Lệch kho</span>
-            </Link>
-            <Link
-              to="/warehouse/returns"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Kiểm định Đổi trả</span>
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Staff Info Pill */}
-            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center overflow-hidden shrink-0">
-                {user?.AnhDaiDien ? (
-                  <img
-                    src={user.AnhDaiDien}
-                    alt={staffName}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  staffName[0]?.toUpperCase() || 'K'
-                )}
-              </div>
-              <div className="leading-tight">
-                <p className="text-xs font-semibold text-slate-800 max-w-[140px] truncate">
-                  {staffName}
-                </p>
-                <p className="text-[10px] font-medium text-sky-600">
-                  {isAdmin ? 'Quản trị viên' : 'Nhân viên Kho'}
-                </p>
-              </div>
-            </div>
-
-            {isAdmin && (
-              <Link
-                to="/admin/dashboard"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold transition-colors"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
-              </Link>
-            )}
-
-            <button
-              type="button"
-              onClick={() => fetchFulfillmentOrders({ silent: true, force: true })}
-              disabled={loading || refreshing}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold transition-all shadow-2xs disabled:opacity-60 cursor-pointer"
-              title="Tải lại danh sách đơn kho"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-sky-600 ${
-                  loading || refreshing ? 'animate-spin' : ''
-                }`}
-              />
-              <span>Làm mới</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={logout}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 text-xs font-semibold transition-all cursor-pointer"
-              title="Đăng xuất khỏi hệ thống"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Đăng xuất</span>
-            </button>
-          </div>
+    <div className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
+      {/* ── Page Header & Action Bar ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2.5">
+            <Truck className="w-6 h-6 text-blue-600 shrink-0" />
+            <span>Điều phối Soạn hàng &amp; Đóng gói</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500">
+            Xác nhận đơn hàng mới, đối chiếu SKU &amp; nhặt máy trên kệ, đóng gói và bàn giao cho Shipper.
+          </p>
         </div>
-      </header>
 
-      {/* ── Main Workspace ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* ── Summary Cards (4 bước xử lý Kho) ── */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => fetchFulfillmentOrders({ silent: true, force: true })}
+            disabled={loading || refreshing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold transition-all shadow-2xs disabled:opacity-60 cursor-pointer"
+            title="Tải lại danh sách đơn kho"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-blue-600 ${
+                loading || refreshing ? 'animate-spin' : ''
+              }`}
+            />
+            <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Summary Cards (4 bước xử lý Kho) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             type="button"
@@ -1453,7 +1357,6 @@ const WarehouseFulfillmentPage = () => {
             })}
           </div>
         )}
-      </main>
     </div>
   );
 };
