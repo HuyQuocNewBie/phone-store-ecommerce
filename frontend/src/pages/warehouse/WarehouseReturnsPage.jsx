@@ -685,23 +685,38 @@ const WarehouseReturnsPage = () => {
                             <h4 className="text-sm font-bold text-slate-900 leading-snug truncate">
                               {item.TenSanPham || 'Sản phẩm đổi trả'}
                             </h4>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {item.DungLuong && (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 text-slate-700">
-                                  {item.DungLuong}
-                                </span>
-                              )}
-                              {item.MauSac && (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 text-slate-700">
-                                  {item.MauSac}
-                                </span>
-                              )}
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200/80">
+                                {`Màu: ${
+                                  item.MauSac && String(item.MauSac).trim()
+                                    ? String(item.MauSac).trim()
+                                    : 'N/A'
+                                } | Dung lượng: ${
+                                  item.DungLuong && String(item.DungLuong).trim()
+                                    ? String(item.DungLuong).trim()
+                                    : 'N/A'
+                                }`}
+                              </span>
                               <span className="text-xs font-semibold text-blue-600">
-                                {formatVND(item.GiaSanPham || item.TongTien)}
+                                {formatVND(item.DonGia || item.GiaSanPham || item.TongTien)}
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-400 mt-1">
                               Mã SP: #{item.MaSanPham} • Đơn hàng: #{item.MaDonHang}
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              Ghi chú:{' '}
+                              <span
+                                className={
+                                  item.GhiChu && String(item.GhiChu).trim()
+                                    ? 'text-slate-700'
+                                    : 'italic text-slate-400'
+                                }
+                              >
+                                {item.GhiChu && String(item.GhiChu).trim()
+                                  ? String(item.GhiChu).trim()
+                                  : 'Không có ghi chú'}
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -927,8 +942,16 @@ const WarehouseReturnsPage = () => {
                       {activeReturn.TenSanPham}
                     </p>
                     <p className="text-slate-500 text-[11px]">
-                      {activeReturn.DungLuong} • {activeReturn.MauSac} •{' '}
-                      {formatVND(activeReturn.GiaSanPham || activeReturn.TongTien)}
+                      {`Màu: ${
+                        activeReturn.MauSac && String(activeReturn.MauSac).trim()
+                          ? String(activeReturn.MauSac).trim()
+                          : 'N/A'
+                      } | Dung lượng: ${
+                        activeReturn.DungLuong && String(activeReturn.DungLuong).trim()
+                          ? String(activeReturn.DungLuong).trim()
+                          : 'N/A'
+                      }`}{' '}
+                      • {formatVND(activeReturn.DonGia || activeReturn.GiaSanPham || activeReturn.TongTien)}
                     </p>
                   </div>
                 </div>

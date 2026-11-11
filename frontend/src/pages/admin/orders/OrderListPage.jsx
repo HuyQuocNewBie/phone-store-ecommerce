@@ -627,12 +627,14 @@ const OrderListPage = () => {
                             {modalDetail?.DiaChiGiaoHang || selectedOrder.DiaChiGiaoHang || 'Tại cửa hàng / Chưa nhập địa chỉ'}
                           </span>
                         </p>
-                        {modalDetail?.GhiChu && (
-                          <p className="flex items-start gap-2 pt-1 border-t border-slate-200">
-                            <span className="text-slate-500 w-24 shrink-0">Ghi chú:</span>
-                            <span className="text-slate-600 italic">{modalDetail.GhiChu}</span>
-                          </p>
-                        )}
+                        <p className="flex items-start gap-2 pt-1 border-t border-slate-200">
+                          <span className="text-slate-500 w-24 shrink-0">Ghi chú:</span>
+                          <span className="text-slate-600 italic">
+                            {modalDetail?.GhiChu && String(modalDetail.GhiChu).trim()
+                              ? String(modalDetail.GhiChu).trim()
+                              : 'Không có ghi chú'}
+                          </span>
+                        </p>
                       </div>
                     </div>
 
@@ -719,11 +721,18 @@ const OrderListPage = () => {
                                 {item.TenSanPham || 'Sản phẩm'}
                               </h5>
 
-                              {/* DÒNG PHÂN LOẠI: DungLuong | MauSac */}
+                              {/* DÒNG PHÂN LOẠI: Màu sắc | Dung lượng từ chitietdonhang */}
                               <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs text-slate-500 font-medium">Phân loại:</span>
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-lg shadow-2xs">
-                                  {item.DungLuong || 'Tiêu chuẩn'} | {item.MauSac || 'Tiêu chuẩn'}
+                                  {`Màu: ${
+                                    item.MauSac && String(item.MauSac).trim()
+                                      ? String(item.MauSac).trim()
+                                      : 'N/A'
+                                  } | Dung lượng: ${
+                                    item.DungLuong && String(item.DungLuong).trim()
+                                      ? String(item.DungLuong).trim()
+                                      : 'N/A'
+                                  }`}
                                 </span>
                               </div>
                             </div>

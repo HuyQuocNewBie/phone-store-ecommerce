@@ -110,8 +110,14 @@ const getFulfillmentOrders = async (req, res, next) => {
         MaSanPham: item.MaSanPham,
         TenSanPham: item.TenSanPham || 'Sản phẩm',
         Anh: item.Anh || null,
-        DungLuong: item.DungLuong || null,
-        MauSac: item.MauSac || null,
+        DungLuong:
+          item.DungLuong && String(item.DungLuong).trim() !== ''
+            ? String(item.DungLuong).trim()
+            : null,
+        MauSac:
+          item.MauSac && String(item.MauSac).trim() !== ''
+            ? String(item.MauSac).trim()
+            : null,
         SoLuong: Number(item.SoLuong),
         DonGia: Number(item.DonGia),
         TongGia: Number(item.TongGia || item.SoLuong * item.DonGia),
@@ -127,7 +133,10 @@ const getFulfillmentOrders = async (req, res, next) => {
       TenNguoiNhan: order.TenNguoiNhan,
       SoDienThoai: order.SoDienThoai,
       DiaChiGiaoHang: order.DiaChiGiaoHang,
-      GhiChu: order.GhiChu,
+      GhiChu:
+        order.GhiChu && String(order.GhiChu).trim() !== ''
+          ? String(order.GhiChu).trim()
+          : null,
       TongTien: Number(order.TongTien),
       PhiShip: Number(order.PhiShip || 0),
       SoTienGiam: Number(order.SoTienGiam || 0),

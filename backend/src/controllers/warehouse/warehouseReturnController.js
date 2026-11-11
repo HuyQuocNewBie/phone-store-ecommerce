@@ -26,55 +26,75 @@ const parseProofImages = (rawProof) => {
 /**
  * Helper: format 1 bản ghi phiếu đổi trả kèm thông tin donhang, sanpham, nguoidung
  */
-const formatReturnRecord = (row) => ({
-  MaPhieuDoiTra: row.MaPhieuDoiTra,
-  MaDonHang: row.MaDonHang,
-  CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
-  MaSanPham: row.MaSanPham,
-  MaNguoiDung_User: row.MaNguoiDung_User,
-  LyDo: row.LyDo,
-  HinhAnhProof: row.HinhAnhProof,
-  HinhAnhProofList: parseProofImages(row.HinhAnhProof),
-  KetQuaKiemDinh: row.KetQuaKiemDinh,
-  GhiChuKho: row.GhiChuKho,
-  TrangThaiHoanTien: row.TrangThaiHoanTien,
-  NgayTao: row.NgayTao,
-  NgayCapNhat: row.NgayCapNhat,
-  TrangThaiDonHang: row.TrangThaiDonHang,
-  TongTien: Number(row.TongTien),
-  TenSanPham: row.TenSanPham,
-  AnhSanPham: row.AnhSanPham,
-  GiaSanPham: Number(row.GiaSanPham),
-  TenKhachHang: row.TenNguoiNhan || row.TaiKhoan,
-  TaiKhoan: row.TaiKhoan,
-  Email: row.Email,
-  SoDienThoai: row.SoDienThoaiDonHang || row.SoDienThoaiUser || null,
-  donhang: {
+const formatReturnRecord = (row) => {
+  const dungLuong =
+    row.DungLuong && String(row.DungLuong).trim() !== ''
+      ? String(row.DungLuong).trim()
+      : null;
+  const mauSac =
+    row.MauSac && String(row.MauSac).trim() !== ''
+      ? String(row.MauSac).trim()
+      : null;
+  const ghiChu =
+    row.GhiChu && String(row.GhiChu).trim() !== ''
+      ? String(row.GhiChu).trim()
+      : null;
+
+  return {
+    MaPhieuDoiTra: row.MaPhieuDoiTra,
     MaDonHang: row.MaDonHang,
     CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
-    NgayMuaHang: row.NgayMuaHang,
+    MaSanPham: row.MaSanPham,
+    MaChiTietDonHang: row.MaChiTietDonHang || null,
+    DungLuong: dungLuong,
+    MauSac: mauSac,
+    SoLuong: row.SoLuong !== null && row.SoLuong !== undefined ? Number(row.SoLuong) : null,
+    DonGia: row.DonGia !== null && row.DonGia !== undefined ? Number(row.DonGia) : null,
+    MaNguoiDung_User: row.MaNguoiDung_User,
+    LyDo: row.LyDo,
+    HinhAnhProof: row.HinhAnhProof,
+    HinhAnhProofList: parseProofImages(row.HinhAnhProof),
+    KetQuaKiemDinh: row.KetQuaKiemDinh,
+    GhiChuKho: row.GhiChuKho,
+    GhiChu: ghiChu,
+    TrangThaiHoanTien: row.TrangThaiHoanTien,
+    NgayTao: row.NgayTao,
+    NgayCapNhat: row.NgayCapNhat,
     TrangThaiDonHang: row.TrangThaiDonHang,
     TongTien: Number(row.TongTien),
-    TenNguoiNhan: row.TenNguoiNhan,
-    SoDienThoai: row.SoDienThoaiDonHang,
-    DiaChiGiaoHang: row.DiaChiGiaoHang
-  },
-  sanpham: {
-    MaSanPham: row.MaSanPham,
     TenSanPham: row.TenSanPham,
-    Anh: row.AnhSanPham,
-    Gia: Number(row.GiaSanPham),
-    DungLuong: row.DungLuong,
-    MauSac: row.MauSac
-  },
-  nguoidung: {
-    MaNguoiDung: row.MaNguoiDung_User,
+    AnhSanPham: row.AnhSanPham,
+    GiaSanPham: Number(row.GiaSanPham),
+    TenKhachHang: row.TenNguoiNhan || row.TaiKhoan,
     TaiKhoan: row.TaiKhoan,
     Email: row.Email,
-    SoDienThoai: row.SoDienThoaiUser,
-    AnhDaiDien: row.AnhDaiDien
-  }
-});
+    SoDienThoai: row.SoDienThoaiDonHang || row.SoDienThoaiUser || null,
+    donhang: {
+      MaDonHang: row.MaDonHang,
+      CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
+      NgayMuaHang: row.NgayMuaHang,
+      TrangThaiDonHang: row.TrangThaiDonHang,
+      TongTien: Number(row.TongTien),
+      TenNguoiNhan: row.TenNguoiNhan,
+      SoDienThoai: row.SoDienThoaiDonHang,
+      DiaChiGiaoHang: row.DiaChiGiaoHang,
+      GhiChu: ghiChu
+    },
+    sanpham: {
+      MaSanPham: row.MaSanPham,
+      TenSanPham: row.TenSanPham,
+      Anh: row.AnhSanPham,
+      Gia: Number(row.GiaSanPham)
+    },
+    nguoidung: {
+      MaNguoiDung: row.MaNguoiDung_User,
+      TaiKhoan: row.TaiKhoan,
+      Email: row.Email,
+      SoDienThoai: row.SoDienThoaiUser,
+      AnhDaiDien: row.AnhDaiDien
+    }
+  };
+};
 
 /**
  * 1. GET /api/v1/warehouse/returns
@@ -105,6 +125,11 @@ const getReturns = async (req, res, next) => {
          p.MaPhieuDoiTra,
          p.MaDonHang,
          p.MaSanPham,
+         ct.MaChiTietDonHang,
+         ct.DungLuong,
+         ct.MauSac,
+         ct.SoLuong,
+         ct.DonGia,
          p.MaNguoiDung_User,
          p.LyDo,
          p.HinhAnhProof,
@@ -119,11 +144,10 @@ const getReturns = async (req, res, next) => {
          d.TenNguoiNhan,
          d.SoDienThoai AS SoDienThoaiDonHang,
          d.DiaChiGiaoHang,
+         d.GhiChu,
          sp.TenSanPham,
          sp.Anh AS AnhSanPham,
          sp.Gia AS GiaSanPham,
-         sp.DungLuong,
-         sp.MauSac,
          u.TaiKhoan,
          u.Email,
          u.SoDienThoai AS SoDienThoaiUser,
@@ -132,6 +156,13 @@ const getReturns = async (req, res, next) => {
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
        JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+         SELECT ct2.MaChiTietDonHang
+         FROM chitietdonhang ct2
+         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+         ORDER BY ct2.MaChiTietDonHang ASC
+         LIMIT 1
+       )
        ${whereClause}
        ORDER BY p.NgayTao DESC, p.MaPhieuDoiTra DESC`,
       queryParams
@@ -232,6 +263,11 @@ const inspectReturn = async (req, res, next) => {
          p.MaPhieuDoiTra,
          p.MaDonHang,
          p.MaSanPham,
+         ct.MaChiTietDonHang,
+         ct.DungLuong,
+         ct.MauSac,
+         ct.SoLuong,
+         ct.DonGia,
          p.MaNguoiDung_User,
          p.LyDo,
          p.HinhAnhProof,
@@ -246,11 +282,10 @@ const inspectReturn = async (req, res, next) => {
          d.TenNguoiNhan,
          d.SoDienThoai AS SoDienThoaiDonHang,
          d.DiaChiGiaoHang,
+         d.GhiChu,
          sp.TenSanPham,
          sp.Anh AS AnhSanPham,
          sp.Gia AS GiaSanPham,
-         sp.DungLuong,
-         sp.MauSac,
          u.TaiKhoan,
          u.Email,
          u.SoDienThoai AS SoDienThoaiUser,
@@ -259,6 +294,13 @@ const inspectReturn = async (req, res, next) => {
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
        JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+         SELECT ct2.MaChiTietDonHang
+         FROM chitietdonhang ct2
+         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+         ORDER BY ct2.MaChiTietDonHang ASC
+         LIMIT 1
+       )
        WHERE p.MaPhieuDoiTra = ?`,
       [returnId]
     );

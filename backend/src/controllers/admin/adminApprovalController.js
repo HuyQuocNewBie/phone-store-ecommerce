@@ -32,7 +32,18 @@ const formatReturnRecord = (row) => ({
   MaDonHang: row.MaDonHang,
   CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
   MaSanPham: row.MaSanPham,
+  MaChiTietDonHang: row.MaChiTietDonHang || null,
   TenSanPham: row.TenSanPham || null,
+  DungLuong:
+    row.DungLuong && String(row.DungLuong).trim() !== ''
+      ? String(row.DungLuong).trim()
+      : null,
+  MauSac:
+    row.MauSac && String(row.MauSac).trim() !== ''
+      ? String(row.MauSac).trim()
+      : null,
+  SoLuong: row.SoLuong !== null && row.SoLuong !== undefined ? Number(row.SoLuong) : null,
+  DonGia: row.DonGia !== null && row.DonGia !== undefined ? Number(row.DonGia) : null,
   MaNguoiDung_User: row.MaNguoiDung_User,
   TaiKhoan: row.TaiKhoan || null,
   Email: row.Email || null,
@@ -40,6 +51,10 @@ const formatReturnRecord = (row) => ({
   HinhAnhProof: row.HinhAnhProof,
   KetQuaKiemDinh: row.KetQuaKiemDinh,
   GhiChuKho: row.GhiChuKho,
+  GhiChu:
+    row.GhiChu && String(row.GhiChu).trim() !== ''
+      ? String(row.GhiChu).trim()
+      : null,
   TrangThaiHoanTien: row.TrangThaiHoanTien,
   TrangThaiDonHang: row.TrangThaiDonHang,
   TongTien: row.TongTien !== null && row.TongTien !== undefined ? Number(row.TongTien) : null,
@@ -384,6 +399,11 @@ const confirmReturnRefund = async (req, res, next) => {
          p.MaPhieuDoiTra,
          p.MaDonHang,
          p.MaSanPham,
+         ct.MaChiTietDonHang,
+         ct.DungLuong,
+         ct.MauSac,
+         ct.SoLuong,
+         ct.DonGia,
          p.MaNguoiDung_User,
          p.LyDo,
          p.HinhAnhProof,
@@ -395,6 +415,7 @@ const confirmReturnRefund = async (req, res, next) => {
          d.NgayMuaHang,
          d.TrangThaiDonHang,
          d.TongTien,
+         d.GhiChu,
          sp.TenSanPham,
          u.TaiKhoan,
          u.Email
@@ -402,6 +423,13 @@ const confirmReturnRefund = async (req, res, next) => {
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
        JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+         SELECT ct2.MaChiTietDonHang
+         FROM chitietdonhang ct2
+         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+         ORDER BY ct2.MaChiTietDonHang ASC
+         LIMIT 1
+       )
        WHERE p.MaPhieuDoiTra = ?`,
       [returnId]
     );

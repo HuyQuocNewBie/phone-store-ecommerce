@@ -180,6 +180,9 @@ const AdminRefundsPage = () => {
       const sdt = String(item.SoDienThoai || '').toLowerCase();
       const lyDo = String(item.LyDo || '').toLowerCase();
       const ghiChu = String(item.GhiChuKho || '').toLowerCase();
+      const orderNote = String(item.GhiChu || item.donhang?.GhiChu || '').toLowerCase();
+      const mauSac = String(item.MauSac || '').toLowerCase();
+      const dungLuong = String(item.DungLuong || '').toLowerCase();
 
       return (
         maPhieu.includes(keyword) ||
@@ -190,7 +193,10 @@ const AdminRefundsPage = () => {
         email.includes(keyword) ||
         sdt.includes(keyword) ||
         lyDo.includes(keyword) ||
-        ghiChu.includes(keyword)
+        ghiChu.includes(keyword) ||
+        orderNote.includes(keyword) ||
+        mauSac.includes(keyword) ||
+        dungLuong.includes(keyword)
       );
     });
   }, [returnsList, refundFilter, searchQuery]);
@@ -211,6 +217,9 @@ const AdminRefundsPage = () => {
           return {
             ...row,
             ...(updated || {}),
+            DungLuong: updated?.DungLuong ?? row.DungLuong,
+            MauSac: updated?.MauSac ?? row.MauSac,
+            GhiChu: updated?.GhiChu ?? row.GhiChu,
             TrangThaiHoanTien: updated?.TrangThaiHoanTien || 'DaHoanTien',
             TrangThaiDonHang: updated?.TrangThaiDonHang || 'DaHoanTien',
           };
@@ -479,8 +488,20 @@ const AdminRefundsPage = () => {
               item.CodeDonHang ||
               formatOrderCode(item.MaDonHang, item.donhang?.NgayMuaHang || item.NgayTao);
             const productImg = item.AnhSanPham || item.sanpham?.Anh;
-            const dungLuong = item.DungLuong || item.sanpham?.DungLuong;
-            const mauSac = item.MauSac || item.sanpham?.MauSac;
+            const dungLuong =
+              item.DungLuong && String(item.DungLuong).trim()
+                ? String(item.DungLuong).trim()
+                : '';
+            const mauSac =
+              item.MauSac && String(item.MauSac).trim()
+                ? String(item.MauSac).trim()
+                : '';
+            const orderNote =
+              item.GhiChu && String(item.GhiChu).trim()
+                ? String(item.GhiChu).trim()
+                : item.donhang?.GhiChu && String(item.donhang.GhiChu).trim()
+                ? String(item.donhang.GhiChu).trim()
+                : '';
 
             return (
               <div
@@ -554,23 +575,26 @@ const AdminRefundsPage = () => {
                           <h4 className="text-sm font-bold text-slate-900 leading-snug truncate">
                             {item.TenSanPham || `Sản phẩm #${item.MaSanPham}`}
                           </h4>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            {dungLuong && (
-                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 text-slate-700">
-                                {dungLuong}
-                              </span>
-                            )}
-                            {mauSac && (
-                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 text-slate-700">
-                                {mauSac}
-                              </span>
-                            )}
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200/80">
+                              {`Màu: ${mauSac || 'N/A'} | Dung lượng: ${dungLuong || 'N/A'}`}
+                            </span>
                             <span className="text-xs font-semibold text-blue-600">
-                              {formatVND(item.GiaSanPham || item.TongTien)}
+                              {formatVND(item.DonGia || item.GiaSanPham || item.TongTien)}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400 mt-1">
                             Mã SP: #{item.MaSanPham} • Đơn hàng: #{item.MaDonHang}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Ghi chú:{' '}
+                            <span
+                              className={
+                                orderNote ? 'text-slate-700' : 'italic text-slate-400'
+                              }
+                            >
+                              {orderNote || 'Không có ghi chú'}
+                            </span>
                           </p>
                         </div>
                       </div>

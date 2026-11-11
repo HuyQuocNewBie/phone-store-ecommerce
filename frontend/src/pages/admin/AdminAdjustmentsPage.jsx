@@ -560,14 +560,17 @@ const AdminAdjustmentsPage = () => {
                               <span className="font-mono font-semibold text-slate-600">
                                 SP #{item.MaSanPham}
                               </span>
-                              {item.DungLuong && (
-                                <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200/70 font-medium">
-                                  {item.DungLuong}
-                                </span>
-                              )}
-                              {item.MauSac && (
-                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/70 font-medium">
-                                  {item.MauSac}
+                              {item.MaChiTietDonHang && (
+                                <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200/80 font-semibold">
+                                  {`Màu: ${
+                                    item.MauSac && String(item.MauSac).trim()
+                                      ? String(item.MauSac).trim()
+                                      : 'N/A'
+                                  } | Dung lượng: ${
+                                    item.DungLuong && String(item.DungLuong).trim()
+                                      ? String(item.DungLuong).trim()
+                                      : 'N/A'
+                                  }`}
                                 </span>
                               )}
                             </div>
@@ -622,7 +625,9 @@ const AdminAdjustmentsPage = () => {
                       {/* Lý do giải trình */}
                       <td className="px-4 py-4 align-middle">
                         <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                          {item.LyDoGiaiTrinh || 'Không có lý do giải trình'}
+                          {item.LyDoGiaiTrinh && String(item.LyDoGiaiTrinh).trim()
+                            ? String(item.LyDoGiaiTrinh).trim()
+                            : 'Không có ghi chú'}
                         </p>
                         {item.NguoiTaoKho && (
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1.5">
