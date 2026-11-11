@@ -9,7 +9,10 @@ router.use(verifyToken, verifyAdmin);
 // 1. GET /api/v1/admin/dashboard/cards -> 4 thẻ thống kê
 router.get('/cards', dashboardController.getDashboardCards);
 
-// 2. GET /api/v1/admin/dashboard/charts/revenue-monthly -> Biểu đồ doanh thu 12 tháng năm hiện tại
+// 2. GET /api/v1/admin/dashboard/charts/revenue -> Biểu đồ doanh thu theo Ngày / Tháng / Năm
+router.get('/charts/revenue', dashboardController.getRevenueChart);
+
+// 2a. GET /api/v1/admin/dashboard/charts/revenue-monthly -> Biểu đồ doanh thu 12 tháng năm hiện tại
 router.get('/charts/revenue-monthly', dashboardController.getMonthlyRevenueChart);
 
 // 2b. GET /api/v1/admin/dashboard/charts/revenue-yearly -> Biểu đồ doanh thu theo năm

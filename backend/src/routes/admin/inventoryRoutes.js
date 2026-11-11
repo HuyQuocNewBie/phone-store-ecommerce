@@ -6,8 +6,11 @@ const { verifyToken, verifyAdmin } = require('../../middlewares/authMiddleware')
 // Áp dụng middleware xác thực token & kiểm tra quyền Admin
 router.use(verifyToken, verifyAdmin);
 
-// 1. GET /api/v1/admin/inventory/stock-list - Lấy danh sách tồn kho
+// 1. GET /api/v1/admin/inventory/stock-list - Lấy danh sách tồn kho (Chỉ xem)
 router.get('/stock-list', inventoryController.getStockList);
+
+// 1b. GET /api/v1/admin/inventory/history - Lấy lịch sử nhập/xuất kho (Chỉ xem)
+router.get('/history', inventoryController.getInventoryHistory);
 
 // 2. POST /api/v1/admin/inventory/import - Tạo phiếu nhập kho mới
 router.post('/import', inventoryController.createImportReceipt);

@@ -5,12 +5,10 @@ import AdminHeader from '../components/admin/AdminHeader';
 
 /**
  * AdminLayout
- * Layout chính cho toàn bộ trang Admin tone sáng (Light Mode).
- * Đồng nhất 100% với giao diện Stitch AI SaaS:
- *  - Background: bg-[#faf8ff] / bg-slate-50
- *  - Sidebar & Top Navbar: bg-white, viền nhẹ border-slate-200
- *  - Active Item: bg-blue-600 text-white font-semibold shadow-sm
- *  - Router <Outlet /> giữ nguyên hiển thị các trang con
+ * Layout chính cho toàn bộ cổng Quản trị Admin (Light Mode).
+ * Phân định rạch ròi vai trò:
+ *  - Admin Portal: Dashboard, Thống kê, Quản lý Kinh doanh, Phê duyệt & Theo dõi Tồn kho (Chỉ xem).
+ *  - Warehouse Portal (/warehouse/*): Thực hiện toàn bộ tác nghiệp nhập/xuất/kiểm kê kho.
  */
 const AdminLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -41,7 +39,7 @@ const AdminLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-[#faf8ff] text-slate-900">
-      {/* ── Sidebar (Mobile Drawer + Desktop Sidebar) ── */}
+      {/* ── Sidebar (Mobile Drawer + Desktop Fixed Full-Height Sidebar) ── */}
       <AdminSidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((prev) => !prev)}
@@ -50,12 +48,16 @@ const AdminLayout = () => {
       />
 
       {/* ── Main Content Area ── */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div
+        className={`flex flex-col flex-1 min-w-0 overflow-x-clip transition-all duration-300 ease-in-out ${
+          collapsed ? 'lg:pl-20' : 'lg:pl-[272px]'
+        }`}
+      >
         {/* Sticky Top Navbar */}
         <AdminHeader onToggleMobile={() => setMobileOpen((prev) => !prev)} />
 
         {/* Page content via <Outlet /> */}
-        <main className="flex-1 overflow-auto bg-[#faf8ff]">
+        <main className="flex-1 bg-[#faf8ff]">
           <Outlet />
         </main>
       </div>

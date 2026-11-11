@@ -18,7 +18,6 @@ import CategoryListPage from '../pages/admin/categories/CategoryListPage';
 import ManufacturerListPage from '../pages/admin/manufacturers/ManufacturerListPage';
 import ManufacturerFormPage from '../pages/admin/manufacturers/ManufacturerFormPage';
 import InventoryListPage from '../pages/admin/inventory/InventoryListPage';
-import CreateImportPage from '../pages/admin/inventory/CreateImportPage';
 import AdminAdjustmentsPage from '../pages/admin/AdminAdjustmentsPage';
 import AdminRefundsPage from '../pages/admin/AdminRefundsPage';
 import OrderListPage from '../pages/admin/orders/OrderListPage';
@@ -163,7 +162,7 @@ const AppRoutes = () => {
         <Route path="manufacturers/new" element={<ManufacturerFormPage />} />
         <Route path="manufacturers/:id/edit" element={<ManufacturerFormPage />} />
         <Route path="inventory" element={<InventoryListPage />} />
-        <Route path="inventory/import" element={<CreateImportPage />} />
+        <Route path="inventory/import" element={<Navigate to="/admin/inventory" replace />} />
         <Route path="inventory/adjustments" element={<AdminAdjustmentsPage />} />
         <Route path="orders" element={<OrderListPage />} />
         <Route path="returns" element={<AdminRefundsPage />} />

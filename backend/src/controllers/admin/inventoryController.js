@@ -2,16 +2,26 @@ const { pool } = require('../../../config/db');
 
 /**
  * 1. GET /api/v1/admin/inventory/stock-list
- * Trả về danh sách tồn kho gồm: MaSanPham, TenSanPham, TonKho, TrangThaiTonKho
+ * Trả về danh sách tồn kho (chỉ xem cho Admin) gồm: MaSanPham, TenSanPham, Anh, Gia, TonKho, TrangThaiTonKho, TrangThai, TenLoaiSanPham, TenNhaSanXuat
  * ('Còn hàng' if TonKho >= 5, 'Sắp hết' if 0 < TonKho < 5, 'Hết hàng' if TonKho == 0)
  * Tuyệt đối không trả về DungLuong hay MauSac.
  */
 const getStockList = async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT MaSanPham, TenSanPham, TonKho
-       FROM sanpham
-       ORDER BY MaSanPham DESC`
+      `SELECT
+         sp.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh,
+         sp.Gia,
+         COALESCE(sp.TonKho, 0) AS TonKho,
+         sp.TrangThai,
+         lsp.TenLoaiSanPham,
+         nsx.TenNhaSanXuat
+       FROM sanpham sp
+       LEFT JOIN loaisanpham lsp ON sp.MaLoaiSanPham = lsp.MaLoaiSanPham
+       LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
+       ORDER BY sp.TonKho ASC, sp.MaSanPham DESC`
     );
 
     const data = rows.map((item) => {
@@ -26,7 +36,12 @@ const getStockList = async (req, res, next) => {
       return {
         MaSanPham: item.MaSanPham,
         TenSanPham: item.TenSanPham,
+        Anh: item.Anh || null,
+        Gia: Number(item.Gia) || 0,
         TonKho: tonKho,
+        TrangThai: item.TrangThai || null,
+        TenLoaiSanPham: item.TenLoaiSanPham || null,
+        TenNhaSanXuat: item.TenNhaSanXuat || null,
         TrangThaiTonKho: trangThaiTonKho
       };
     });
@@ -34,6 +49,67 @@ const getStockList = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'Lấy danh sách tồn kho thành công',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 1b. GET /api/v1/admin/inventory/history
+ * Trả về lịch sử biến động nhập / xuất / điều chỉnh kho (Chỉ xem dành cho Admin)
+ */
+const getInventoryHistory = async (req, res, next) => {
+  try {
+    const rawType = String(req.query.type || 'ALL').trim();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 10), 500);
+    const validTypes = ['NhapKho', 'XuatBan', 'CapNhatThuCong', 'HuyDon'];
+
+    let whereSql = '';
+    const params = [];
+    if (rawType !== 'ALL' && validTypes.includes(rawType)) {
+      whereSql = 'WHERE l.LoaiBienDong = ?';
+      params.push(rawType);
+    }
+    params.push(limit);
+
+    const [rows] = await pool.query(
+      `SELECT
+         l.MaLichSuTon,
+         l.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh,
+         l.LoaiBienDong,
+         l.SoLuongThayDoi,
+         l.TonThucTeSauDoi,
+         l.MaThamChieu,
+         l.NgayThucHien,
+         l.GhiChu
+       FROM lichsutonkho l
+       LEFT JOIN sanpham sp ON l.MaSanPham = sp.MaSanPham
+       ${whereSql}
+       ORDER BY l.NgayThucHien DESC, l.MaLichSuTon DESC
+       LIMIT ?`,
+      params
+    );
+
+    const data = rows.map((row) => ({
+      MaLichSuTon: row.MaLichSuTon,
+      MaSanPham: row.MaSanPham,
+      TenSanPham: row.TenSanPham || `Sản phẩm #${row.MaSanPham}`,
+      Anh: row.Anh || null,
+      LoaiBienDong: row.LoaiBienDong,
+      SoLuongThayDoi: Number(row.SoLuongThayDoi) || 0,
+      TonThucTeSauDoi: Number(row.TonThucTeSauDoi) || 0,
+      MaThamChieu: row.MaThamChieu || null,
+      NgayThucHien: row.NgayThucHien,
+      GhiChu: row.GhiChu || ''
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy lịch sử nhập/xuất tồn kho thành công',
       data
     });
   } catch (error) {
@@ -200,5 +276,6 @@ const createImportReceipt = async (req, res, next) => {
 
 module.exports = {
   getStockList,
+  getInventoryHistory,
   createImportReceipt
 };

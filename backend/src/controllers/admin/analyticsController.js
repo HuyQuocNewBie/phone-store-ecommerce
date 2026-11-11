@@ -1,8 +1,12 @@
 const ExcelJS = require('exceljs');
 const { pool } = require('../../../config/db');
+const { formatOrderCode } = require('../../utils/formatters');
+
+const COMPLETED_STATUSES = ['Đã hoàn thành', 'DaGiao', 'Đã giao', 'HoanTat'];
+const RETURN_ORDER_STATUSES = ['YeuCauDoiTra', 'DaHoanTien', 'Yêu cầu đổi trả', 'Đã hoàn tiền'];
 
 /**
- * Helper to format Date object to YYYY-MM-DD
+ * Helper to format Date object to YYYY-MM-DD in local time
  */
 const formatDateStr = (dateObj) => {
   const year = dateObj.getFullYear();
@@ -12,12 +16,26 @@ const formatDateStr = (dateObj) => {
 };
 
 /**
+ * Helper to parse YYYY-MM-DD string into local midnight Date
+ */
+const parseLocalDate = (dateStr) => {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+const formatDisplayDate = (dateStr) => {
+  const [y, m, d] = String(dateStr).split('-');
+  if (!y || !m || !d) return dateStr;
+  return `${d}/${m}/${y}`;
+};
+
+/**
  * Helper to generate all dates between startDateStr and endDateStr (inclusive)
  */
 const getDateArrayInRange = (startDateStr, endDateStr) => {
   const dateArray = [];
-  const currentDate = new Date(startDateStr);
-  const endDate = new Date(endDateStr);
+  const currentDate = parseLocalDate(startDateStr);
+  const endDate = parseLocalDate(endDateStr);
 
   while (currentDate <= endDate) {
     dateArray.push(formatDateStr(currentDate));
@@ -27,12 +45,37 @@ const getDateArrayInRange = (startDateStr, endDateStr) => {
 };
 
 /**
- * 1. GET /api/v1/admin/analytics/revenue?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD
- * Thống kê doanh thu theo ngày & Danh sách đơn hàng trong khoảng thời gian
+ * Helper to generate all YYYY-MM months between startDateStr and endDateStr (inclusive)
+ */
+const getMonthArrayInRange = (startDateStr, endDateStr) => {
+  const start = parseLocalDate(startDateStr);
+  const end = parseLocalDate(endDateStr);
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  const months = [];
+
+  while (cursor <= endMonth && months.length < 120) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth() + 1;
+    months.push({
+      key: `${y}-${String(m).padStart(2, '0')}`,
+      nam: y,
+      thang: m
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return months;
+};
+
+/**
+ * 1. GET /api/v1/admin/analytics/revenue?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&groupBy=day|month|year
+ * Thống kê doanh thu theo Ngày / Tháng / Năm, Top 5 sản phẩm bán chạy, thẻ KPI & Danh sách đơn hàng
  */
 const getRevenueAnalytics = async (req, res, next) => {
   try {
     let { fromDate, toDate } = req.query;
+    const rawGroupBy = String(req.query.groupBy || req.query.period || 'day').toLowerCase();
+    const groupBy = ['day', 'month', 'year'].includes(rawGroupBy) ? rawGroupBy : 'day';
 
     // Default dates if omitted: current month to today
     if (!fromDate || !toDate) {
@@ -43,7 +86,7 @@ const getRevenueAnalytics = async (req, res, next) => {
     }
 
     // Validate: fromDate > toDate
-    if (new Date(fromDate) > new Date(toDate)) {
+    if (parseLocalDate(fromDate) > parseLocalDate(toDate)) {
       return res.status(400).json({
         success: false,
         message: 'Ngày bắt đầu không được lớn hơn ngày kết thúc'
@@ -52,34 +95,143 @@ const getRevenueAnalytics = async (req, res, next) => {
 
     const startDateTime = `${fromDate} 00:00:00`;
     const endDateTime = `${toDate} 23:59:59`;
+    const completedPlaceholders = COMPLETED_STATUSES.map(() => '?').join(', ');
+    const returnPlaceholders = RETURN_ORDER_STATUSES.map(() => '?').join(', ');
 
-    // 1. Thống kê tổng doanh thu theo từng ngày (tính đơn đã giao / hoàn thành)
-    const [dailyRevenueRows] = await pool.query(
-      `SELECT 
-         DATE_FORMAT(NgayMuaHang, '%Y-%m-%d') AS ngay,
-         COALESCE(SUM(TongTien), 0) AS doanhThu
-       FROM donhang
-       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
-         AND NgayMuaHang >= ? AND NgayMuaHang <= ?
-       GROUP BY DATE_FORMAT(NgayMuaHang, '%Y-%m-%d')
-       ORDER BY ngay ASC`,
-      [startDateTime, endDateTime]
-    );
+    // 1. Build Chart Data theo groupBy (day | month | year)
+    let chartData = [];
 
-    const revenueMap = {};
-    dailyRevenueRows.forEach((row) => {
-      revenueMap[row.ngay] = Number(row.doanhThu);
-    });
+    if (groupBy === 'month') {
+      const [monthlyRows] = await pool.query(
+        `SELECT
+           DATE_FORMAT(NgayMuaHang, '%Y-%m') AS thangKey,
+           COALESCE(SUM(TongTien), 0) AS doanhThu,
+           COUNT(*) AS soDon
+         FROM donhang
+         WHERE TrangThaiDonHang IN (${completedPlaceholders})
+           AND NgayMuaHang >= ? AND NgayMuaHang <= ?
+         GROUP BY DATE_FORMAT(NgayMuaHang, '%Y-%m')
+         ORDER BY thangKey ASC`,
+        [...COMPLETED_STATUSES, startDateTime, endDateTime]
+      );
 
-    const allDates = getDateArrayInRange(fromDate, toDate);
-    const chartData = allDates.map((dateStr) => ({
-      ngay: dateStr,
-      doanhThu: revenueMap[dateStr] || 0
-    }));
+      const monthMap = new Map();
+      monthlyRows.forEach((r) => {
+        monthMap.set(r.thangKey, {
+          doanhThu: Number(r.doanhThu) || 0,
+          soDon: Number(r.soDon) || 0
+        });
+      });
+
+      const allMonths = getMonthArrayInRange(fromDate, toDate);
+      const multiYear = allMonths.length > 0 && allMonths[0].nam !== allMonths[allMonths.length - 1].nam;
+      chartData = allMonths.map(({ key, nam, thang }) => {
+        const matched = monthMap.get(key);
+        return {
+          key,
+          ngay: key,
+          thang,
+          nam,
+          label: multiYear ? `T${thang}/${String(nam).slice(-2)}` : `T${thang}`,
+          fullLabel: `Tháng ${String(thang).padStart(2, '0')}/${nam}`,
+          doanhThu: matched ? matched.doanhThu : 0,
+          soDon: matched ? matched.soDon : 0
+        };
+      });
+    } else if (groupBy === 'year') {
+      const [yearlyRows] = await pool.query(
+        `SELECT
+           YEAR(NgayMuaHang) AS nam,
+           COALESCE(SUM(TongTien), 0) AS doanhThu,
+           COUNT(*) AS soDon
+         FROM donhang
+         WHERE TrangThaiDonHang IN (${completedPlaceholders})
+           AND NgayMuaHang >= ? AND NgayMuaHang <= ?
+         GROUP BY YEAR(NgayMuaHang)
+         ORDER BY nam ASC`,
+        [...COMPLETED_STATUSES, startDateTime, endDateTime]
+      );
+
+      const yearMap = new Map();
+      yearlyRows.forEach((r) => {
+        yearMap.set(Number(r.nam), {
+          doanhThu: Number(r.doanhThu) || 0,
+          soDon: Number(r.soDon) || 0
+        });
+      });
+
+      const startYear = parseLocalDate(fromDate).getFullYear();
+      const endYear = parseLocalDate(toDate).getFullYear();
+      for (let y = startYear; y <= endYear; y++) {
+        const matched = yearMap.get(y);
+        chartData.push({
+          key: String(y),
+          ngay: String(y),
+          nam: y,
+          label: String(y),
+          fullLabel: `Năm ${y}`,
+          doanhThu: matched ? matched.doanhThu : 0,
+          soDon: matched ? matched.soDon : 0
+        });
+      }
+    } else {
+      // groupBy === 'day'
+      const [dailyRevenueRows] = await pool.query(
+        `SELECT
+           DATE_FORMAT(NgayMuaHang, '%Y-%m-%d') AS ngay,
+           COALESCE(SUM(TongTien), 0) AS doanhThu,
+           COUNT(*) AS soDon
+         FROM donhang
+         WHERE TrangThaiDonHang IN (${completedPlaceholders})
+           AND NgayMuaHang >= ? AND NgayMuaHang <= ?
+         GROUP BY DATE_FORMAT(NgayMuaHang, '%Y-%m-%d')
+         ORDER BY ngay ASC`,
+        [...COMPLETED_STATUSES, startDateTime, endDateTime]
+      );
+
+      const revenueMap = new Map();
+      dailyRevenueRows.forEach((row) => {
+        revenueMap.set(row.ngay, {
+          doanhThu: Number(row.doanhThu) || 0,
+          soDon: Number(row.soDon) || 0
+        });
+      });
+
+      const diffDays =
+        Math.round((parseLocalDate(toDate) - parseLocalDate(fromDate)) / (1000 * 60 * 60 * 24)) + 1;
+
+      if (diffDays <= 366) {
+        const allDates = getDateArrayInRange(fromDate, toDate);
+        chartData = allDates.map((dateStr) => {
+          const [, m, d] = dateStr.split('-');
+          const matched = revenueMap.get(dateStr);
+          return {
+            key: dateStr,
+            ngay: dateStr,
+            label: `${d}/${m}`,
+            fullLabel: `Ngày ${formatDisplayDate(dateStr)}`,
+            doanhThu: matched ? matched.doanhThu : 0,
+            soDon: matched ? matched.soDon : 0
+          };
+        });
+      } else {
+        chartData = dailyRevenueRows.map((row) => {
+          const [, m, d] = row.ngay.split('-');
+          return {
+            key: row.ngay,
+            ngay: row.ngay,
+            label: `${d}/${m}`,
+            fullLabel: `Ngày ${formatDisplayDate(row.ngay)}`,
+            doanhThu: Number(row.doanhThu) || 0,
+            soDon: Number(row.soDon) || 0
+          };
+        });
+      }
+    }
 
     // 2. Danh sách đơn hàng trong khoảng thời gian
     const [orderRows] = await pool.query(
-      `SELECT 
+      `SELECT
          d.MaDonHang,
          d.NgayMuaHang,
          COALESCE(d.TenNguoiNhan, u.TaiKhoan, 'Khách hàng') AS KhachHang,
@@ -94,14 +246,82 @@ const getRevenueAnalytics = async (req, res, next) => {
 
     const orders = orderRows.map((row) => ({
       MaDonHang: row.MaDonHang,
+      CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
       NgayMuaHang: row.NgayMuaHang,
       KhachHang: row.KhachHang,
       TrangThaiDonHang: row.TrangThaiDonHang,
-      TongTien: Number(row.TongTien)
+      TongTien: Number(row.TongTien) || 0
+    }));
+
+    // 3. Thống kê KPI phụ trợ (sắp hết hàng + đơn đổi trả trong kỳ & toàn hệ thống)
+    const [stockRows] = await pool.query(
+      `SELECT
+         SUM(CASE WHEN COALESCE(TonKho, 0) > 0 AND COALESCE(TonKho, 0) < 5 THEN 1 ELSE 0 END) AS sanPhamSapHetHang,
+         SUM(CASE WHEN COALESCE(TonKho, 0) <= 0 THEN 1 ELSE 0 END) AS sanPhamHetHang
+       FROM sanpham`
+    );
+
+    const [returnRangeRows] = await pool.query(
+      `SELECT COUNT(DISTINCT MaDonHang) AS tongDonDoiTra
+       FROM (
+         SELECT MaDonHang FROM phieudoitra WHERE NgayTao >= ? AND NgayTao <= ?
+         UNION
+         SELECT MaDonHang FROM donhang WHERE TrangThaiDonHang IN (${returnPlaceholders}) AND NgayMuaHang >= ? AND NgayMuaHang <= ?
+       ) AS r_range`,
+      [startDateTime, endDateTime, ...RETURN_ORDER_STATUSES, startDateTime, endDateTime]
+    );
+
+    const [returnAllRows] = await pool.query(
+      `SELECT COUNT(DISTINCT MaDonHang) AS tongDonDoiTraHeThong
+       FROM (
+         SELECT MaDonHang FROM phieudoitra
+         UNION
+         SELECT MaDonHang FROM donhang WHERE TrangThaiDonHang IN (${returnPlaceholders})
+       ) AS r_all`,
+      RETURN_ORDER_STATUSES
+    );
+
+    // 4. Top 5 Sản phẩm bán chạy nhất trong khoảng thời gian chọn
+    const [topProductRows] = await pool.query(
+      `SELECT
+         sp.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh,
+         sp.Gia,
+         COALESCE(sp.TonKho, 0) AS TonKho,
+         nsx.TenNhaSanXuat,
+         COALESCE(SUM(ct.SoLuong), 0) AS SoLuongDaBan,
+         COALESCE(SUM(COALESCE(ct.TongGia, ct.SoLuong * ct.DonGia)), 0) AS TongDoanhThu
+       FROM sanpham sp
+       LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
+       JOIN chitietdonhang ct ON sp.MaSanPham = ct.MaSanPham
+       JOIN donhang d ON ct.MaDonHang = d.MaDonHang
+       WHERE d.TrangThaiDonHang IN (${completedPlaceholders})
+         AND d.NgayMuaHang >= ? AND d.NgayMuaHang <= ?
+       GROUP BY sp.MaSanPham, sp.TenSanPham, sp.Anh, sp.Gia, sp.TonKho, nsx.TenNhaSanXuat
+       ORDER BY SoLuongDaBan DESC, TongDoanhThu DESC
+       LIMIT 5`,
+      [...COMPLETED_STATUSES, startDateTime, endDateTime]
+    );
+
+    const topProducts = topProductRows.map((row) => ({
+      MaSanPham: row.MaSanPham,
+      TenSanPham: row.TenSanPham,
+      Anh: row.Anh,
+      Gia: Number(row.Gia) || 0,
+      TonKho: Number(row.TonKho) || 0,
+      TenNhaSanXuat: row.TenNhaSanXuat || null,
+      SoLuongDaBan: Number(row.SoLuongDaBan) || 0,
+      TongDoanhThu: Number(row.TongDoanhThu) || 0
     }));
 
     const tongDoanhThu = chartData.reduce((sum, item) => sum + item.doanhThu, 0);
+    const donHangThanhCong = chartData.reduce((sum, item) => sum + item.soDon, 0);
     const tongDonHang = orders.length;
+    const sanPhamSapHetHang = Number(stockRows[0]?.sanPhamSapHetHang) || 0;
+    const sanPhamHetHang = Number(stockRows[0]?.sanPhamHetHang) || 0;
+    const tongDonDoiTra = Number(returnRangeRows[0]?.tongDonDoiTra) || 0;
+    const tongDonDoiTraHeThong = Number(returnAllRows[0]?.tongDonDoiTraHeThong) || 0;
 
     return res.status(200).json({
       success: true,
@@ -109,11 +329,18 @@ const getRevenueAnalytics = async (req, res, next) => {
       data: {
         fromDate,
         toDate,
+        groupBy,
         chart: chartData,
-        orders: orders,
+        orders,
+        topProducts,
         summary: {
           tongDoanhThu,
-          tongDonHang
+          donHangThanhCong,
+          tongDonHang,
+          sanPhamSapHetHang,
+          sanPhamHetHang,
+          tongDonDoiTra,
+          tongDonDoiTraHeThong
         }
       }
     });
@@ -138,7 +365,7 @@ const exportRevenueExcel = async (req, res, next) => {
     }
 
     // Validate: fromDate > toDate
-    if (new Date(fromDate) > new Date(toDate)) {
+    if (parseLocalDate(fromDate) > parseLocalDate(toDate)) {
       return res.status(400).json({
         success: false,
         message: 'Ngày bắt đầu không được lớn hơn ngày kết thúc'
@@ -150,7 +377,7 @@ const exportRevenueExcel = async (req, res, next) => {
 
     // Truy vấn danh sách đơn hàng
     const [orderRows] = await pool.query(
-      `SELECT 
+      `SELECT
          d.MaDonHang,
          d.NgayMuaHang,
          COALESCE(d.TenNguoiNhan, u.TaiKhoan, 'Khách hàng') AS KhachHang,
