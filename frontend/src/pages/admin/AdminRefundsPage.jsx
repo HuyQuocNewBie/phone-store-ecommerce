@@ -23,9 +23,12 @@ import {
   Banknote,
   ShieldCheck,
   Loader2,
+  ImageOff,
 } from 'lucide-react';
 import api from '../../services/api';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
+
+const formatCurrency = (amount) => formatVND(Number(amount) || 0);
 
 const REFUND_TABS = [
   { id: 'ALL', label: 'Tất cả đạt kiểm định' },
@@ -69,6 +72,52 @@ const parseProofImages = (item) => {
     .split(',')
     .map((u) => u.trim())
     .filter(Boolean);
+};
+
+const ProofImageTile = ({ imgUrl, index, isSingle, onOpen }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [imgUrl]);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`group relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-2xs hover:shadow-md hover:border-blue-400 transition-all text-left ${
+        isSingle ? 'w-full max-w-sm h-44 sm:h-48' : 'w-full h-28 sm:h-32'
+      }`}
+      title="Bấm vào ảnh để phóng to"
+    >
+      {hasError ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-slate-400 p-2 text-center">
+          <ImageOff className="w-5 h-5" />
+          <span className="text-[11px] font-medium">Không tải được ảnh</span>
+        </div>
+      ) : (
+        <img
+          src={formatImageUrl(imgUrl)}
+          alt={`Ảnh minh họa lỗi ${index + 1}`}
+          onError={() => setHasError(true)}
+          className={`w-full h-full transition-transform duration-200 group-hover:scale-[1.03] ${
+            isSingle ? 'object-contain p-1.5' : 'object-cover'
+          }`}
+        />
+      )}
+      <div className="absolute inset-0 bg-slate-900/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-[11px] font-semibold backdrop-blur-sm">
+          <ZoomIn className="w-3.5 h-3.5" />
+          Phóng to
+        </span>
+      </div>
+      {!isSingle && (
+        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/65 text-white text-[10px] font-mono">
+          #{index + 1}
+        </span>
+      )}
+    </button>
+  );
 };
 
 const AdminRefundsPage = () => {
@@ -336,7 +385,7 @@ const AdminRefundsPage = () => {
               {metrics.pendingCount}
             </h3>
             <span className="text-[11px] text-amber-600 font-semibold mt-0.5 block">
-              Tổng cần hoàn: {formatVND(metrics.pendingAmount)}
+              Tổng cần hoàn: {formatCurrency(metrics.pendingAmount)}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
@@ -361,7 +410,7 @@ const AdminRefundsPage = () => {
               {metrics.refundedCount}
             </h3>
             <span className="text-[11px] text-emerald-600 font-semibold mt-0.5 block">
-              Tổng đã hoàn: {formatVND(metrics.refundedAmount)}
+              Tổng đã hoàn: {formatCurrency(metrics.refundedAmount)}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
@@ -580,13 +629,14 @@ const AdminRefundsPage = () => {
                               {`Màu: ${mauSac || 'N/A'} | Dung lượng: ${dungLuong || 'N/A'}`}
                             </span>
                             <span className="text-xs font-semibold text-blue-600">
-                              {formatVND(item.DonGia || item.GiaSanPham || item.TongTien)}
+                              {formatCurrency(
+                                item.TongTien !== null && item.TongTien !== undefined
+                                  ? item.TongTien
+                                  : item.DonGia || item.GiaSanPham || 0
+                              )}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-1">
-                            Mã SP: #{item.MaSanPham} • Đơn hàng: #{item.MaDonHang}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
+                          <p className="text-[11px] text-slate-500 mt-1">
                             Ghi chú:{' '}
                             <span
                               className={
@@ -606,7 +656,7 @@ const AdminRefundsPage = () => {
                           Số tiền hoàn đơn hàng:
                         </span>
                         <span className="text-base font-extrabold text-emerald-700">
-                          {formatVND(item.TongTien)}
+                          {formatCurrency(item.TongTien)}
                         </span>
                       </div>
 
@@ -651,6 +701,45 @@ const AdminRefundsPage = () => {
                         </div>
                       </div>
 
+                      {/* Evidence Photos - Direct preview right under customer reason */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <Eye className="w-4 h-4 text-slate-500" />
+                            Ảnh minh họa lỗi của khách ({proofImages.length})
+                          </span>
+                          {proofImages.length > 0 && (
+                            <span className="text-[11px] text-slate-400">
+                              Bấm vào ảnh để phóng to
+                            </span>
+                          )}
+                        </div>
+                        {proofImages.length === 0 ? (
+                          <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-400 text-center">
+                            Khách hàng không đính kèm ảnh chứng minh
+                          </div>
+                        ) : proofImages.length === 1 ? (
+                          <ProofImageTile
+                            imgUrl={proofImages[0]}
+                            index={0}
+                            isSingle
+                            onOpen={() => handleOpenLightbox(proofImages, 0)}
+                          />
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            {proofImages.map((imgUrl, idx) => (
+                              <ProofImageTile
+                                key={idx}
+                                imgUrl={imgUrl}
+                                index={idx}
+                                isSingle={false}
+                                onOpen={() => handleOpenLightbox(proofImages, idx)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Warehouse Inspection Result Note */}
                       <div>
                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
@@ -661,39 +750,6 @@ const AdminRefundsPage = () => {
                           {item.GhiChuKho || 'Kho xác nhận sản phẩm đạt điều kiện đổi trả.'}
                         </div>
                       </div>
-
-                      {/* Evidence Photos */}
-                      {proofImages.length > 0 && (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                              <Eye className="w-4 h-4 text-slate-500" />
-                              Ảnh bằng chứng ({proofImages.length})
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Nhấn vào ảnh để phóng to
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2.5">
-                            {proofImages.map((imgUrl, idx) => (
-                              <div
-                                key={idx}
-                                onClick={() => handleOpenLightbox(proofImages, idx)}
-                                className="group relative w-20 h-20 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 cursor-pointer shadow-2xs hover:shadow-md hover:border-blue-400 transition-all"
-                              >
-                                <img
-                                  src={formatImageUrl(imgUrl)}
-                                  alt={`Bằng chứng ${idx + 1}`}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                />
-                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                  <ZoomIn className="w-4 h-4" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -743,7 +799,12 @@ const AdminRefundsPage = () => {
 
       {/* ── Lightbox Image Modal ── */}
       {lightboxOpen && lightboxImages.length > 0 && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLightboxOpen(false);
+          }}
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none"
+        >
           <div className="w-full max-w-5xl flex items-center justify-between text-white py-2">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/20">

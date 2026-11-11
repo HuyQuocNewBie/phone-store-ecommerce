@@ -25,9 +25,12 @@ import {
   CheckSquare,
   Square,
   Filter,
+  ImageOff,
 } from 'lucide-react';
 import api from '../../services/api';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
+
+const formatCurrency = (amount) => formatVND(Number(amount) || 0);
 
 // Format static or external image URLs safely
 const formatImageUrl = (url) => {
@@ -47,6 +50,71 @@ const formatImageUrl = (url) => {
       ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, '')
       : 'http://localhost:5000');
   return `${base}${cleanPath}`;
+};
+
+const parseProofImages = (item) => {
+  if (Array.isArray(item?.HinhAnhProofList) && item.HinhAnhProofList.length > 0) {
+    return item.HinhAnhProofList;
+  }
+  if (!item?.HinhAnhProof) return [];
+  try {
+    const parsed = JSON.parse(item.HinhAnhProof);
+    if (Array.isArray(parsed)) {
+      return parsed.map((u) => String(u).trim()).filter(Boolean);
+    }
+  } catch {
+    // Fallback comma-separated or single URL
+  }
+  return String(item.HinhAnhProof)
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean);
+};
+
+const ProofImageTile = ({ imgUrl, index, isSingle, onOpen }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [imgUrl]);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`group relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-2xs hover:shadow-md hover:border-blue-400 transition-all text-left ${
+        isSingle ? 'w-full max-w-sm h-44 sm:h-48' : 'w-full h-28 sm:h-32'
+      }`}
+      title="Bấm vào ảnh để phóng to đối chiếu"
+    >
+      {hasError ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-slate-400 p-2 text-center">
+          <ImageOff className="w-5 h-5" />
+          <span className="text-[11px] font-medium">Không tải được ảnh</span>
+        </div>
+      ) : (
+        <img
+          src={formatImageUrl(imgUrl)}
+          alt={`Ảnh minh họa lỗi ${index + 1}`}
+          onError={() => setHasError(true)}
+          className={`w-full h-full transition-transform duration-200 group-hover:scale-[1.03] ${
+            isSingle ? 'object-contain p-1.5' : 'object-cover'
+          }`}
+        />
+      )}
+      <div className="absolute inset-0 bg-slate-900/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-[11px] font-semibold backdrop-blur-sm">
+          <ZoomIn className="w-3.5 h-3.5" />
+          Phóng to
+        </span>
+      </div>
+      {!isSingle && (
+        <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/65 text-white text-[10px] font-mono">
+          #{index + 1}
+        </span>
+      )}
+    </button>
+  );
 };
 
 // Preset quick inspection notes for warehouse staff
@@ -498,14 +566,20 @@ const WarehouseReturnsPage = () => {
               const isPending = item.KetQuaKiemDinh === 'ChoKiemDinh';
               const isPassed = item.KetQuaKiemDinh === 'Dat';
               const isFailed = item.KetQuaKiemDinh === 'Loi_KhongDat';
-              const proofImages = item.HinhAnhProofList || [];
+              const proofImages = parseProofImages(item);
+              const orderNote =
+                item.GhiChu && String(item.GhiChu).trim()
+                  ? String(item.GhiChu).trim()
+                  : item.donhang?.GhiChu && String(item.donhang.GhiChu).trim()
+                  ? String(item.donhang.GhiChu).trim()
+                  : '';
 
               return (
                 <div
                   key={item.MaPhieuDoiTra}
                   className={`bg-white rounded-2xl border transition-all shadow-2xs overflow-hidden ${
                     isPending
-                      ? 'border-amber-300 ring-1 ring-amber-200/80 bg-linear-to-r from-amber-50/20 to-white'
+                      ? 'border-amber-300 ring-1 ring-amber-200/80 bg-gradient-to-r from-amber-50/20 to-white'
                       : isPassed
                       ? 'border-emerald-200 hover:border-emerald-300'
                       : 'border-rose-200 hover:border-rose-300'
@@ -521,7 +595,11 @@ const WarehouseReturnsPage = () => {
                         <span className="text-xs font-semibold text-slate-700">
                           Đơn hàng:{' '}
                           <strong className="text-blue-600 font-mono">
-                            {item.CodeDonHang || formatOrderCode(item.MaDonHang)}
+                            {item.CodeDonHang ||
+                              formatOrderCode(
+                                item.MaDonHang,
+                                item.donhang?.NgayMuaHang || item.NgayTao
+                              )}
                           </strong>
                         </span>
                       </div>
@@ -602,24 +680,21 @@ const WarehouseReturnsPage = () => {
                                 }`}
                               </span>
                               <span className="text-xs font-semibold text-blue-600">
-                                {formatVND(item.DonGia || item.GiaSanPham || item.TongTien)}
+                                {formatCurrency(
+                                  item.TongTien !== null && item.TongTien !== undefined
+                                    ? item.TongTien
+                                    : item.DonGia || item.GiaSanPham || 0
+                                )}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-1">
-                              Mã SP: #{item.MaSanPham} • Đơn hàng: #{item.MaDonHang}
-                            </p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-[11px] text-slate-500 mt-1">
                               Ghi chú:{' '}
                               <span
                                 className={
-                                  item.GhiChu && String(item.GhiChu).trim()
-                                    ? 'text-slate-700'
-                                    : 'italic text-slate-400'
+                                  orderNote ? 'text-slate-700' : 'italic text-slate-400'
                                 }
                               >
-                                {item.GhiChu && String(item.GhiChu).trim()
-                                  ? String(item.GhiChu).trim()
-                                  : 'Không có ghi chú'}
+                                {orderNote || 'Không có ghi chú'}
                               </span>
                             </p>
                           </div>
@@ -675,11 +750,11 @@ const WarehouseReturnsPage = () => {
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                               <Eye className="w-4 h-4 text-slate-500" />
-                              Ảnh chụp bằng chứng ({proofImages.length})
+                              Ảnh minh họa lỗi của khách ({proofImages.length})
                             </span>
                             {proofImages.length > 0 && (
                               <span className="text-[11px] text-slate-400">
-                                Click vào ảnh để phóng to đối chiếu
+                                Bấm vào ảnh để phóng to đối chiếu
                               </span>
                             )}
                           </div>
@@ -688,42 +763,24 @@ const WarehouseReturnsPage = () => {
                             <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-400 text-center">
                               Khách hàng không đính kèm ảnh bằng chứng
                             </div>
+                          ) : proofImages.length === 1 ? (
+                            <ProofImageTile
+                              imgUrl={proofImages[0]}
+                              index={0}
+                              isSingle
+                              onOpen={() => handleOpenLightbox(proofImages, 0)}
+                            />
                           ) : (
-                            <div className="flex flex-wrap gap-2.5">
-                              {proofImages.map((imgUrl, imgIdx) => {
-                                const fullUrl = formatImageUrl(imgUrl);
-                                return (
-                                  <div
-                                    key={imgIdx}
-                                    onClick={() => handleOpenLightbox(proofImages, imgIdx)}
-                                    className="group relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 cursor-pointer shadow-2xs hover:shadow-md hover:border-blue-400 transition-all"
-                                  >
-                                    <img
-                                      src={fullUrl}
-                                      alt={`Ảnh bằng chứng ${imgIdx + 1}`}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.parentNode.classList.add(
-                                          'flex',
-                                          'items-center',
-                                          'justify-center'
-                                        );
-                                        const span = document.createElement('span');
-                                        span.className = 'text-[10px] text-slate-400 p-1 text-center';
-                                        span.textContent = 'Ảnh lỗi';
-                                        e.target.parentNode.appendChild(span);
-                                      }}
-                                    />
-                                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                      <ZoomIn className="w-5 h-5 drop-shadow-md" />
-                                    </div>
-                                    <span className="absolute bottom-1 right-1 px-1 rounded-sm bg-black/60 text-white text-[9px] font-mono">
-                                      #{imgIdx + 1}
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              {proofImages.map((imgUrl, imgIdx) => (
+                                <ProofImageTile
+                                  key={imgIdx}
+                                  imgUrl={imgUrl}
+                                  index={imgIdx}
+                                  isSingle={false}
+                                  onOpen={() => handleOpenLightbox(proofImages, imgIdx)}
+                                />
+                              ))}
                             </div>
                           )}
                         </div>
@@ -793,11 +850,13 @@ const WarehouseReturnsPage = () => {
         )}
 
       {/* ── MODAL: KIỂM ĐỊNH HÀNG ĐỔI TRẢ (PUT /warehouse/returns/:id/inspect) ── */}
-      {inspectModalOpen && activeReturn && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      {inspectModalOpen && activeReturn && (() => {
+        const modalProofImages = parseProofImages(activeReturn);
+        return (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4.5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-400/30 flex items-center justify-center">
                   <ClipboardCheck className="w-5 h-5" />
@@ -809,7 +868,11 @@ const WarehouseReturnsPage = () => {
                   <p className="text-xs text-slate-300">
                     Phiếu #{String(activeReturn.MaPhieuDoiTra).padStart(4, '0')} • Đơn hàng{' '}
                     <span className="text-blue-300 font-mono font-semibold">
-                      {activeReturn.CodeDonHang || formatOrderCode(activeReturn.MaDonHang)}
+                      {activeReturn.CodeDonHang ||
+                        formatOrderCode(
+                          activeReturn.MaDonHang,
+                          activeReturn.donhang?.NgayMuaHang || activeReturn.NgayTao
+                        )}
                     </span>
                   </p>
                 </div>
@@ -844,18 +907,27 @@ const WarehouseReturnsPage = () => {
                     <p className="font-bold text-slate-900 truncate">
                       {activeReturn.TenSanPham}
                     </p>
-                    <p className="text-slate-500 text-[11px]">
-                      {`Màu: ${
-                        activeReturn.MauSac && String(activeReturn.MauSac).trim()
-                          ? String(activeReturn.MauSac).trim()
-                          : 'N/A'
-                      } | Dung lượng: ${
-                        activeReturn.DungLuong && String(activeReturn.DungLuong).trim()
-                          ? String(activeReturn.DungLuong).trim()
-                          : 'N/A'
-                      }`}{' '}
-                      • {formatVND(activeReturn.DonGia || activeReturn.GiaSanPham || activeReturn.TongTien)}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200/80">
+                        {`Màu: ${
+                          activeReturn.MauSac && String(activeReturn.MauSac).trim()
+                            ? String(activeReturn.MauSac).trim()
+                            : 'N/A'
+                        } | Dung lượng: ${
+                          activeReturn.DungLuong && String(activeReturn.DungLuong).trim()
+                            ? String(activeReturn.DungLuong).trim()
+                            : 'N/A'
+                        }`}
+                      </span>
+                      <span className="text-xs font-bold text-blue-600">
+                        {formatCurrency(
+                          activeReturn.TongTien !== null &&
+                            activeReturn.TongTien !== undefined
+                            ? activeReturn.TongTien
+                            : activeReturn.DonGia || activeReturn.GiaSanPham || 0
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right shrink-0">
@@ -868,22 +940,53 @@ const WarehouseReturnsPage = () => {
                 </div>
               </div>
 
-              {/* Customer's Reason & Photo thumbnails reference */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                  <span className="flex items-center gap-1.5">
-                    <MessageSquareQuote className="w-4 h-4 text-blue-600" />
-                    Lý do khách gửi: &ldquo;{activeReturn.LyDo}&rdquo;
-                  </span>
-                  {activeReturn.HinhAnhProofList?.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenLightbox(activeReturn.HinhAnhProofList, 0)}
-                      className="text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 font-semibold"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Xem {activeReturn.HinhAnhProofList.length} ảnh chứng minh
-                    </button>
+              {/* Customer's Reason & Direct Proof Image Preview */}
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1.5">
+                    <MessageSquareQuote className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Lý do đổi trả của khách hàng:</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs sm:text-sm text-slate-800 leading-relaxed italic">
+                    &ldquo;{activeReturn.LyDo || 'Không có mô tả chi tiết'}&rdquo;
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Eye className="w-4 h-4 text-slate-500" />
+                      Ảnh minh họa lỗi của khách ({modalProofImages.length})
+                    </span>
+                    {modalProofImages.length > 0 && (
+                      <span className="text-[11px] text-slate-400">
+                        Bấm vào ảnh để phóng to
+                      </span>
+                    )}
+                  </div>
+                  {modalProofImages.length === 0 ? (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-400 text-center">
+                      Khách hàng không đính kèm ảnh chứng minh
+                    </div>
+                  ) : modalProofImages.length === 1 ? (
+                    <ProofImageTile
+                      imgUrl={modalProofImages[0]}
+                      index={0}
+                      isSingle
+                      onOpen={() => handleOpenLightbox(modalProofImages, 0)}
+                    />
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {modalProofImages.map((imgUrl, idx) => (
+                        <ProofImageTile
+                          key={idx}
+                          imgUrl={imgUrl}
+                          index={idx}
+                          isSingle={false}
+                          onOpen={() => handleOpenLightbox(modalProofImages, idx)}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1064,11 +1167,17 @@ const WarehouseReturnsPage = () => {
             </form>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── LIGHTBOX: PHÓNG TO ẢNH BẰNG CHỨNG CỦA KHÁCH HÀNG ── */}
       {lightboxOpen && lightboxImages.length > 0 && (
-        <div className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none animate-in fade-in duration-200">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLightboxOpen(false);
+          }}
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none"
+        >
           {/* Lightbox Header */}
           <div className="w-full max-w-5xl flex items-center justify-between text-white py-2">
             <div className="flex items-center gap-3">
