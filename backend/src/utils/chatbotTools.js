@@ -454,7 +454,7 @@ const getOrderStatus = async ({ orderCode, phoneNumber, userId } = {}) => {
         d.PhiShip,
         d.SoTienGiam,
         COALESCE(pttt.TenPhuongThucThanhToan, pttt_ls.TenPhuongThucThanhToan, 'COD') AS PhuongThucThanhToan,
-        COALESCE(tttt.TenTrangThai, CASE WHEN d.TrangThaiDonHang = 'Đã giao' THEN 'Thành công' ELSE 'Chưa thanh toán' END) AS TrangThaiThanhToan
+        COALESCE(tttt.TenTrangThai, CASE WHEN d.TrangThaiDonHang IN ('Đã giao', 'DaGiao', 'Đã hoàn thành') THEN 'Thành công' ELSE 'Chưa thanh toán' END) AS TrangThaiThanhToan
       FROM donhang d
       LEFT JOIN thanhtoan tt ON d.MaDonHang = tt.MaDonHang
       LEFT JOIN phuongthucthanhtoan pttt ON tt.MaPhuongThucThanhToan = pttt.MaPhuongThucThanhToan

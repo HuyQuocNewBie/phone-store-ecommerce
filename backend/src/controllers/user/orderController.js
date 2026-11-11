@@ -1,6 +1,13 @@
 const { pool } = require('../../../config/db');
 const { sendOrderInvoiceEmail, sendInvoiceEmail } = require('../../utils/mailer');
 const { formatOrderCode } = require('../../utils/formatters');
+const {
+  ORDER_STATUS,
+  CANCELLABLE_RAW_STATUSES,
+  STATUS_DB_GROUPS,
+  USER_TAB_STATUS_GROUPS,
+  normalizeOrderStatus
+} = require('../../utils/orderStatus');
 
 // Bảng ánh xạ phương thức thanh toán chuẩn số integer
 const METHOD_MAP = {
@@ -500,19 +507,10 @@ const createOrder = async (req, res, next) => {
       paymentMethodCode = 'COD';
     }
 
-    // Xác định trạng thái ban đầu của đơn hàng:
-    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': Đơn hàng giữ trạng thái "Chờ thanh toán"
-    // - NẾU phuongThucThanhToan === 'COD': Trạng thái "Chờ xác nhận" (hoặc trạng thái từ client nếu hợp lệ)
-    let initialOrderStatus;
-    if (paymentMethodCode === 'VNPAY' || paymentMethodCode === 'ZALOPAY') {
-      initialOrderStatus = 'Chờ thanh toán';
-    } else {
-      initialOrderStatus = (TrangThaiDonHang && TrangThaiDonHang !== 'Chờ thanh toán')
-        ? String(TrangThaiDonHang).trim()
-        : (order_status || trangThai || 'Chờ xác nhận');
-    }
+    // Ép gán trạng thái khởi tạo chuẩn 'ChoXacNhan' cho mọi đơn hàng mới (cả COD và Thanh toán Online)
+    const initialOrderStatus = ORDER_STATUS.CHO_XAC_NHAN;
 
-    // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = initialOrderStatus ("Chờ thanh toán")
+    // 5. Tạo đơn hàng trong bảng `donhang` với TrangThaiDonHang = 'ChoXacNhan'
     // Lưu giá trị shippingFee vào cột `PhiShip` trong bảng `donhang`
     const [donHangResult] = await connection.query(
       `INSERT INTO donhang 
@@ -641,13 +639,13 @@ const createOrder = async (req, res, next) => {
 
     // 12. Gửi Email hóa đơn theo phương thức thanh toán:
     // - NẾU phuongThucThanhToan === 'COD': Tiếp tục gọi hàm sendInvoiceEmail(orderId) ngay lập tức.
-    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': KHÔNG gọi sendInvoiceEmail. Đơn hàng giữ trạng thái "Chờ thanh toán".
+    // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': Chỉ gửi email sau khi xác nhận giao dịch thanh toán thành công qua callback.
     if (paymentMethodCode === 'COD') {
       sendInvoiceEmail(maDonHang).catch((err) =>
         console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn COD cho đơn hàng #${maDonHang}:`, err)
       );
     } else {
-      console.log(`[orderController] Đơn hàng #${maDonHang} (${paymentMethodCode}): Giữ trạng thái "Chờ thanh toán", KHÔNG gọi sendInvoiceEmail tại thời điểm tạo đơn.`);
+      console.log(`[orderController] Đơn hàng #${maDonHang} (${paymentMethodCode}): Khởi tạo ở trạng thái "${initialOrderStatus}", chờ callback thanh toán để gửi email hóa đơn.`);
     }
 
     return res.status(201).json({
@@ -705,26 +703,16 @@ const getUserOrders = async (req, res, next) => {
     const rawTab = req.query.tab || 'ALL';
     const tabParam = String(rawTab).toUpperCase().trim();
 
-    // 5 trạng thái chuẩn
-    const VALID_STATUSES = ['Chờ xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
+    let statusFilterList = null;
 
-    let statusFilter = null;
-
-    if (tabParam === 'PENDING') {
-      statusFilter = 'Chờ xác nhận';
-    } else if (tabParam === 'PROCESSING') {
-      statusFilter = 'Đang xử lý';
-    } else if (tabParam === 'SHIPPING') {
-      statusFilter = 'Đang giao';
-    } else if (tabParam === 'DELIVERED') {
-      statusFilter = 'Đã giao';
-    } else if (tabParam === 'CANCELLED' || tabParam === 'CANCELED') {
-      statusFilter = 'Đã hủy';
+    if (USER_TAB_STATUS_GROUPS[tabParam]) {
+      statusFilterList = USER_TAB_STATUS_GROUPS[tabParam];
     } else if (tabParam !== 'ALL') {
-      // Tìm theo chuỗi trạng thái tiếng Việt nếu được truyền trực tiếp
-      const matched = VALID_STATUSES.find((s) => s.toLowerCase() === String(rawTab).toLowerCase().trim());
-      if (matched) {
-        statusFilter = matched;
+      const normalized = normalizeOrderStatus(rawTab);
+      if (normalized && STATUS_DB_GROUPS[normalized]) {
+        statusFilterList = STATUS_DB_GROUPS[normalized];
+      } else {
+        statusFilterList = [String(rawTab).trim()];
       }
     }
 
@@ -748,9 +736,9 @@ const getUserOrders = async (req, res, next) => {
 
     const queryParams = [MaNguoiDung];
 
-    if (statusFilter) {
-      sql += ` AND TrangThaiDonHang = ?`;
-      queryParams.push(statusFilter);
+    if (statusFilterList && statusFilterList.length > 0) {
+      sql += ` AND TrangThaiDonHang IN (?)`;
+      queryParams.push(statusFilterList);
     }
 
     sql += ` ORDER BY NgayMuaHang DESC, MaDonHang DESC`;
@@ -1017,15 +1005,20 @@ const cancelOrder = async (req, res, next) => {
       });
     }
 
+    // Bắt đầu Transaction và khóa dòng đơn hàng (FOR UPDATE) tránh race condition
+    await connection.beginTransaction();
+
     // 1. Kiểm tra đơn hàng có tồn tại và thuộc về người dùng không
     const [orders] = await connection.query(
       `SELECT MaDonHang, MaNguoiDung, TrangThaiDonHang, MaVoucher 
        FROM donhang 
-       WHERE MaDonHang = ? AND MaNguoiDung = ?`,
+       WHERE MaDonHang = ? AND MaNguoiDung = ?
+       FOR UPDATE`,
       [orderId, MaNguoiDung]
     );
 
     if (orders.length === 0) {
+      await connection.rollback();
       connection.release();
       return res.status(404).json({
         success: false,
@@ -1034,29 +1027,30 @@ const cancelOrder = async (req, res, next) => {
     }
 
     const order = orders[0];
+    const isCancellable =
+      CANCELLABLE_RAW_STATUSES.includes(order.TrangThaiDonHang) ||
+      normalizeOrderStatus(order.TrangThaiDonHang) === ORDER_STATUS.CHO_XAC_NHAN;
 
-    // 2. Kiểm tra trạng thái đơn hàng (cho phép hủy khi TrangThaiDonHang === "Chờ xác nhận" hoặc "Chờ thanh toán")
-    if (order.TrangThaiDonHang !== 'Chờ xác nhận' && order.TrangThaiDonHang !== 'Chờ thanh toán') {
+    // 2. Kiểm tra trạng thái đơn hàng (chỉ cho phép hủy khi ở bước 1 'ChoXacNhan' / chờ xác nhận)
+    if (!isCancellable) {
+      await connection.rollback();
       connection.release();
       return res.status(400).json({
         success: false,
-        message: `Chỉ có thể hủy đơn hàng khi ở trạng thái chờ duyệt hoặc chờ thanh toán. Đơn hàng hiện tại: "${order.TrangThaiDonHang}".`
+        message: `Chỉ có thể hủy đơn hàng khi đang ở trạng thái chờ xác nhận (${ORDER_STATUS.CHO_XAC_NHAN}). Đơn hàng hiện tại: "${order.TrangThaiDonHang}".`
       });
     }
 
-    // Bắt đầu Transaction
-    await connection.beginTransaction();
-
-    // 3. Cập nhật TrangThaiDonHang thành "Đã hủy"
+    // 3. Cập nhật TrangThaiDonHang thành 'DaHuy'
     await connection.query(
-      `UPDATE donhang SET TrangThaiDonHang = 'Đã hủy' WHERE MaDonHang = ?`,
-      [orderId]
+      `UPDATE donhang SET TrangThaiDonHang = ? WHERE MaDonHang = ?`,
+      [ORDER_STATUS.DA_HUY, orderId]
     );
 
     // Cập nhật bảng lichsumuahang nếu tồn tại bản ghi của đơn hàng này
     await connection.query(
-      `UPDATE lichsumuahang SET TrangThai = 'Đã hủy' WHERE MaDonHang = ?`,
-      [orderId]
+      `UPDATE lichsumuahang SET TrangThai = ? WHERE MaDonHang = ?`,
+      [ORDER_STATUS.DA_HUY, orderId]
     );
 
     // 4. Lấy chi tiết các sản phẩm trong đơn hàng để hoàn trả kho
@@ -1127,7 +1121,7 @@ const cancelOrder = async (req, res, next) => {
       message: 'Hủy đơn hàng thành công',
       data: {
         MaDonHang: orderId,
-        TrangThaiDonHang: 'Đã hủy'
+        TrangThaiDonHang: ORDER_STATUS.DA_HUY
       }
     });
 

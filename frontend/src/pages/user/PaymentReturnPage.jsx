@@ -21,6 +21,11 @@ import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
+import {
+  ORDER_STATUS,
+  getOrderStatusDisplayLabel,
+  notifyOrderStatusChanged,
+} from '../../utils/orderSync';
 
 /* ─────────────────────────────────────────────
    ZaloPay Logo Component
@@ -227,8 +232,15 @@ const PaymentReturnPage = () => {
 
         setResult(resData);
 
-        // Kích hoạt pháo hoa & dọn dẹp giỏ hàng nếu thanh toán thành công
+        // Kích hoạt pháo hoa, dọn dẹp giỏ hàng và phát đồng bộ nếu thanh toán thành công
         const paymentOk = Boolean(resData?.success && (resData?.isSuccess !== undefined ? resData?.isSuccess : resData?.success));
+        if (resData?.data?.orderId || resData?.orderId) {
+          notifyOrderStatusChanged({
+            orderId: resData?.data?.orderId || resData?.orderId,
+            status: resData?.data?.orderStatus || ORDER_STATUS.CHO_XAC_NHAN,
+            source: 'payment_return',
+          });
+        }
         if (paymentOk) {
           if (typeof clearCart === 'function') {
             clearCart();
@@ -293,8 +305,9 @@ const PaymentReturnPage = () => {
   // Số tiền giảm giá từ ZaloPay (nếu có)
   const discountAmountNum = Number(discountamount || data.discountAmount || 0);
 
-  // Trạng thái đơn hàng
-  const orderStatus = data.orderStatus || orderInfo?.TrangThaiDonHang || (isSuccess ? 'Đang xử lý' : 'Chờ thanh toán');
+  // Trạng thái đơn hàng (hiển thị thân thiện, mặc định 'ChoXacNhan' -> 'Chờ xác nhận')
+  const rawOrderStatus = data.orderStatus || orderInfo?.TrangThaiDonHang || ORDER_STATUS.CHO_XAC_NHAN;
+  const orderStatus = getOrderStatusDisplayLabel(rawOrderStatus);
 
   // Phương thức chi tiết qua ZaloPay
   const getPmcLabel = (code) => {
@@ -383,7 +396,7 @@ const PaymentReturnPage = () => {
   // Thông báo chi tiết lý do thất bại
   const getFailureReason = () => {
     if (zaloStatus === '-49' || String(zaloStatus) === '-49') {
-      return 'Giao dịch đã bị hủy bởi người dùng trên ứng dụng ZaloPay. Đơn hàng của bạn vẫn được lưu lại an toàn với trạng thái "Chờ thanh toán".';
+      return 'Giao dịch đã bị hủy bởi người dùng trên ứng dụng ZaloPay. Đơn hàng của bạn vẫn được lưu lại an toàn với trạng thái "Chờ xác nhận".';
     }
     if (result?.message) {
       return result.message;
@@ -391,7 +404,7 @@ const PaymentReturnPage = () => {
     if (error) {
       return error;
     }
-    return 'Giao dịch qua cổng thanh toán ZaloPay không thành công hoặc đã bị gián đoạn. Đơn hàng của bạn vẫn được lưu trữ với trạng thái "Chờ thanh toán".';
+    return 'Giao dịch qua cổng thanh toán ZaloPay không thành công hoặc đã bị gián đoạn. Đơn hàng của bạn vẫn được lưu trữ với trạng thái "Chờ xác nhận".';
   };
 
   return (

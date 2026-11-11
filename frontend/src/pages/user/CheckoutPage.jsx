@@ -6,6 +6,7 @@ import Footer from '../../components/user/Footer';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { ORDER_STATUS, notifyOrderStatusChanged } from '../../utils/orderSync';
 
 /* ─────────────────────────────────────────────
    Helper: Format tiền VND
@@ -369,7 +370,7 @@ const CheckoutPage = () => {
         shipping_method: 'Giao hàng tiêu chuẩn',
         paymentMethod:  paymentMethod,
         payment_method: paymentMethod,
-        TrangThaiDonHang: 'Chờ thanh toán',
+        TrangThaiDonHang: ORDER_STATUS.CHO_XAC_NHAN,
         items: items.map((it) => ({
           MaSanPham: it.MaSanPham,
           SoLuong:   it.SoLuong,
@@ -387,6 +388,12 @@ const CheckoutPage = () => {
         const orderData = response.data.data;
         const newOrderId = orderData?.MaDonHang;
         const payAmount = Number(orderData?.TongTien) > 0 ? Number(orderData.TongTien) : totalAmount;
+
+        notifyOrderStatusChanged({
+          orderId: newOrderId,
+          status: orderData?.TrangThaiDonHang || ORDER_STATUS.CHO_XAC_NHAN,
+          source: 'checkout',
+        });
 
         // 1. Xóa giỏ hàng sau khi tạo đơn hàng thành công
         if (typeof clearCart === 'function') {

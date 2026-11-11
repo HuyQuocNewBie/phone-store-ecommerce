@@ -1,5 +1,10 @@
 const { pool } = require('../../../config/db');
 const { formatOrderCode } = require('../../utils/formatters');
+const {
+  ORDER_STATUS,
+  normalizeOrderStatus,
+  canTransitionOrderStatus
+} = require('../../utils/orderStatus');
 
 /**
  * 1. GET /api/v1/admin/orders
@@ -155,14 +160,16 @@ const getOrderDetail = async (req, res, next) => {
 
 /**
  * 3. PUT /api/v1/admin/orders/:id/status
- * Cập nhật nhanh TrangThaiDonHang của đơn hàng (chỉ nhận 5 trạng thái chuẩn)
+ * Cập nhật TrangThaiDonHang theo đúng thứ tự 5 bước chuẩn:
+ *   ChoXacNhan -> DaXacNhan -> DangDongGoi -> DangGiao -> DaGiao (hoặc DaHuy trước khi đóng gói)
  */
 const updateOrderStatus = async (req, res, next) => {
+  let connection;
   try {
     const { id } = req.params;
     const orderId = Number(id);
 
-    if (isNaN(orderId)) {
+    if (!Number.isInteger(orderId) || orderId <= 0) {
       return res.status(400).json({
         success: false,
         message: 'Mã đơn hàng không hợp lệ'
@@ -170,53 +177,137 @@ const updateOrderStatus = async (req, res, next) => {
     }
 
     const { TrangThaiDonHang, trangThai } = req.body;
-    const statusToUpdate = String(TrangThaiDonHang || trangThai || '').trim();
+    const rawTarget = String(TrangThaiDonHang || trangThai || '').trim();
 
-    if (!statusToUpdate) {
+    if (!rawTarget) {
       return res.status(400).json({
         success: false,
         message: 'Trạng thái đơn hàng không được để trống'
       });
     }
 
-    // Validate trạng thái chuẩn
-    const VALID_STATUSES = ['Chờ xác nhận', 'Chờ thanh toán', 'Đang xử lý', 'Đang giao', 'Đã giao', 'Đã hủy'];
-    if (!VALID_STATUSES.includes(statusToUpdate)) {
+    const targetStatus = normalizeOrderStatus(rawTarget);
+    if (!targetStatus) {
       return res.status(400).json({
         success: false,
-        message: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${VALID_STATUSES.join(', ')}`
+        message: `Trạng thái '${rawTarget}' không hợp lệ. Các trạng thái chuẩn: ChoXacNhan, DaXacNhan, DangDongGoi, DangGiao, DaGiao, DaHuy`
       });
     }
 
-    // Kiểm tra đơn hàng có tồn tại không
-    const [existing] = await pool.query(
-      `SELECT MaDonHang FROM donhang WHERE MaDonHang = ?`,
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Kiểm tra đơn hàng có tồn tại không & khóa dòng tránh xung đột đồng thời
+    const [existing] = await connection.query(
+      `SELECT MaDonHang, TrangThaiDonHang, MaVoucher FROM donhang WHERE MaDonHang = ? FOR UPDATE`,
       [orderId]
     );
 
     if (existing.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         success: false,
         message: 'Đơn hàng không tồn tại'
       });
     }
 
-    // Cập nhật trạng thái đơn hàng
-    await pool.query(
+    const order = existing[0];
+    const transition = canTransitionOrderStatus(order.TrangThaiDonHang, targetStatus);
+
+    if (!transition.valid) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: transition.message
+      });
+    }
+
+    // Cập nhật trạng thái đơn hàng ở cả `donhang` và `lichsumuahang`
+    await connection.query(
       `UPDATE donhang SET TrangThaiDonHang = ? WHERE MaDonHang = ?`,
-      [statusToUpdate, orderId]
+      [targetStatus, orderId]
     );
+
+    await connection.query(
+      `UPDATE lichsumuahang SET TrangThai = ? WHERE MaDonHang = ?`,
+      [targetStatus, orderId]
+    );
+
+    // Nếu chuyển từ trạng thái chưa hủy sang 'DaHuy', hoàn trả tồn kho & voucher
+    if (
+      targetStatus === ORDER_STATUS.DA_HUY &&
+      transition.fromStatus !== ORDER_STATUS.DA_HUY
+    ) {
+      const [items] = await connection.query(
+        `SELECT MaSanPham, SoLuong FROM chitietdonhang WHERE MaDonHang = ?`,
+        [orderId]
+      );
+
+      for (const item of items) {
+        const soLuongHoanTra = Number(item.SoLuong) || 0;
+        if (soLuongHoanTra > 0) {
+          await connection.query(
+            `UPDATE sanpham SET TonKho = TonKho + ? WHERE MaSanPham = ?`,
+            [soLuongHoanTra, item.MaSanPham]
+          );
+
+          const [prodRows] = await connection.query(
+            `SELECT TonKho, TrangThai FROM sanpham WHERE MaSanPham = ?`,
+            [item.MaSanPham]
+          );
+
+          if (prodRows.length > 0) {
+            const newTonKho = Number(prodRows[0].TonKho);
+            if (prodRows[0].TrangThai === 'HetHang' && newTonKho > 0) {
+              await connection.query(
+                `UPDATE sanpham SET TrangThai = 'DangBan' WHERE MaSanPham = ?`,
+                [item.MaSanPham]
+              );
+            }
+
+            await connection.query(
+              `INSERT INTO lichsutonkho
+                (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
+               VALUES (?, 'HuyDon', ?, ?, ?, NOW(), ?)`,
+              [
+                item.MaSanPham,
+                soLuongHoanTra,
+                newTonKho,
+                orderId,
+                `Hoàn tồn do quản trị viên hủy đơn hàng #${orderId}`
+              ]
+            );
+          }
+        }
+      }
+
+      if (order.MaVoucher) {
+        await connection.query(
+          `UPDATE voucher SET SoLuong = SoLuong + 1 WHERE MaVoucher = ?`,
+          [order.MaVoucher]
+        );
+      }
+    }
+
+    await connection.commit();
 
     return res.status(200).json({
       success: true,
       message: 'Cập nhật trạng thái đơn hàng thành công',
       data: {
         MaDonHang: orderId,
-        TrangThaiDonHang: statusToUpdate
+        TrangThaiDonHang: targetStatus
       }
     });
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
     next(error);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 

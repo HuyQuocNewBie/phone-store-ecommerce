@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const { formatOrderCode } = require('./formatters');
+const { getOrderStatusLabel } = require('./orderStatus');
 const { pool } = require('../../config/db');
 
 dotenv.config();
@@ -124,7 +125,7 @@ const sendOrderInvoiceEmail = async (toEmail, orderData) => {
         <div style="padding: 24px;">
           <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
             <h3 style="margin: 0; color: #065f46; font-size: 16px;">Xác nhận đơn hàng thành công!</h3>
-            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">${orderSN}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">${orderData.TrangThaiDonHang || 'Chờ xác nhận'}</span></p>
+            <p style="margin: 4px 0 0 0; color: #047857; font-size: 13px;">Mã đơn hàng của bạn là <strong style="color: #065f46;">${orderSN}</strong>. Trạng thái hiện tại: <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: bold;">${getOrderStatusLabel(orderData.TrangThaiDonHang || 'ChoXacNhan')}</span></p>
           </div>
 
           <!-- Customer Info -->

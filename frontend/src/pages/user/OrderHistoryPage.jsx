@@ -6,6 +6,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
+import { notifyOrderStatusChanged, subscribeOrderStatusChanges } from '../../utils/orderSync';
 
 /* ─── Tabs Trạng Thái Đơn Hàng ────────────────────────────────────────────── */
 const ORDER_TABS = [
@@ -177,8 +178,9 @@ const getStatusInfo = (status) => {
   switch (status) {
     case 'Chờ xác nhận':
     case 'ChoXacNhan':
+    case 'ChoDuyet':
       return {
-        label: 'Chờ xác nhận',
+        label: 'CHỜ XÁC NHẬN',
         icon: 'schedule',
         badgeClass: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
         dotClass: 'bg-amber-500 animate-pulse',
@@ -186,40 +188,28 @@ const getStatusInfo = (status) => {
     case 'Chờ thanh toán':
     case 'ChoThanhToan':
       return {
-        label: 'Chờ thanh toán',
+        label: 'CHỜ THANH TOÁN',
         icon: 'credit_card',
         badgeClass: 'bg-purple-500/10 text-purple-600 border border-purple-500/20',
         dotClass: 'bg-purple-500 animate-pulse',
       };
     case 'DaXacNhan':
     case 'Đã xác nhận':
-      return {
-        label: 'Đã xác nhận',
-        icon: 'verified',
-        badgeClass: 'bg-cyan-500/10 text-cyan-700 border border-cyan-500/20',
-        dotClass: 'bg-cyan-500 animate-pulse',
-      };
+    case 'DangDongGoi':
+    case 'Đang đóng gói':
     case 'Đang xử lý':
     case 'DangXuLy':
       return {
-        label: 'Đang xử lý',
+        label: 'ĐANG XỬ LÝ',
         icon: 'inventory_2',
         badgeClass: 'bg-sky-500/10 text-sky-600 border border-sky-500/20',
         dotClass: 'bg-sky-500 animate-pulse',
-      };
-    case 'DangDongGoi':
-    case 'Đang đóng gói':
-      return {
-        label: 'Đang đóng gói',
-        icon: 'inventory_2',
-        badgeClass: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20',
-        dotClass: 'bg-indigo-500 animate-pulse',
       };
     case 'Đang giao':
     case 'DangGiao':
     case 'Đang giao hàng':
       return {
-        label: 'Đang giao hàng',
+        label: 'ĐANG GIAO HÀNG',
         icon: 'local_shipping',
         badgeClass: 'bg-primary-container/10 text-primary border border-primary/20',
         dotClass: 'bg-primary animate-pulse',
@@ -229,7 +219,7 @@ const getStatusInfo = (status) => {
     case 'Đã hoàn thành':
     case 'HoanTat':
       return {
-        label: 'Hoàn tất',
+        label: 'HOÀN TẤT',
         icon: 'task_alt',
         badgeClass: 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20',
         dotClass: 'bg-emerald-500',
@@ -237,7 +227,7 @@ const getStatusInfo = (status) => {
     case 'YeuCauDoiTra':
     case 'Yêu cầu đổi trả':
       return {
-        label: 'Yêu cầu đổi trả',
+        label: 'YÊU CẦU ĐỔI TRẢ',
         icon: 'assignment_return',
         badgeClass: 'bg-orange-500/10 text-orange-700 border border-orange-500/25',
         dotClass: 'bg-orange-500 animate-pulse',
@@ -245,7 +235,7 @@ const getStatusInfo = (status) => {
     case 'DaHoanTien':
     case 'Đã hoàn tiền':
       return {
-        label: 'Đã hoàn tiền',
+        label: 'ĐÃ HOÀN TIỀN',
         icon: 'currency_exchange',
         badgeClass: 'bg-teal-500/10 text-teal-700 border border-teal-500/25',
         dotClass: 'bg-teal-500',
@@ -253,14 +243,14 @@ const getStatusInfo = (status) => {
     case 'Đã hủy':
     case 'DaHuy':
       return {
-        label: 'Đã hủy',
+        label: 'ĐÃ HỦY',
         icon: 'cancel',
         badgeClass: 'bg-error-container/20 text-error border border-error/20',
         dotClass: 'bg-error',
       };
     default:
       return {
-        label: status || 'Chờ cập nhật',
+        label: status || 'CHỜ CẬP NHẬT',
         icon: 'receipt_long',
         badgeClass: 'bg-surface-container text-on-surface-variant border border-outline/20',
         dotClass: 'bg-outline',
@@ -1300,6 +1290,8 @@ const OrderHistoryPage = () => {
   const spotlightRef = useRef(null);
   const historySectionRef = useRef(null);
   const shouldScrollToSpotlightRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  const latestRequestIdRef = useRef(0);
 
   useEffect(() => {
     setActiveTab(validTab);
@@ -1307,14 +1299,24 @@ const OrderHistoryPage = () => {
   }, [validTab]);
 
   /* ── 1. Fetch Toàn Bộ Danh Sách Đơn Hàng (Đồng bộ mọi trạng thái Kho & Đổi trả) ── */
-  const fetchOrders = useCallback(async ({ silent = false } = {}) => {
+  const fetchOrders = useCallback(async ({ silent = false, force = false } = {}) => {
+    if (silent && !force && isFetchingRef.current) {
+      return;
+    }
+
+    const requestId = ++latestRequestIdRef.current;
+    isFetchingRef.current = true;
+
     if (silent) {
       setRefreshing(true);
     } else {
       setLoading(true);
     }
+
     try {
       const res = await api.get('/orders', { params: { tab: 'ALL' } });
+      if (requestId !== latestRequestIdRef.current) return;
+
       if (res.data?.success) {
         const fetchedList = res.data.data || [];
         setOrders(fetchedList);
@@ -1324,27 +1326,55 @@ const OrderHistoryPage = () => {
         setAllOrdersForCounts([]);
       }
     } catch (error) {
+      if (requestId !== latestRequestIdRef.current) return;
       if (!silent) {
         toast.error(error.response?.data?.message || 'Không thể tải danh sách đơn hàng. Vui lòng thử lại!');
         setOrders([]);
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === latestRequestIdRef.current) {
+        isFetchingRef.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders({ force: true });
   }, [fetchOrders]);
 
-  // Tự động đồng bộ lại trạng thái khi User quay lại tab trình duyệt (nhảy nấc theo thao tác Kho)
+  // Tự động đồng bộ trạng thái ngay lập tức khi có thao tác từ Kho/Admin hoặc khi quay lại tab
   useEffect(() => {
-    const handleWindowFocus = () => {
-      fetchOrders({ silent: true });
+    const handleSyncTrigger = () => {
+      fetchOrders({ silent: true, force: true });
     };
-    window.addEventListener('focus', handleWindowFocus);
-    return () => window.removeEventListener('focus', handleWindowFocus);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders({ silent: true, force: true });
+      }
+    };
+
+    const unsubscribe = subscribeOrderStatusChanges(() => {
+      fetchOrders({ silent: true, force: true });
+    });
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders({ silent: true });
+      }
+    }, 5000);
+
+    window.addEventListener('focus', handleSyncTrigger);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleSyncTrigger);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchOrders]);
 
   // Khóa cuộn body khi có bất kỳ modal nào đang mở
@@ -1437,13 +1467,16 @@ const OrderHistoryPage = () => {
 
   /* ── 4. Đơn hàng đang được chọn hiển thị trong Spotlight Card ── */
   const currentFeaturedOrder = useMemo(() => {
-    if (!isSpotlightOpen || filteredOrders.length === 0) return null;
+    if (!isSpotlightOpen) return null;
     if (selectedOrderId) {
-      const found = filteredOrders.find((o) => o.MaDonHang === selectedOrderId);
-      if (found) return found;
+      const inFiltered = filteredOrders.find((o) => o.MaDonHang === selectedOrderId);
+      if (inFiltered) return inFiltered;
+      const inAll = orders.find((o) => o.MaDonHang === selectedOrderId);
+      if (inAll) return inAll;
     }
+    if (filteredOrders.length === 0) return null;
     return filteredOrders[0];
-  }, [isSpotlightOpen, filteredOrders, selectedOrderId]);
+  }, [isSpotlightOpen, filteredOrders, orders, selectedOrderId]);
 
   useEffect(() => {
     if (isSpotlightOpen && currentFeaturedOrder && shouldScrollToSpotlightRef.current) {
@@ -1461,11 +1494,12 @@ const OrderHistoryPage = () => {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  /* ── 6. Xem chi tiết & Đóng Spotlight Card ── */
+  /* ── 6. Xem chi tiết & Đóng Spotlight Card (Tự động gọi lại API fetch orders mới nhất) ── */
   const handleViewDetail = (order) => {
     shouldScrollToSpotlightRef.current = true;
     setSelectedOrderId(order.MaDonHang);
     setIsSpotlightOpen(true);
+    fetchOrders({ silent: true, force: true });
     if (spotlightRef.current) {
       shouldScrollToSpotlightRef.current = false;
       spotlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1506,7 +1540,8 @@ const OrderHistoryPage = () => {
         toast.success('Hủy đơn hàng thành công!');
         setCancelTargetOrder(null);
         handleSelectTab('CANCELLED');
-        await fetchOrders({ silent: true });
+        notifyOrderStatusChanged({ orderId, status: 'DaHuy', source: 'user' });
+        await fetchOrders({ silent: true, force: true });
       } else {
         toast.error(res.data?.message || 'Không thể hủy đơn hàng này.');
       }
@@ -1536,8 +1571,9 @@ const OrderHistoryPage = () => {
       setSearchParams({ tab: 'return' });
     }
     setSelectedOrderId(orderId);
+    notifyOrderStatusChanged({ orderId, status: 'YeuCauDoiTra', source: 'user' });
 
-    await fetchOrders({ silent: true });
+    await fetchOrders({ silent: true, force: true });
   };
 
   const featuredItems = currentFeaturedOrder?.ChiTietDonHang || currentFeaturedOrder?.chitietdonhang || [];
@@ -1904,7 +1940,7 @@ const OrderHistoryPage = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={() => fetchOrders({ silent: true })}
+                    onClick={() => fetchOrders({ silent: true, force: true })}
                     disabled={refreshing || loading}
                     title="Cập nhật trạng thái đơn hàng mới nhất"
                     className="px-2.5 py-1.5 rounded-xl bg-surface-container-lowest border border-surface-container hover:border-primary/40 hover:text-primary text-xs font-semibold text-on-surface-variant transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"

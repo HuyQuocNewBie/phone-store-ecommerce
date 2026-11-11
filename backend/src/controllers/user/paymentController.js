@@ -5,6 +5,7 @@ const {
 } = require('../../utils/paymentUtil');
 const { pool } = require('../../../config/db');
 const { sendInvoiceEmail } = require('../../utils/mailer');
+const { ORDER_STATUS, normalizeOrderStatus } = require('../../utils/orderStatus');
 const crypto = require('crypto');
 
 // Bảng ánh xạ phương thức thanh toán chuẩn số integer
@@ -189,15 +190,18 @@ const processSuccessfulPayment = async (params) => {
     [order.MaDonHang, maPhuongThucId]
   );
 
-  // Đảm bảo trạng thái đơn hàng trong bảng donhang luôn là 'Đang xử lý'
-  if (order.TrangThaiDonHang !== 'Đang xử lý') {
+  // Giữ nguyên trạng thái chuẩn (mới tạo là 'ChoXacNhan'; chỉ chuẩn hóa nếu là chuỗi cũ chưa xác nhận; không ghi đè nấc tiến trình cao hơn)
+  const normalizedCurrent = normalizeOrderStatus(order.TrangThaiDonHang);
+  const preservedOrderStatus = normalizedCurrent || ORDER_STATUS.CHO_XAC_NHAN;
+
+  if (order.TrangThaiDonHang !== preservedOrderStatus) {
     await pool.query(
       `UPDATE donhang 
-       SET TrangThaiDonHang = 'Đang xử lý' 
+       SET TrangThaiDonHang = ? 
        WHERE MaDonHang = ?`,
-      [order.MaDonHang]
+      [preservedOrderStatus, order.MaDonHang]
     );
-    order.TrangThaiDonHang = 'Đang xử lý';
+    order.TrangThaiDonHang = preservedOrderStatus;
   }
 
   if (existingPayments.length > 0) {
@@ -213,13 +217,14 @@ const processSuccessfulPayment = async (params) => {
   try {
     await connection.beginTransaction();
 
-    // Cập nhật TrangThaiDonHang = "Đang xử lý"
+    // Bảo đảm TrangThaiDonHang chuẩn (mặc định 'ChoXacNhan', giữ nguyên nếu đã xác nhận/đóng gói/đang giao)
     await connection.query(
       `UPDATE donhang 
-       SET TrangThaiDonHang = 'Đang xử lý' 
+       SET TrangThaiDonHang = ? 
        WHERE MaDonHang = ?`,
-      [order.MaDonHang]
+      [preservedOrderStatus, order.MaDonHang]
     );
+    order.TrangThaiDonHang = preservedOrderStatus;
 
     const finalAmount = Number(amount) > 0 ? Number(amount) : Number(order.TongTien);
     let userId = order.MaNguoiDung;
@@ -256,7 +261,7 @@ const processSuccessfulPayment = async (params) => {
       maThanhToan = insertThanhToan.insertId;
     }
 
-    // Cập nhật hoặc lưu bản ghi vào bảng lichsumuahang (TrangThai = 'Đang xử lý')
+    // Cập nhật hoặc lưu bản ghi vào bảng lichsumuahang đồng bộ với preservedOrderStatus
     const [existingHistory] = await connection.query(
       `SELECT MaLichSuMuaHang FROM lichsumuahang WHERE MaDonHang = ? LIMIT 1`,
       [order.MaDonHang]
@@ -265,19 +270,19 @@ const processSuccessfulPayment = async (params) => {
     if (existingHistory.length > 0) {
       await connection.query(
         `UPDATE lichsumuahang 
-         SET TrangThai = 'Đang xử lý',
+         SET TrangThai = ?,
              MaPhuongThucThanhToan = ?,
              MaThanhToan = ?,
              TongTien = ?
          WHERE MaLichSuMuaHang = ?`,
-        [maPhuongThucId, maThanhToan, Number(order.TongTien), existingHistory[0].MaLichSuMuaHang]
+        [preservedOrderStatus, maPhuongThucId, maThanhToan, Number(order.TongTien), existingHistory[0].MaLichSuMuaHang]
       );
     } else {
       await connection.query(
         `INSERT INTO lichsumuahang 
           (MaNguoiDung, MaDonHang, NgayMua, TongTien, TrangThai, MaPhuongThucThanhToan, MaThanhToan)
-         VALUES (?, ?, CURDATE(), ?, 'Đang xử lý', ?, ?)`,
-        [userId, order.MaDonHang, Number(order.TongTien), maPhuongThucId, maThanhToan]
+         VALUES (?, ?, CURDATE(), ?, ?, ?, ?)`,
+        [userId, order.MaDonHang, Number(order.TongTien), preservedOrderStatus, maPhuongThucId, maThanhToan]
       );
     }
 
@@ -537,7 +542,7 @@ const verifyPayment = async (req, res, next) => {
         });
       }
 
-      // 2.3 Thành công: Cập nhật donhang thành "Đang xử lý", lưu thanhtoan & lichsumuahang
+      // 2.3 Thành công: Giữ trạng thái chuẩn 'ChoXacNhan' (chờ Admin/Kho xác nhận), lưu thanhtoan & lichsumuahang
       const processResult = await processSuccessfulPayment({
         orderId: verifyResult.orderId,
         amount: verifyResult.amount,
@@ -555,10 +560,12 @@ const verifyPayment = async (req, res, next) => {
         console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán VNPay đơn hàng #${processResult.order.MaDonHang}:`, mailErr.message);
       });
 
+      const resolvedOrderStatus = processResult.order.TrangThaiDonHang || ORDER_STATUS.CHO_XAC_NHAN;
+
       return res.status(200).json({
         success: true,
         isSuccess: true,
-        message: 'Xác nhận thanh toán VNPay thành công. Đơn hàng đang được xử lý.',
+        message: 'Xác nhận thanh toán VNPay thành công. Đơn hàng đang chờ xác nhận.',
         data: {
           gateway: 'VNPay',
           orderId: processResult.order.MaDonHang,
@@ -567,7 +574,7 @@ const verifyPayment = async (req, res, next) => {
           bankCode: verifyResult.bankCode || null,
           orderInfo: verifyResult.orderInfo || null,
           payDate: verifyResult.payDate || null,
-          orderStatus: 'Đang xử lý',
+          orderStatus: resolvedOrderStatus,
           paymentMethod: 'VNPay',
           paymentStatus: 'Thành công',
           paymentId: processResult.maThanhToan,
@@ -601,23 +608,9 @@ const verifyPayment = async (req, res, next) => {
       const items = finalOrderId ? await getOrderItems(finalOrderId) : [];
 
       // KIỂM TRA STATUS TRẢ VỀ TỪ ZALOPAY:
-      // Nếu status == 1: Thanh toán thành công
+      // Nếu status == 1: Thanh toán thành công (giữ nguyên 'ChoXacNhan' để Admin/Kho duyệt theo đúng luồng 5 bước)
       if (status == 1 || String(status) === '1') {
-        // 1. Cập nhật TrangThaiDonHang = "Đang xử lý"
-        if (finalOrderId) {
-          try {
-            await pool.query(
-              `UPDATE donhang 
-               SET TrangThaiDonHang = 'Đang xử lý' 
-               WHERE MaDonHang = ?`,
-              [finalOrderId]
-            );
-          } catch (dbErr) {
-            console.error(`Lỗi cập nhật trạng thái đơn hàng #${finalOrderId}:`, dbErr.message);
-          }
-        }
-
-        // 2. Lưu bản ghi vào bảng thanhtoan / lichsumuahang
+        // 1. Lưu bản ghi vào bảng thanhtoan / lichsumuahang và giữ trạng thái 'ChoXacNhan'
         let processResult = null;
         try {
           const zalopayMethodId = await getPaymentMethodId('Zalo', 3);
@@ -634,18 +627,23 @@ const verifyPayment = async (req, res, next) => {
           console.warn('[ZaloPay Return] Ghi log thanh toán:', procErr.message);
         }
 
-        // 3. Kích hoạt hàm gửi Email hóa đơn (sendInvoiceEmail)
+        // 2. Kích hoạt hàm gửi Email hóa đơn (sendInvoiceEmail)
         if (finalOrderId) {
           sendInvoiceEmail(finalOrderId).catch((mailErr) => {
             console.error(`[sendInvoiceEmail] Lỗi gửi email hóa đơn sau thanh toán ZaloPay đơn hàng #${finalOrderId}:`, mailErr.message);
           });
         }
 
-        // 4. Trả về JSON thông báo thành công
+        const resolvedStatus =
+          processResult?.order?.TrangThaiDonHang ||
+          normalizeOrderStatus(orderInfo?.TrangThaiDonHang) ||
+          ORDER_STATUS.CHO_XAC_NHAN;
+
+        // 3. Trả về JSON thông báo thành công
         return res.status(200).json({
           success: true,
           isSuccess: true,
-          message: 'Thanh toán ZaloPay thành công! Đơn hàng đang được xử lý.',
+          message: 'Thanh toán ZaloPay thành công! Đơn hàng đã được tiếp nhận và đang chờ xác nhận.',
           orderId: finalOrderId,
           amount: Number(amount) || (orderInfo ? Number(orderInfo.TongTien) : 0),
           apptransid: currentAppTransId,
@@ -660,29 +658,30 @@ const verifyPayment = async (req, res, next) => {
             transactionNo: currentAppTransId,
             transId: currentAppTransId,
             apptransid: currentAppTransId,
-            orderStatus: 'Đang xử lý',
+            orderStatus: resolvedStatus,
             paymentMethod: 'ZaloPay',
             paymentStatus: 'Thành công',
             paymentId: processResult?.maThanhToan,
             isNewRecord: processResult?.isNewRecord,
-            order: orderInfo ? { ...orderInfo, TrangThaiDonHang: 'Đang xử lý' } : null,
+            order: processResult?.order || (orderInfo ? { ...orderInfo, TrangThaiDonHang: resolvedStatus } : null),
             items
           }
         });
       } else {
-        // Nếu status != 1: Giữ nguyên "Chờ thanh toán", không gửi email và trả về lỗi
-        if (finalOrderId && orderInfo) {
-          if (orderInfo.TrangThaiDonHang !== 'Chờ thanh toán') {
-            try {
-              await pool.query(
-                `UPDATE donhang 
-                 SET TrangThaiDonHang = 'Chờ thanh toán' 
-                 WHERE MaDonHang = ?`,
-                [finalOrderId]
-              );
-            } catch (dbErr) {
-              console.error(`Lỗi giữ nguyên trạng thái đơn hàng #${finalOrderId}:`, dbErr.message);
-            }
+        // Nếu status != 1: Giữ nguyên trạng thái 'ChoXacNhan' của đơn hàng, không gửi email và trả về lỗi
+        const preservedStatus =
+          normalizeOrderStatus(orderInfo?.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
+
+        if (finalOrderId && orderInfo && orderInfo.TrangThaiDonHang !== preservedStatus) {
+          try {
+            await pool.query(
+              `UPDATE donhang 
+               SET TrangThaiDonHang = ? 
+               WHERE MaDonHang = ?`,
+              [preservedStatus, finalOrderId]
+            );
+          } catch (dbErr) {
+            console.error(`Lỗi giữ nguyên trạng thái đơn hàng #${finalOrderId}:`, dbErr.message);
           }
         }
 
@@ -695,13 +694,13 @@ const verifyPayment = async (req, res, next) => {
           amount: Number(amount) || 0,
           apptransid: currentAppTransId,
           status: status !== undefined ? Number(status) : 0,
-          orderStatus: 'Chờ thanh toán',
+          orderStatus: preservedStatus,
           data: {
             gateway: 'ZaloPay',
             orderId: finalOrderId,
             status: status !== undefined ? Number(status) : 0,
-            orderStatus: 'Chờ thanh toán',
-            order: orderInfo ? { ...orderInfo, TrangThaiDonHang: 'Chờ thanh toán' } : null,
+            orderStatus: preservedStatus,
+            order: orderInfo ? { ...orderInfo, TrangThaiDonHang: preservedStatus } : null,
             items
           }
         });

@@ -9,6 +9,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import api from '../../../services/api';
+import { getOrderStatusDisplayLabel } from '../../../utils/orderSync';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatVND = (value) => {
@@ -27,10 +28,17 @@ const formatShort = (value) => {
 // ─── Status Colors ────────────────────────────────────────────────────────────
 const STATUS_MAP = {
   'Đã hoàn thành': { color: '#059669', bg: 'rgba(5,150,105,0.12)' },
+  'DaGiao':        { color: '#059669', bg: 'rgba(5,150,105,0.12)' },
+  'Đã giao':       { color: '#059669', bg: 'rgba(5,150,105,0.12)' },
   'Đang xử lý':    { color: '#0284c7', bg: 'rgba(2,132,199,0.12)' },
+  'DaXacNhan':     { color: '#0284c7', bg: 'rgba(2,132,199,0.12)' },
+  'DangDongGoi':   { color: '#4f46e5', bg: 'rgba(79,70,229,0.12)' },
   'Đang giao':     { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  'DangGiao':      { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
   'Đã hủy':        { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  'DaHuy':         { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
   'Chờ xác nhận':  { color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  'ChoXacNhan':    { color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
 };
 const FALLBACK_COLORS = ['#0284c7', '#7c3aed', '#059669', '#d97706', '#dc2626'];
 
@@ -88,7 +96,7 @@ const CustomPieTooltip = ({ active, payload }) => {
   const color = STATUS_MAP[d.name]?.color || FALLBACK_COLORS[0];
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg text-xs">
-      <p className="font-medium mb-1" style={{ color }}>{d.name}</p>
+      <p className="font-medium mb-1" style={{ color }}>{getOrderStatusDisplayLabel(d.name)}</p>
       <p className="text-slate-700 font-semibold">{d.value?.toLocaleString('vi-VN')} đơn</p>
     </div>
   );
@@ -453,7 +461,7 @@ const DashboardPage = () => {
                     <div key={entry.trangThai} className="flex items-center justify-between text-xs">
                       <span className="flex items-center gap-2 text-slate-500 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        <span className="truncate">{entry.trangThai}</span>
+                        <span className="truncate">{getOrderStatusDisplayLabel(entry.trangThai)}</span>
                       </span>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className="font-semibold text-slate-700">{entry.soLuong.toLocaleString('vi-VN')}</span>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -34,8 +34,20 @@ import {
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
+import {
+  notifyOrderStatusChanged,
+  subscribeOrderStatusChanges,
+  normalizeOrderStatus,
+} from '../../utils/orderSync';
 
 const TABS = [
+  {
+    id: 'pending_confirm',
+    label: 'Chờ xác nhận',
+    status: 'ChoXacNhan',
+    icon: Clock,
+    description: 'Đơn khách hàng vừa đặt — cần xác nhận để chuyển sang tab "Chờ đóng gói"',
+  },
   {
     id: 'pending_pack',
     label: 'Chờ đóng gói',
@@ -47,8 +59,15 @@ const TABS = [
     id: 'ready_ship',
     label: 'Sẵn sàng giao',
     status: 'DangDongGoi',
-    icon: Truck,
+    icon: PackageCheck,
     description: 'Kiện hàng đã đóng gói xong — sẵn sàng bàn giao cho Shipper',
+  },
+  {
+    id: 'shipping',
+    label: 'Đang giao',
+    status: 'DangGiao',
+    icon: Truck,
+    description: 'Kiện hàng đã bàn giao cho Shipper — bấm hoàn tất sau khi giao thành công',
   },
 ];
 
@@ -123,13 +142,22 @@ const WarehouseFulfillmentPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('pending_pack');
+  const [activeTab, setActiveTab] = useState('pending_confirm');
   const [searchTerm, setSearchTerm] = useState('');
   const [processingIds, setProcessingIds] = useState({});
   const [copiedKey, setCopiedKey] = useState(null);
   const [pickedItems, setPickedItems] = useState({});
+  const isFetchingRef = useRef(false);
+  const latestRequestIdRef = useRef(0);
 
-  const fetchFulfillmentOrders = useCallback(async ({ silent = false } = {}) => {
+  const fetchFulfillmentOrders = useCallback(async ({ silent = false, force = false } = {}) => {
+    if (silent && !force && isFetchingRef.current) {
+      return;
+    }
+
+    const requestId = ++latestRequestIdRef.current;
+    isFetchingRef.current = true;
+
     if (silent) {
       setRefreshing(true);
     } else {
@@ -139,9 +167,11 @@ const WarehouseFulfillmentPage = () => {
 
     try {
       const res = await api.get('/warehouse/orders/fulfillment');
+      if (requestId !== latestRequestIdRef.current) return;
       const data = Array.isArray(res.data?.data) ? res.data.data : [];
       setOrders(data);
     } catch (err) {
+      if (requestId !== latestRequestIdRef.current) return;
       const msg =
         err.response?.data?.message ||
         'Không thể tải danh sách đơn hàng kho. Vui lòng thử lại.';
@@ -150,44 +180,97 @@ const WarehouseFulfillmentPage = () => {
         toast.error(msg, { id: 'warehouse-fetch-err' });
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === latestRequestIdRef.current) {
+        isFetchingRef.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchFulfillmentOrders();
+    fetchFulfillmentOrders({ force: true });
   }, [fetchFulfillmentOrders]);
 
-  // Phân loại đơn theo 2 trạng thái chuẩn của Kho
+  // Đồng bộ tự động khi Admin duyệt/hủy đơn, User đặt/hủy đơn hoặc quay lại tab
+  useEffect(() => {
+    const handleSyncTrigger = () => {
+      fetchFulfillmentOrders({ silent: true, force: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchFulfillmentOrders({ silent: true, force: true });
+      }
+    };
+
+    const unsubscribe = subscribeOrderStatusChanges(() => {
+      fetchFulfillmentOrders({ silent: true, force: true });
+    });
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchFulfillmentOrders({ silent: true });
+      }
+    }, 8000);
+
+    window.addEventListener('focus', handleSyncTrigger);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleSyncTrigger);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchFulfillmentOrders]);
+
+  // Phân loại đơn theo 4 nấc xử lý chuẩn của Kho
+  const pendingConfirmOrders = useMemo(
+    () => orders.filter((order) => normalizeOrderStatus(order.TrangThaiDonHang) === 'ChoXacNhan'),
+    [orders]
+  );
+
   const pendingPackOrders = useMemo(
-    () => orders.filter((order) => order.TrangThaiDonHang === 'DaXacNhan'),
+    () => orders.filter((order) => normalizeOrderStatus(order.TrangThaiDonHang) === 'DaXacNhan'),
     [orders]
   );
 
   const readyShipOrders = useMemo(
-    () => orders.filter((order) => order.TrangThaiDonHang === 'DangDongGoi'),
+    () => orders.filter((order) => normalizeOrderStatus(order.TrangThaiDonHang) === 'DangDongGoi'),
     [orders]
   );
 
+  const shippingOrders = useMemo(
+    () => orders.filter((order) => normalizeOrderStatus(order.TrangThaiDonHang) === 'DangGiao'),
+    [orders]
+  );
+
+  const countUnits = (list) =>
+    list.reduce(
+      (sum, order) =>
+        sum + getOrderItems(order).reduce((s, it) => s + Number(it.SoLuong || 0), 0),
+      0
+    );
+
+  const totalUnitsPendingConfirm = useMemo(
+    () => countUnits(pendingConfirmOrders),
+    [pendingConfirmOrders]
+  );
+
   const totalUnitsPendingPack = useMemo(
-    () =>
-      pendingPackOrders.reduce(
-        (sum, order) =>
-          sum + getOrderItems(order).reduce((s, it) => s + Number(it.SoLuong || 0), 0),
-        0
-      ),
+    () => countUnits(pendingPackOrders),
     [pendingPackOrders]
   );
 
   const totalUnitsReadyShip = useMemo(
-    () =>
-      readyShipOrders.reduce(
-        (sum, order) =>
-          sum + getOrderItems(order).reduce((s, it) => s + Number(it.SoLuong || 0), 0),
-        0
-      ),
+    () => countUnits(readyShipOrders),
     [readyShipOrders]
+  );
+
+  const totalUnitsShipping = useMemo(
+    () => countUnits(shippingOrders),
+    [shippingOrders]
   );
 
   const currentTabConfig = useMemo(
@@ -195,7 +278,14 @@ const WarehouseFulfillmentPage = () => {
     [activeTab]
   );
 
-  const tabOrders = activeTab === 'pending_pack' ? pendingPackOrders : readyShipOrders;
+  const tabOrdersMap = {
+    pending_confirm: pendingConfirmOrders,
+    pending_pack: pendingPackOrders,
+    ready_ship: readyShipOrders,
+    shipping: shippingOrders,
+  };
+
+  const tabOrders = tabOrdersMap[activeTab] || pendingConfirmOrders;
 
   const filteredOrders = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -294,6 +384,47 @@ const WarehouseFulfillmentPage = () => {
     });
   };
 
+  // Gọi API PUT /api/v1/warehouse/orders/:id/confirm (ChoXacNhan -> DaXacNhan)
+  const handleConfirmOrder = async (order) => {
+    const orderId = order.MaDonHang;
+    if (processingIds[orderId]) return;
+
+    const orderCode =
+      order.CodeDonHang || formatOrderCode(order.MaDonHang, order.NgayMuaHang);
+
+    setProcessingIds((prev) => ({ ...prev, [orderId]: 'confirm' }));
+    try {
+      const res = await api.put(`/warehouse/orders/${orderId}/confirm`);
+      const nextStatus = res.data?.data?.TrangThaiDonHang || 'DaXacNhan';
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.MaDonHang === orderId ? { ...o, TrangThaiDonHang: nextStatus } : o
+        )
+      );
+      notifyOrderStatusChanged({ orderId, status: nextStatus, source: 'warehouse' });
+
+      toast.success(
+        `Đã xác nhận đơn ${orderCode} — chuyển sang tab "Chờ đóng gói"`,
+        { id: `confirm-${orderId}` }
+      );
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        `Không thể xác nhận đơn ${orderCode}`;
+      toast.error(msg, { id: `confirm-${orderId}` });
+      if (err.response?.status === 400 || err.response?.status === 404) {
+        fetchFulfillmentOrders({ silent: true, force: true });
+      }
+    } finally {
+      setProcessingIds((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+    }
+  };
+
   // Gọi API PUT /api/v1/warehouse/orders/:id/pack (DaXacNhan -> DangDongGoi)
   const handlePackOrder = async (order) => {
     const orderId = order.MaDonHang;
@@ -313,6 +444,7 @@ const WarehouseFulfillmentPage = () => {
         )
       );
       clearOrderPickedState(order);
+      notifyOrderStatusChanged({ orderId, status: nextStatus, source: 'warehouse' });
 
       toast.success(
         `Đơn ${orderCode} đã xác nhận đóng gói — chuyển sang tab "Sẵn sàng giao"`,
@@ -324,7 +456,7 @@ const WarehouseFulfillmentPage = () => {
         `Không thể xác nhận đóng gói đơn ${orderCode}`;
       toast.error(msg, { id: `pack-${orderId}` });
       if (err.response?.status === 400 || err.response?.status === 404) {
-        fetchFulfillmentOrders({ silent: true });
+        fetchFulfillmentOrders({ silent: true, force: true });
       }
     } finally {
       setProcessingIds((prev) => {
@@ -353,6 +485,7 @@ const WarehouseFulfillmentPage = () => {
           o.MaDonHang === orderId ? { ...o, TrangThaiDonHang: nextStatus } : o
         )
       );
+      notifyOrderStatusChanged({ orderId, status: nextStatus, source: 'warehouse' });
 
       toast.success(`Đã bàn giao đơn ${orderCode} cho Shipper!`, {
         id: `ship-${orderId}`,
@@ -363,7 +496,45 @@ const WarehouseFulfillmentPage = () => {
         `Không thể bàn giao đơn ${orderCode} cho Shipper`;
       toast.error(msg, { id: `ship-${orderId}` });
       if (err.response?.status === 400 || err.response?.status === 404) {
-        fetchFulfillmentOrders({ silent: true });
+        fetchFulfillmentOrders({ silent: true, force: true });
+      }
+    } finally {
+      setProcessingIds((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+    }
+  };
+
+  // Gọi API PUT /api/v1/warehouse/orders/:id/deliver (DangGiao -> DaGiao)
+  const handleDeliverOrder = async (order) => {
+    const orderId = order.MaDonHang;
+    if (processingIds[orderId]) return;
+
+    const orderCode =
+      order.CodeDonHang || formatOrderCode(order.MaDonHang, order.NgayMuaHang);
+
+    setProcessingIds((prev) => ({ ...prev, [orderId]: 'deliver' }));
+    try {
+      const res = await api.put(`/warehouse/orders/${orderId}/deliver`);
+      const nextStatus = res.data?.data?.TrangThaiDonHang || 'DaGiao';
+
+      setOrders((prev) =>
+        prev.filter((o) => o.MaDonHang !== orderId)
+      );
+      notifyOrderStatusChanged({ orderId, status: nextStatus, source: 'warehouse' });
+
+      toast.success(`Đơn ${orderCode} đã giao hoàn tất!`, {
+        id: `deliver-${orderId}`,
+      });
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        `Không thể xác nhận hoàn tất đơn ${orderCode}`;
+      toast.error(msg, { id: `deliver-${orderId}` });
+      if (err.response?.status === 400 || err.response?.status === 404) {
+        fetchFulfillmentOrders({ silent: true, force: true });
       }
     } finally {
       setProcessingIds((prev) => {
@@ -465,7 +636,7 @@ const WarehouseFulfillmentPage = () => {
 
             <button
               type="button"
-              onClick={() => fetchFulfillmentOrders({ silent: true })}
+              onClick={() => fetchFulfillmentOrders({ silent: true, force: true })}
               disabled={loading || refreshing}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold transition-all shadow-2xs disabled:opacity-60 cursor-pointer"
               title="Tải lại danh sách đơn kho"
@@ -493,8 +664,38 @@ const WarehouseFulfillmentPage = () => {
 
       {/* ── Main Workspace ── */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* ── Summary Cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* ── Summary Cards (4 bước xử lý Kho) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('pending_confirm')}
+            className={`text-left bg-white rounded-2xl p-4 sm:p-5 border transition-all flex items-center justify-between cursor-pointer ${
+              activeTab === 'pending_confirm'
+                ? 'border-amber-400 ring-2 ring-amber-500/15 shadow-md'
+                : 'border-slate-200 hover:border-slate-300 shadow-sm'
+            }`}
+          >
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Chờ xác nhận
+              </p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-extrabold text-amber-600">
+                  {pendingConfirmOrders.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500">
+                  đơn hàng
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Gồm <strong className="text-slate-700">{totalUnitsPendingConfirm}</strong> máy chờ duyệt
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+              <Clock className="w-6 h-6" />
+            </div>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('pending_pack')}
@@ -555,43 +756,67 @@ const WarehouseFulfillmentPage = () => {
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-              <Truck className="w-6 h-6" />
+              <PackageCheck className="w-6 h-6" />
             </div>
           </button>
 
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setActiveTab('shipping')}
+            className={`text-left bg-white rounded-2xl p-4 sm:p-5 border transition-all flex items-center justify-between cursor-pointer ${
+              activeTab === 'shipping'
+                ? 'border-emerald-400 ring-2 ring-emerald-500/15 shadow-md'
+                : 'border-slate-200 hover:border-slate-300 shadow-sm'
+            }`}
+          >
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Tổng xử lý tại kho
+                Đang giao
               </p>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-2xl font-extrabold text-slate-800">
-                  {pendingPackOrders.length + readyShipOrders.length}
+                <span className="text-2xl font-extrabold text-emerald-600">
+                  {shippingOrders.length}
                 </span>
                 <span className="text-xs font-medium text-slate-500">
                   đơn hàng
                 </span>
               </div>
               <p className="text-[11px] text-emerald-600 font-medium mt-1">
-                Tổng cộng {totalUnitsPendingPack + totalUnitsReadyShip} thiết bị
+                {totalUnitsShipping} máy đang vận chuyển
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-              <Boxes className="w-6 h-6" />
+              <Truck className="w-6 h-6" />
             </div>
-          </div>
+          </button>
         </div>
 
         {/* ── Tabs + Search Controls ── */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-2 border-b border-slate-200">
+          <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-slate-200">
             {TABS.map((tab) => {
               const TabIcon = tab.icon;
               const isActive = activeTab === tab.id;
-              const count =
-                tab.id === 'pending_pack'
-                  ? pendingPackOrders.length
-                  : readyShipOrders.length;
+              const count = (tabOrdersMap[tab.id] || []).length;
+
+              const activeColors = {
+                pending_confirm: {
+                  tab: 'border-amber-500 text-amber-700 bg-amber-50/70',
+                  badge: 'bg-amber-500 text-white',
+                },
+                pending_pack: {
+                  tab: 'border-sky-600 text-sky-700 bg-sky-50/70',
+                  badge: 'bg-sky-600 text-white',
+                },
+                ready_ship: {
+                  tab: 'border-indigo-600 text-indigo-700 bg-indigo-50/70',
+                  badge: 'bg-indigo-600 text-white',
+                },
+                shipping: {
+                  tab: 'border-emerald-600 text-emerald-700 bg-emerald-50/70',
+                  badge: 'bg-emerald-600 text-white',
+                },
+              }[tab.id];
 
               return (
                 <button
@@ -600,23 +825,17 @@ const WarehouseFulfillmentPage = () => {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center gap-2.5 px-4 py-4 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 px-3 py-4 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer ${
                     isActive
-                      ? tab.id === 'pending_pack'
-                        ? 'border-sky-600 text-sky-700 bg-sky-50/70'
-                        : 'border-indigo-600 text-indigo-700 bg-indigo-50/70'
+                      ? activeColors.tab
                       : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                   }`}
                 >
                   <TabIcon className="w-4 h-4 shrink-0" />
-                  <span>{tab.label}</span>
+                  <span className="truncate">{tab.label}</span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      isActive
-                        ? tab.id === 'pending_pack'
-                          ? 'bg-sky-600 text-white'
-                          : 'bg-indigo-600 text-white'
-                        : 'bg-slate-100 text-slate-600'
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${
+                      isActive ? activeColors.badge : 'bg-slate-100 text-slate-600'
                     }`}
                   >
                     {count}
@@ -693,7 +912,9 @@ const WarehouseFulfillmentPage = () => {
         ) : filteredOrders.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3 shadow-sm">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-              {activeTab === 'pending_pack' ? (
+              {activeTab === 'pending_confirm' ? (
+                <Clock className="w-7 h-7" />
+              ) : activeTab === 'pending_pack' ? (
                 <PackageCheck className="w-7 h-7" />
               ) : (
                 <Truck className="w-7 h-7" />
@@ -702,16 +923,24 @@ const WarehouseFulfillmentPage = () => {
             <h2 className="text-base font-bold text-slate-800">
               {searchTerm
                 ? 'Không tìm thấy đơn hàng phù hợp'
+                : activeTab === 'pending_confirm'
+                ? 'Không có đơn hàng mới chờ xác nhận'
                 : activeTab === 'pending_pack'
                 ? 'Không có đơn hàng nào đang chờ đóng gói'
-                : 'Chưa có đơn hàng nào sẵn sàng giao'}
+                : activeTab === 'ready_ship'
+                ? 'Chưa có đơn hàng nào sẵn sàng giao'
+                : 'Không có đơn hàng nào đang vận chuyển'}
             </h2>
             <p className="text-sm text-slate-500 max-w-lg mx-auto">
               {searchTerm
                 ? `Không có đơn nào khớp với từ khóa "${searchTerm}" trong tab "${currentTabConfig.label}".`
+                : activeTab === 'pending_confirm'
+                ? 'Các đơn hàng mới đặt từ khách hàng sẽ xuất hiện tại đây để Kho/Admin xác nhận.'
                 : activeTab === 'pending_pack'
-                ? 'Tất cả đơn hàng đã xác nhận đều đã được soạn và đóng gói xong.'
-                : 'Hãy xác nhận đóng gói đơn hàng ở tab "Chờ đóng gói" để chuyển đơn sang danh sách chờ bàn giao Shipper.'}
+                ? 'Các đơn đã xác nhận ở tab "Chờ xác nhận" sẽ xuất hiện tại đây để nhặt hàng & đóng gói.'
+                : activeTab === 'ready_ship'
+                ? 'Hãy xác nhận đóng gói đơn hàng ở tab "Chờ đóng gói" để chuyển đơn sang danh sách chờ bàn giao Shipper.'
+                : 'Các đơn hàng đã bàn giao cho Shipper sẽ hiển thị tại đây để theo dõi và xác nhận hoàn tất.'}
             </p>
             {searchTerm && (
               <button
@@ -736,7 +965,11 @@ const WarehouseFulfillmentPage = () => {
                 0
               );
               const isProcessing = !!processingIds[order.MaDonHang];
-              const isPendingPack = order.TrangThaiDonHang === 'DaXacNhan';
+              const canonicalStatus = normalizeOrderStatus(order.TrangThaiDonHang);
+              const isPendingConfirm = canonicalStatus === 'ChoXacNhan';
+              const isPendingPack = canonicalStatus === 'DaXacNhan';
+              const isReadyShip = canonicalStatus === 'DangDongGoi';
+              const isShipping = canonicalStatus === 'DangGiao';
 
               const pickedCount = items.filter(
                 (item, idx) =>
@@ -793,15 +1026,25 @@ const WarehouseFulfillmentPage = () => {
                         {formatVND(order.TongTien)}
                       </span>
 
-                      {isPendingPack ? (
+                      {isPendingConfirm ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Chờ xác nhận
+                        </span>
+                      ) : isPendingPack ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                           Chờ đóng gói
                         </span>
-                      ) : (
+                      ) : isReadyShip ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
                           Đang đóng gói · Sẵn sàng giao
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Đang giao hàng
                         </span>
                       )}
                     </div>
@@ -1084,7 +1327,12 @@ const WarehouseFulfillmentPage = () => {
                   {/* ── Card Footer: Picking Progress & Primary Action Button ── */}
                   <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                      {isPendingPack ? (
+                      {isPendingConfirm ? (
+                        <span className="inline-flex items-center gap-1.5 font-medium text-amber-700">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          Đơn hàng mới tạo — xác nhận đơn để chuyển sang tab Chờ đóng gói.
+                        </span>
+                      ) : isPendingPack ? (
                         pickedCount > 0 ? (
                           <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1097,16 +1345,40 @@ const WarehouseFulfillmentPage = () => {
                             trước khi đóng gói.
                           </span>
                         )
-                      ) : (
+                      ) : isReadyShip ? (
                         <span className="inline-flex items-center gap-1.5 font-medium text-indigo-700">
                           <PackageCheck className="w-4 h-4 text-indigo-600" />
                           Kiện hàng đã niêm phong — sẵn sàng bàn giao đơn vị vận chuyển.
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
+                          <Truck className="w-4 h-4 text-emerald-600" />
+                          Shipper đang vận chuyển kiện hàng tới khách hàng.
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-end">
-                      {isPendingPack ? (
+                      {isPendingConfirm ? (
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmOrder(order)}
+                          disabled={isProcessing}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white text-sm font-bold shadow-sm shadow-amber-600/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Đang xác nhận...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Xác nhận đơn</span>
+                            </>
+                          )}
+                        </button>
+                      ) : isPendingPack ? (
                         <button
                           type="button"
                           onClick={() => handlePackOrder(order)}
@@ -1125,7 +1397,7 @@ const WarehouseFulfillmentPage = () => {
                             </>
                           )}
                         </button>
-                      ) : (
+                      ) : isReadyShip ? (
                         <button
                           type="button"
                           onClick={() => handleShipOrder(order)}
@@ -1144,7 +1416,26 @@ const WarehouseFulfillmentPage = () => {
                             </>
                           )}
                         </button>
-                      )}
+                      ) : isShipping ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeliverOrder(order)}
+                          disabled={isProcessing}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white text-sm font-bold shadow-sm shadow-teal-600/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Đang hoàn tất...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Hoàn tất giao hàng</span>
+                            </>
+                          )}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </article>

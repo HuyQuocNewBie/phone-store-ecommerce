@@ -53,13 +53,13 @@ const getRevenueAnalytics = async (req, res, next) => {
     const startDateTime = `${fromDate} 00:00:00`;
     const endDateTime = `${toDate} 23:59:59`;
 
-    // 1. Thống kê tổng doanh thu theo từng ngày (chỉ tính đơn 'Đã hoàn thành')
+    // 1. Thống kê tổng doanh thu theo từng ngày (tính đơn đã giao / hoàn thành)
     const [dailyRevenueRows] = await pool.query(
       `SELECT 
          DATE_FORMAT(NgayMuaHang, '%Y-%m-%d') AS ngay,
          COALESCE(SUM(TongTien), 0) AS doanhThu
        FROM donhang
-       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND NgayMuaHang >= ? AND NgayMuaHang <= ?
        GROUP BY DATE_FORMAT(NgayMuaHang, '%Y-%m-%d')
        ORDER BY ngay ASC`,

@@ -14,7 +14,7 @@ const getDashboardCards = async (req, res, next) => {
     const [revenueMonthRows] = await pool.query(
       `SELECT COALESCE(SUM(TongTien), 0) AS doanhThuThang
        FROM donhang
-       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND YEAR(NgayMuaHang) = YEAR(CURRENT_DATE())
          AND MONTH(NgayMuaHang) = MONTH(CURRENT_DATE())`
     );
@@ -23,7 +23,7 @@ const getDashboardCards = async (req, res, next) => {
     const [revenueYearRows] = await pool.query(
       `SELECT COALESCE(SUM(TongTien), 0) AS doanhThuNam
        FROM donhang
-       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND YEAR(NgayMuaHang) = YEAR(CURRENT_DATE())`
     );
 
@@ -45,7 +45,7 @@ const getDashboardCards = async (req, res, next) => {
        ), 0) AS tongGiaVonThang
        FROM chitietdonhang ct
        JOIN donhang d ON ct.MaDonHang = d.MaDonHang
-       WHERE d.TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE d.TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND YEAR(d.NgayMuaHang) = YEAR(CURRENT_DATE())
          AND MONTH(d.NgayMuaHang) = MONTH(CURRENT_DATE())`
     );
@@ -87,7 +87,7 @@ const getMonthlyRevenueChart = async (req, res, next) => {
          MONTH(NgayMuaHang) AS thang,
          COALESCE(SUM(TongTien), 0) AS doanhThu
        FROM donhang
-       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND YEAR(NgayMuaHang) = YEAR(CURRENT_DATE())
        GROUP BY MONTH(NgayMuaHang)
        ORDER BY thang ASC`
@@ -158,7 +158,7 @@ const getTopProducts = async (req, res, next) => {
        FROM sanpham sp
        JOIN chitietdonhang ct ON sp.MaSanPham = ct.MaSanPham
        JOIN donhang d ON ct.MaDonHang = d.MaDonHang
-       WHERE d.TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE d.TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
        GROUP BY sp.MaSanPham, sp.TenSanPham, sp.Anh, sp.Gia
        ORDER BY SoLuongDaBan DESC
        LIMIT 5`
@@ -195,7 +195,7 @@ const getYearlyRevenueChart = async (req, res, next) => {
          YEAR(NgayMuaHang) AS nam,
          COALESCE(SUM(TongTien), 0) AS doanhThu
        FROM donhang
-       WHERE TrangThaiDonHang = 'Đã hoàn thành'
+       WHERE TrangThaiDonHang IN ('Đã hoàn thành', 'DaGiao', 'Đã giao')
          AND YEAR(NgayMuaHang) >= ?
        GROUP BY YEAR(NgayMuaHang)
        ORDER BY nam ASC`,

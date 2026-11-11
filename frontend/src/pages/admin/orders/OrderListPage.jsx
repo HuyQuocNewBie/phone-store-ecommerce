@@ -7,6 +7,13 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 import { formatOrderCode } from '../../../utils/formatters';
+import {
+  ORDER_STATUS,
+  normalizeOrderStatus,
+  getOrderStatusDisplayLabel,
+  notifyOrderStatusChanged,
+  subscribeOrderStatusChanges,
+} from '../../../utils/orderSync';
 
 // ── Helper Format VNĐ ──
 const formatVND = (value) => {
@@ -27,32 +34,52 @@ const formatDate = (dateStr) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
-// ── 5 Trạng thái chuẩn (đồng bộ với User) ──
+// ── Trạng thái chuẩn theo luồng 5 bước (đồng bộ User <-> Admin <-> Kho) ──
 const ORDER_STATUS_OPTIONS = [
-  'Chờ xác nhận',
-  'Đang xử lý',
-  'Đang giao',
-  'Đã giao',
-  'Đã hủy'
+  { value: ORDER_STATUS.CHO_XAC_NHAN, label: 'Chờ xác nhận' },
+  { value: ORDER_STATUS.DA_XAC_NHAN, label: 'Đã xác nhận (Chờ đóng gói)' },
+  { value: ORDER_STATUS.DANG_DONG_GOI, label: 'Đang đóng gói (Sẵn sàng giao)' },
+  { value: ORDER_STATUS.DANG_GIAO, label: 'Đang giao hàng' },
+  { value: ORDER_STATUS.DA_GIAO, label: 'Đã giao' },
+  { value: ORDER_STATUS.DA_HUY, label: 'Đã hủy' },
 ];
 
-// ── 6 Tabs: Tất cả + 5 trạng thái chuẩn ──
+const EXTRA_STATUS_OPTIONS = [
+  { value: ORDER_STATUS.YEU_CAU_DOI_TRA, label: 'Yêu cầu đổi trả' },
+  { value: ORDER_STATUS.DA_HOAN_TIEN, label: 'Đã hoàn tiền' },
+];
+
+const ALLOWED_NEXT_TRANSITIONS = {
+  [ORDER_STATUS.CHO_XAC_NHAN]: [ORDER_STATUS.DA_XAC_NHAN, ORDER_STATUS.DA_HUY],
+  [ORDER_STATUS.DA_XAC_NHAN]: [ORDER_STATUS.DANG_DONG_GOI, ORDER_STATUS.DA_HUY],
+  [ORDER_STATUS.DANG_DONG_GOI]: [ORDER_STATUS.DANG_GIAO],
+  [ORDER_STATUS.DANG_GIAO]: [ORDER_STATUS.DA_GIAO],
+  [ORDER_STATUS.DA_GIAO]: [ORDER_STATUS.YEU_CAU_DOI_TRA],
+  [ORDER_STATUS.YEU_CAU_DOI_TRA]: [ORDER_STATUS.DA_HOAN_TIEN, ORDER_STATUS.DA_GIAO],
+  [ORDER_STATUS.DA_HOAN_TIEN]: [],
+  [ORDER_STATUS.DA_HUY]: [],
+};
+
+// ── 6 Tabs: Tất cả + nhóm trạng thái đồng bộ với User ──
 const ORDER_TABS = [
-  { id: 'ALL',        label: 'Tất cả',       icon: Package,      status: null },
-  { id: 'PENDING',    label: 'Chờ xác nhận', icon: Clock,        status: 'Chờ xác nhận' },
-  { id: 'PROCESSING', label: 'Đang xử lý',   icon: Settings,     status: 'Đang xử lý' },
-  { id: 'SHIPPING',   label: 'Đang giao',    icon: Truck,        status: 'Đang giao' },
-  { id: 'DELIVERED',  label: 'Đã giao',      icon: CheckCircle2, status: 'Đã giao' },
-  { id: 'CANCELLED',  label: 'Đã hủy',       icon: XCircle,      status: 'Đã hủy' },
+  { id: 'ALL',        label: 'Tất cả',       icon: Package,      statuses: null },
+  { id: 'PENDING',    label: 'Chờ xác nhận', icon: Clock,        statuses: [ORDER_STATUS.CHO_XAC_NHAN] },
+  { id: 'PROCESSING', label: 'Đang xử lý',   icon: Settings,     statuses: [ORDER_STATUS.DA_XAC_NHAN, ORDER_STATUS.DANG_DONG_GOI] },
+  { id: 'SHIPPING',   label: 'Đang giao',    icon: Truck,        statuses: [ORDER_STATUS.DANG_GIAO] },
+  { id: 'DELIVERED',  label: 'Đã giao',      icon: CheckCircle2, statuses: [ORDER_STATUS.DA_GIAO, ORDER_STATUS.YEU_CAU_DOI_TRA, ORDER_STATUS.DA_HOAN_TIEN] },
+  { id: 'CANCELLED',  label: 'Đã hủy',       icon: XCircle,      statuses: [ORDER_STATUS.DA_HUY] },
 ];
 
 // ── Map Màu cho Trạng thái (Tông màu sáng) ──
 const STATUS_STYLE_MAP = {
-  'Chờ xác nhận': 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
-  'Đang xử lý':   'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100',
-  'Đang giao':    'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
-  'Đã giao':      'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-  'Đã hủy':       'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+  [ORDER_STATUS.CHO_XAC_NHAN]:    'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
+  [ORDER_STATUS.DA_XAC_NHAN]:     'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100',
+  [ORDER_STATUS.DANG_DONG_GOI]:   'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100',
+  [ORDER_STATUS.DANG_GIAO]:       'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+  [ORDER_STATUS.DA_GIAO]:         'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+  [ORDER_STATUS.DA_HUY]:          'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+  [ORDER_STATUS.YEU_CAU_DOI_TRA]: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100',
+  [ORDER_STATUS.DA_HOAN_TIEN]:    'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100',
 };
 
 // ── Màu Tab khi active (Tông màu sáng) ──
@@ -79,21 +106,45 @@ const OrderListPage = () => {
   const [modalDetail, setModalDetail] = useState(null);
 
   // 1. Tải danh sách đơn hàng từ API
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
+  const fetchOrders = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/admin/orders');
       setOrders(res.data?.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải danh sách đơn hàng');
+      if (!silent) {
+        setError(err.response?.data?.message || 'Không thể tải danh sách đơn hàng');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     fetchOrders();
+  }, [fetchOrders]);
+
+  // Tự động đồng bộ khi Kho hoặc User thao tác trên tab khác / khi quay lại tab Admin
+  useEffect(() => {
+    const syncOrders = () => fetchOrders({ silent: true });
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncOrders();
+      }
+    };
+    const unsubscribe = subscribeOrderStatusChanges(syncOrders);
+    window.addEventListener('focus', syncOrders);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', syncOrders);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [fetchOrders]);
 
   // 2. Mở Modal Xem Chi Tiết Đơn Hàng
@@ -138,21 +189,25 @@ const OrderListPage = () => {
         TrangThaiDonHang: newStatus
       });
 
-      const msg = res.data?.message || `Đã cập nhật đơn hàng #${orderId} sang "${newStatus}"`;
+      const resolvedStatus = res.data?.data?.TrangThaiDonHang || newStatus;
+      const statusLabel = getOrderStatusDisplayLabel(resolvedStatus);
+      const msg = res.data?.message || `Đã cập nhật đơn hàng #${orderId} sang "${statusLabel}"`;
       toast.success(msg, { id: `order-status-${orderId}` });
 
       // Update state tại chỗ trong danh sách
       setOrders((prev) =>
         prev.map((order) =>
-          order.MaDonHang === orderId ? { ...order, TrangThaiDonHang: newStatus } : order
+          order.MaDonHang === orderId ? { ...order, TrangThaiDonHang: resolvedStatus } : order
         )
       );
 
       // Cập nhật cả trong modal nếu đang mở đơn này
       if (selectedOrder && selectedOrder.MaDonHang === orderId) {
-        setSelectedOrder((prev) => ({ ...prev, TrangThaiDonHang: newStatus }));
-        setModalDetail((prev) => prev ? { ...prev, TrangThaiDonHang: newStatus } : null);
+        setSelectedOrder((prev) => ({ ...prev, TrangThaiDonHang: resolvedStatus }));
+        setModalDetail((prev) => prev ? { ...prev, TrangThaiDonHang: resolvedStatus } : null);
       }
+
+      notifyOrderStatusChanged({ orderId, status: resolvedStatus, source: 'admin' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại', { id: `order-status-${orderId}` });
     } finally {
@@ -166,15 +221,17 @@ const OrderListPage = () => {
     let totalDeliveredRevenue = 0;
 
     orders.forEach((o) => {
-      const st = o.TrangThaiDonHang;
-      if (st === 'Chờ xác nhận') counts.PENDING++;
-      else if (st === 'Đang xử lý') counts.PROCESSING++;
-      else if (st === 'Đang giao') counts.SHIPPING++;
-      else if (st === 'Đã giao') {
+      const st = normalizeOrderStatus(o.TrangThaiDonHang);
+      if (st === ORDER_STATUS.CHO_XAC_NHAN) counts.PENDING++;
+      else if (st === ORDER_STATUS.DA_XAC_NHAN || st === ORDER_STATUS.DANG_DONG_GOI) counts.PROCESSING++;
+      else if (st === ORDER_STATUS.DANG_GIAO) counts.SHIPPING++;
+      else if (st === ORDER_STATUS.DA_GIAO || st === ORDER_STATUS.YEU_CAU_DOI_TRA || st === ORDER_STATUS.DA_HOAN_TIEN) {
         counts.DELIVERED++;
-        totalDeliveredRevenue += Number(o.TongTien || 0);
+        if (st === ORDER_STATUS.DA_GIAO) {
+          totalDeliveredRevenue += Number(o.TongTien || 0);
+        }
       }
-      else if (st === 'Đã hủy') counts.CANCELLED++;
+      else if (st === ORDER_STATUS.DA_HUY) counts.CANCELLED++;
     });
 
     return { counts, totalDeliveredRevenue };
@@ -183,7 +240,7 @@ const OrderListPage = () => {
   // 5. Lọc đơn hàng theo tab + search
   const filteredOrders = useMemo(() => {
     const activeTabObj = ORDER_TABS.find((t) => t.id === activeTab);
-    const tabStatus = activeTabObj?.status;
+    const tabStatuses = activeTabObj?.statuses;
 
     return orders.filter((order) => {
       const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
@@ -195,7 +252,8 @@ const OrderListPage = () => {
         (order.KhachHang || order.TenNguoiNhan || '').toLowerCase().includes(searchLower) ||
         (order.SoDienThoai || '').includes(searchLower);
 
-      const matchesTab = !tabStatus || order.TrangThaiDonHang === tabStatus;
+      const canonical = normalizeOrderStatus(order.TrangThaiDonHang);
+      const matchesTab = !tabStatuses || tabStatuses.includes(canonical);
 
       return matchesSearch && matchesTab;
     });
@@ -218,7 +276,7 @@ const OrderListPage = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchOrders}
+            onClick={() => fetchOrders()}
             className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold transition-all shadow-sm"
             title="Tải lại danh sách đơn hàng"
           >
@@ -382,7 +440,12 @@ const OrderListPage = () => {
                   </tr>
                 ) : (
                   filteredOrders.map((order) => {
-                    const statusStyle = STATUS_STYLE_MAP[order.TrangThaiDonHang] || 'bg-slate-100 text-slate-700 border-slate-200';
+                    const currentCanonical = normalizeOrderStatus(order.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
+                    const allowedNext = ALLOWED_NEXT_TRANSITIONS[currentCanonical] || [];
+                    const selectOptions = EXTRA_STATUS_OPTIONS.some((o) => o.value === currentCanonical)
+                      ? [...ORDER_STATUS_OPTIONS, ...EXTRA_STATUS_OPTIONS]
+                      : ORDER_STATUS_OPTIONS;
+                    const statusStyle = STATUS_STYLE_MAP[currentCanonical] || 'bg-slate-100 text-slate-700 border-slate-200';
                     const isUpdating = updatingId === order.MaDonHang;
                     const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
 
@@ -424,20 +487,28 @@ const OrderListPage = () => {
 
                         {/* Dropdown Đổi Nhanh Trạng Thái */}
                         <td className="px-6 py-4 text-center">
-                          <div className="relative inline-block w-44">
+                          <div className="relative inline-block w-52">
                             <select
-                              value={order.TrangThaiDonHang || 'Chờ xác nhận'}
+                              value={currentCanonical}
                               disabled={isUpdating}
                               onChange={(e) => handleStatusChange(order.MaDonHang, e.target.value)}
-                              className={`w-full appearance-none px-3 py-2 min-h-[38px] rounded-xl border text-xs font-semibold text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${statusStyle} ${
+                              className={`w-full appearance-none pl-3 pr-7 py-2 min-h-[38px] rounded-xl border text-xs font-semibold text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${statusStyle} ${
                                 isUpdating ? 'opacity-50 cursor-not-allowed' : 'shadow-sm'
                               }`}
                             >
-                              {ORDER_STATUS_OPTIONS.map((st) => (
-                                <option key={st} value={st} className="bg-white text-slate-700 py-1 text-left font-normal">
-                                  {st}
-                                </option>
-                              ))}
+                              {selectOptions.map((st) => {
+                                const canChoose = st.value === currentCanonical || allowedNext.includes(st.value);
+                                return (
+                                  <option
+                                    key={st.value}
+                                    value={st.value}
+                                    disabled={!canChoose}
+                                    className="bg-white text-slate-700 py-1 text-left font-normal disabled:text-slate-300"
+                                  >
+                                    {st.label}
+                                  </option>
+                                );
+                              })}
                             </select>
                             {isUpdating ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
@@ -449,16 +520,29 @@ const OrderListPage = () => {
                           </div>
                         </td>
 
-                        {/* Nút Xem Chi Tiết */}
+                        {/* Nút Xác nhận nhanh / Chi tiết */}
                         <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={() => handleOpenDetailModal(order)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
-                            title="Xem chi tiết đơn hàng"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Chi tiết</span>
-                          </button>
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            {currentCanonical === ORDER_STATUS.CHO_XAC_NHAN && (
+                              <button
+                                onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_XAC_NHAN)}
+                                disabled={isUpdating}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+                                title="Xác nhận đơn -> chuyển sang Chờ đóng gói của Kho"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Xác nhận</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleOpenDetailModal(order)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
+                              title="Xem chi tiết đơn hàng"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Chi tiết</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -487,9 +571,9 @@ const OrderListPage = () => {
                       {formatOrderCode(selectedOrder.MaDonHang, selectedOrder.NgayMuaHang)}
                     </h3>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                      STATUS_STYLE_MAP[selectedOrder.TrangThaiDonHang] || 'bg-slate-100 text-slate-700 border-slate-200'
+                      STATUS_STYLE_MAP[normalizeOrderStatus(selectedOrder.TrangThaiDonHang)] || 'bg-slate-100 text-slate-700 border-slate-200'
                     }`}>
-                      {selectedOrder.TrangThaiDonHang}
+                      {getOrderStatusDisplayLabel(selectedOrder.TrangThaiDonHang)}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -666,17 +750,30 @@ const OrderListPage = () => {
             <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <span className="text-xs text-slate-500 whitespace-nowrap">Đổi trạng thái:</span>
-                <select
-                  value={selectedOrder.TrangThaiDonHang || 'Chờ xác nhận'}
-                  onChange={(e) => handleStatusChange(selectedOrder.MaDonHang, e.target.value)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-sm"
-                >
-                  {ORDER_STATUS_OPTIONS.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
+                {(() => {
+                  const modalCanonical = normalizeOrderStatus(selectedOrder.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
+                  const modalAllowed = ALLOWED_NEXT_TRANSITIONS[modalCanonical] || [];
+                  const modalOptions = EXTRA_STATUS_OPTIONS.some((o) => o.value === modalCanonical)
+                    ? [...ORDER_STATUS_OPTIONS, ...EXTRA_STATUS_OPTIONS]
+                    : ORDER_STATUS_OPTIONS;
+                  return (
+                    <select
+                      value={modalCanonical}
+                      disabled={updatingId === selectedOrder.MaDonHang}
+                      onChange={(e) => handleStatusChange(selectedOrder.MaDonHang, e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-sm disabled:opacity-60"
+                    >
+                      {modalOptions.map((st) => {
+                        const canChoose = st.value === modalCanonical || modalAllowed.includes(st.value);
+                        return (
+                          <option key={st.value} value={st.value} disabled={!canChoose}>
+                            {st.label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
               </div>
 
               <button

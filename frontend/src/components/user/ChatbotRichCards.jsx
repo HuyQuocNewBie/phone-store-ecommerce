@@ -505,20 +505,23 @@ export const OrderStatusCard = ({ orders = [], onNavigate }) => {
       order.payment?.status || order.TrangThaiThanhToan || ''
     ).toLowerCase();
 
-    if (status.includes('hủy') || status.includes('cancel')) {
+    if (status.includes('hủy') || status === 'dahuy' || status.includes('cancel')) {
       return { stepIndex: -1, isCancelled: true, badgeText: 'Đã hủy', badgeColor: 'rose' };
     }
 
-    if (status.includes('đã giao') || status.includes('hoàn thành')) {
+    if (status.includes('đã giao') || status.includes('hoàn thành') || status === 'dagiao') {
       return { stepIndex: 3, isCancelled: false, badgeText: 'Đã giao thành công', badgeColor: 'emerald' };
     }
 
-    if (status.includes('đang giao') || status.includes('vận chuyển') || status.includes('đang vận chuyển')) {
+    if (status.includes('đang giao') || status.includes('vận chuyển') || status.includes('đang vận chuyển') || status === 'danggiao') {
       return { stepIndex: 2, isCancelled: false, badgeText: 'Đang giao hàng', badgeColor: 'blue' };
     }
 
     if (
-      status.includes('xác nhận') ||
+      status.includes('xác nhận') && status !== 'choxacnhan' && !status.includes('chờ xác nhận') ||
+      status === 'daxacnhan' ||
+      status === 'dangdonggoi' ||
+      status.includes('đang đóng gói') ||
       status.includes('đang xử lý') ||
       paymentStatus.includes('đã thanh toán') ||
       paymentStatus.includes('thành công')
@@ -526,7 +529,7 @@ export const OrderStatusCard = ({ orders = [], onNavigate }) => {
       return { stepIndex: 1, isCancelled: false, badgeText: 'Đã xác nhận', badgeColor: 'indigo' };
     }
 
-    return { stepIndex: 0, isCancelled: false, badgeText: 'Đã đặt hàng', badgeColor: 'amber' };
+    return { stepIndex: 0, isCancelled: false, badgeText: 'Chờ xác nhận', badgeColor: 'amber' };
   };
 
   return (

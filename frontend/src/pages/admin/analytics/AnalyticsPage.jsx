@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import api from '../../../services/api';
 import { formatOrderCode } from '../../../utils/formatters';
+import { ORDER_STATUS, normalizeOrderStatus, getOrderStatusDisplayLabel } from '../../../utils/orderSync';
 
 // ── Helper format VNĐ ──
 const formatVND = (value) => {
@@ -383,15 +384,20 @@ const AnalyticsPage = () => {
                       {order.KhachHang || 'Khách hàng'}
                     </td>
                     <td className="px-6 py-4 text-center text-xs font-semibold">
-                      <span className={`inline-block px-2.5 py-1 rounded-full border ${
-                        order.TrangThaiDonHang === 'Đã hoàn thành'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : order.TrangThaiDonHang === 'Đã hủy'
-                          ? 'bg-rose-50 text-rose-600 border-rose-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}>
-                        {order.TrangThaiDonHang}
-                      </span>
+                      {(() => {
+                        const canonical = normalizeOrderStatus(order.TrangThaiDonHang);
+                        return (
+                          <span className={`inline-block px-2.5 py-1 rounded-full border ${
+                            canonical === ORDER_STATUS.DA_GIAO
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : canonical === ORDER_STATUS.DA_HUY
+                              ? 'bg-rose-50 text-rose-600 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {getOrderStatusDisplayLabel(order.TrangThaiDonHang)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">
                       {formatVND(order.TongTien)}
