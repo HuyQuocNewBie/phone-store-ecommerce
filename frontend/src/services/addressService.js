@@ -1,8 +1,9 @@
 import api from './api';
 
-// Cache in-memory để tránh gọi lại API nhiều lần khi đóng/mở Drawer
+// Cache in-memory để tránh gọi lại API nhiều lần khi đóng/mở Modal/Drawer
 let provincesCache = null;
 const districtCache = new Map();
+const wardCache = new Map();
 
 export const addressService = {
   /**
@@ -58,7 +59,7 @@ export const addressService = {
   },
 
   /**
-   * Lấy danh sách Phường/Xã / Quận/Huyện tương ứng theo mã Tỉnh/Thành phố
+   * Lấy danh sách Quận/Huyện tương ứng theo mã Tỉnh/Thành phố
    * URL: https://provinces.open-api.vn/api/p/{code}?depth=2
    */
   getDistrictsByProvince: async (provinceCode) => {
@@ -69,12 +70,32 @@ export const addressService = {
     }
     const response = await fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`);
     if (!response.ok) {
-      throw new Error('Không thể tải danh sách Phường/Xã');
+      throw new Error('Không thể tải danh sách Quận/Huyện');
     }
     const data = await response.json();
     const districts = data.districts || [];
     districtCache.set(codeKey, districts);
     return districts;
+  },
+
+  /**
+   * Lấy danh sách Phường/Xã tương ứng theo mã Quận/Huyện
+   * URL: https://provinces.open-api.vn/api/d/{code}?depth=2
+   */
+  getWardsByDistrict: async (districtCode) => {
+    if (!districtCode) return [];
+    const codeKey = String(districtCode);
+    if (wardCache.has(codeKey)) {
+      return wardCache.get(codeKey);
+    }
+    const response = await fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`);
+    if (!response.ok) {
+      throw new Error('Không thể tải danh sách Phường/Xã');
+    }
+    const data = await response.json();
+    const wards = data.wards || [];
+    wardCache.set(codeKey, wards);
+    return wards;
   },
 };
 

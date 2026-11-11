@@ -90,6 +90,12 @@ const createAddress = async (req, res, next) => {
       LaMacDinh: rawLaMacDinh = 0
     } = req.body;
 
+    const cleanTenGoiNho = TenGoiNho && String(TenGoiNho).trim() ? String(TenGoiNho).trim() : 'Nhà riêng';
+    const cleanTinhThanh = TinhThanh && String(TinhThanh).trim() ? String(TinhThanh).trim() : null;
+    const cleanQuanHuyen = QuanHuyen && String(QuanHuyen).trim() ? String(QuanHuyen).trim() : null;
+    const cleanPhuongXa = PhuongXa && String(PhuongXa).trim() ? String(PhuongXa).trim() : null;
+    const cleanDiaChiNha = DiaChiNha && String(DiaChiNha).trim() ? String(DiaChiNha).trim() : null;
+
     // Chuẩn hoá LaMacDinh: chấp nhận boolean true hoặc số 1
     const laMacDinh = rawLaMacDinh === true || rawLaMacDinh == 1 ? 1 : 0;
 
@@ -104,7 +110,7 @@ const createAddress = async (req, res, next) => {
     const [result] = await pool.query(
       `INSERT INTO sodiachi (MaNguoiDung, TenGoiNho, TinhThanh, QuanHuyen, PhuongXa, DiaChiNha, LaMacDinh)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [MaNguoiDung, TenGoiNho, TinhThanh, QuanHuyen, PhuongXa, DiaChiNha, laMacDinh]
+      [MaNguoiDung, cleanTenGoiNho, cleanTinhThanh, cleanQuanHuyen, cleanPhuongXa, cleanDiaChiNha, laMacDinh]
     );
 
     // Đồng bộ sang cột DiaChi của bảng nguoidung nếu đây là địa chỉ mặc định
@@ -118,11 +124,11 @@ const createAddress = async (req, res, next) => {
       data: {
         MaDiaChi: result.insertId,
         MaNguoiDung,
-        TenGoiNho,
-        TinhThanh,
-        QuanHuyen,
-        PhuongXa,
-        DiaChiNha,
+        TenGoiNho: cleanTenGoiNho,
+        TinhThanh: cleanTinhThanh,
+        QuanHuyen: cleanQuanHuyen,
+        PhuongXa: cleanPhuongXa,
+        DiaChiNha: cleanDiaChiNha,
         LaMacDinh: Boolean(laMacDinh)
       }
     });
@@ -171,6 +177,12 @@ const updateAddress = async (req, res, next) => {
       LaMacDinh: rawLaMacDinh = 0
     } = req.body;
 
+    const cleanTenGoiNho = TenGoiNho && String(TenGoiNho).trim() ? String(TenGoiNho).trim() : 'Nhà riêng';
+    const cleanTinhThanh = TinhThanh && String(TinhThanh).trim() ? String(TinhThanh).trim() : null;
+    const cleanQuanHuyen = QuanHuyen && String(QuanHuyen).trim() ? String(QuanHuyen).trim() : null;
+    const cleanPhuongXa = PhuongXa && String(PhuongXa).trim() ? String(PhuongXa).trim() : null;
+    const cleanDiaChiNha = DiaChiNha && String(DiaChiNha).trim() ? String(DiaChiNha).trim() : null;
+
     const laMacDinh = rawLaMacDinh === true || rawLaMacDinh == 1 ? 1 : 0;
 
     // Nếu đặt làm mặc định -> reset các địa chỉ khác của user về 0
@@ -185,7 +197,7 @@ const updateAddress = async (req, res, next) => {
       `UPDATE sodiachi
        SET TenGoiNho = ?, TinhThanh = ?, QuanHuyen = ?, PhuongXa = ?, DiaChiNha = ?, LaMacDinh = ?
        WHERE MaDiaChi = ? AND MaNguoiDung = ?`,
-      [TenGoiNho, TinhThanh, QuanHuyen, PhuongXa, DiaChiNha, laMacDinh, maDiaChi, MaNguoiDung]
+      [cleanTenGoiNho, cleanTinhThanh, cleanQuanHuyen, cleanPhuongXa, cleanDiaChiNha, laMacDinh, maDiaChi, MaNguoiDung]
     );
 
     // Tự động đồng bộ địa chỉ mặc định sang cột DiaChi của bảng nguoidung
@@ -197,11 +209,11 @@ const updateAddress = async (req, res, next) => {
       data: {
         MaDiaChi: maDiaChi,
         MaNguoiDung,
-        TenGoiNho,
-        TinhThanh,
-        QuanHuyen,
-        PhuongXa,
-        DiaChiNha,
+        TenGoiNho: cleanTenGoiNho,
+        TinhThanh: cleanTinhThanh,
+        QuanHuyen: cleanQuanHuyen,
+        PhuongXa: cleanPhuongXa,
+        DiaChiNha: cleanDiaChiNha,
         LaMacDinh: Boolean(laMacDinh)
       }
     });

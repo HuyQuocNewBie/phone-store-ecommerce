@@ -120,7 +120,28 @@ const CheckoutPage = () => {
         setLoadingAddresses(true);
         const res = await api.get('/addresses');
         if (isMounted && res.data?.success) {
-          setAddresses(res.data.data || []);
+          const list = res.data.data || [];
+          setAddresses(list);
+
+          // Tự động chọn địa chỉ mặc định nếu người dùng chưa chọn địa chỉ
+          const defaultAddr = list.find((a) => a.LaMacDinh);
+          if (defaultAddr && !selectedAddressId) {
+            setSelectedAddressId(String(defaultAddr.MaDiaChi));
+            const addressParts = [
+              defaultAddr.DiaChiNha,
+              defaultAddr.PhuongXa,
+              defaultAddr.QuanHuyen,
+              defaultAddr.TinhThanh,
+            ].filter((part) => part && String(part).trim() !== '');
+            const fullAddress = addressParts.join(', ');
+
+            setFormData((prev) => ({
+              ...prev,
+              fullName: prev.fullName || user?.TaiKhoan || user?.HoTen || defaultAddr.TaiKhoan || '',
+              phone:    prev.phone || defaultAddr.SoDienThoai || user?.SoDienThoai || '',
+              address:  prev.address || fullAddress,
+            }));
+          }
         }
       } catch (err) {
         console.error('Lỗi khi tải danh sách sổ địa chỉ:', err);
@@ -690,8 +711,11 @@ const CheckoutPage = () => {
                           {addresses.map((addr) => {
                             const displayName = addr.TenGoiNho || addr.DiaChiNha || 'Địa chỉ';
                             const defTag = addr.LaMacDinh ? ' (Mặc định)' : '';
+                            const fullAddr = [addr.DiaChiNha, addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh]
+                              .filter(Boolean)
+                              .join(', ');
                             return (
-                              <option key={addr.MaDiaChi} value={addr.MaDiaChi}>
+                              <option key={addr.MaDiaChi} value={addr.MaDiaChi} title={fullAddr}>
                                 {displayName}{defTag}
                               </option>
                             );

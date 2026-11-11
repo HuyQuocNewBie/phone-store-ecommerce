@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import addressService from '../../services/addressService';
-import AddressDrawer from '../../components/user/AddressDrawer';
+import AddressModal from '../../components/user/AddressModal';
 import DeleteConfirmModal from '../../components/user/DeleteConfirmModal';
 
 /**
@@ -28,12 +28,12 @@ import DeleteConfirmModal from '../../components/user/DeleteConfirmModal';
  *   - Lưới/Danh sách Card địa chỉ:
  *     * Hàng 1: Loại địa chỉ (TenGoiNho) + Tag "Mặc định" (nếu LaMacDinh === 1/true).
  *     * Hàng 2: Tên người nhận | Số điện thoại (phân cách bởi dấu gạch đứng |).
- *     * Hàng 3: Địa chỉ cụ thể, Phường/Xã, Tỉnh/Thành phố.
+ *     * Hàng 3: [DiaChiNha], [PhuongXa], [QuanHuyen], [TinhThanh].
  *     * Thao tác:
  *       - MẶC ĐỊNH: CHỈ HIỆN 1 NÚT [Sửa].
  *       - KHÔNG MẶC ĐỊNH: HIỆN CẢ 2 NÚT [Sửa] VÀ [Xóa].
- * 2. TÍCH HỢP DRAWER:
- *   - AddressDrawer trượt 300ms từ phải sang trái.
+ * 2. TÍCH HỢP MODAL:
+ *   - AddressModal 3 cấp: Tỉnh/Thành phố -> Quận/Huyện -> Phường/Xã.
  */
 const AddressPage = () => {
   const { user } = useAuth();
@@ -240,7 +240,7 @@ const AddressPage = () => {
               item.TenNguoiNhan || user?.HoTen || user?.TaiKhoan || 'Người nhận';
             const recipientPhone =
               item.SoDienThoai || user?.SoDienThoai || 'Chưa cập nhật SĐT';
-            const addressParts = [item.DiaChiNha, item.PhuongXa, item.TinhThanh].filter(Boolean);
+            const addressParts = [item.DiaChiNha, item.PhuongXa, item.QuanHuyen, item.TinhThanh].filter(Boolean);
             const fullAddress = addressParts.join(', ') || 'Chưa cập nhật địa chỉ chi tiết';
 
             return (
@@ -327,8 +327,8 @@ const AddressPage = () => {
         </div>
       )}
 
-      {/* ── DRAWER SLIDE-IN THÊM / SỬA ĐỊA CHỈ (300ms) ── */}
-      <AddressDrawer
+      {/* ── MODAL THÊM / SỬA ĐỊA CHỈ (3 CẤP HÀNH CHÍNH) ── */}
+      <AddressModal
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onSubmit={handleDrawerSubmit}
@@ -347,7 +347,7 @@ const AddressPage = () => {
         title="Xác nhận xóa địa chỉ"
         message={
           deletingAddress
-            ? `Bạn có chắc chắn muốn xóa địa chỉ "${deletingAddress.TenGoiNho || 'này'}" (${[deletingAddress.DiaChiNha, deletingAddress.PhuongXa, deletingAddress.TinhThanh].filter(Boolean).join(', ')}) không?`
+            ? `Bạn có chắc chắn muốn xóa địa chỉ "${deletingAddress.TenGoiNho || 'này'}" (${[deletingAddress.DiaChiNha, deletingAddress.PhuongXa, deletingAddress.QuanHuyen, deletingAddress.TinhThanh].filter(Boolean).join(', ')}) không?`
             : 'Bạn có chắc chắn muốn xóa địa chỉ này không?'
         }
       />
