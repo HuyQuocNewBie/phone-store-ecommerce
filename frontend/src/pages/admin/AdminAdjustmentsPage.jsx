@@ -431,39 +431,30 @@ const AdminAdjustmentsPage = () => {
 
   return (
     <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-auto max-w-7xl mx-auto w-full">
-      {/* ── Top Header & Action Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2.5">
-            <ClipboardCheck className="w-7 h-7 text-blue-600 shrink-0" />
-            Trung tâm Phê duyệt Kho hàng
-          </h1>
-        </div>
+      {/* ── Top Action Bar ── */}
+      <div className="flex items-center justify-end gap-2.5 flex-wrap">
+        <Link
+          to="/admin/inventory"
+          className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs font-semibold transition-all shadow-sm"
+        >
+          <Boxes className="w-3.5 h-3.5 text-sky-600" />
+          <span>Theo dõi Tồn kho</span>
+        </Link>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link
-            to="/admin/inventory"
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs font-semibold transition-all shadow-sm"
-          >
-            <Boxes className="w-3.5 h-3.5 text-sky-600" />
-            <span>Theo dõi Tồn kho</span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => fetchAllData({ silent: true })}
-            disabled={loading || refreshing}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 cursor-pointer"
-            title="Tải lại danh sách"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${
-                loading || refreshing ? 'animate-spin text-blue-600' : ''
-              }`}
-            />
-            <span>Làm mới</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => fetchAllData({ silent: true })}
+          disabled={loading || refreshing}
+          className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 cursor-pointer"
+          title="Tải lại danh sách"
+        >
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${
+              loading || refreshing ? 'animate-spin text-blue-600' : ''
+            }`}
+          />
+          <span>Làm mới</span>
+        </button>
       </div>
 
       {/* ── View Switcher: Nhập kho vs Lệch kho ── */}
@@ -989,10 +980,18 @@ const AdminAdjustmentsPage = () => {
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredAdjustments.map((item) => {
                     const diff = Number(item.SoLuongChechLech) || 0;
-                    const sysStock = item.TonKhoHeThong ?? item.TonKhoHienTai ?? 0;
                     const actualStock = Number(item.SoLuongThucTe) || 0;
                     const isPending = item.TrangThai === 'ChoDuyet';
                     const activeAction = processingMap[`adjust_${item.MaPhieuAdjust}`];
+
+                    // Đối chiếu tồn kho:
+                    // - Phiếu đã duyệt/từ chối: tính số tồn trước khi duyệt = SoLuongThucTe - SoLuongChechLech
+                    // - Phiếu chờ duyệt: lấy tồn hệ thống hiện tại (hoặc fallback về SoLuongThucTe - SoLuongChechLech)
+                    const tonTruocDuyet =
+                      item.TrangThai === 'ChoDuyet'
+                        ? (item.TonKhoHeThong ?? item.TonKhoHienTai ?? (actualStock - diff))
+                        : (item.TonKhoTruoc ?? (actualStock - diff));
+                    const tonSauDuyet = actualStock;
 
                     return (
                       <tr
@@ -1056,20 +1055,20 @@ const AdminAdjustmentsPage = () => {
                           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                             <span
                               className="text-slate-500 font-semibold"
-                              title="Tồn kho hệ thống"
+                              title={item.TrangThai === 'ChoDuyet' ? 'Tồn kho hệ thống' : 'Tồn kho trước khi duyệt'}
                             >
-                              {Number(sysStock).toLocaleString('vi-VN')}
+                              {Number(tonTruocDuyet).toLocaleString('vi-VN')}
                             </span>
                             <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                             <span
                               className="font-extrabold text-blue-700"
-                              title="Số lượng thực tế đề xuất"
+                              title={item.TrangThai === 'ChoDuyet' ? 'Số lượng thực tế đề xuất' : 'Tồn kho sau khi duyệt'}
                             >
-                              {actualStock.toLocaleString('vi-VN')}
+                              {Number(tonSauDuyet).toLocaleString('vi-VN')}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400 mt-1">
-                            Hệ thống → Thực tế
+                            {item.TrangThai === 'ChoDuyet' ? 'Hệ thống → Thực tế' : 'Trước → Sau khi duyệt'}
                           </p>
                         </td>
 
