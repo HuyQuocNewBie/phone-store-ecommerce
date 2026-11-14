@@ -17,7 +17,6 @@ import {
   ChevronRight,
   Smartphone,
   X,
-  Eye,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -49,9 +48,8 @@ const navGroups = [
     items: [
       {
         icon: Boxes,
-        label: 'Theo dõi Tồn kho (Chỉ xem)',
+        label: 'Theo dõi Tồn kho',
         path: '/admin/inventory',
-        readOnly: true,
       },
       { icon: ClipboardCheck, label: 'Duyệt kho & kiểm kê',  path: '/admin/inventory/adjustments' },
       { icon: RotateCcw,      label: 'Duyệt hoàn tiền', path: '/admin/returns' },
@@ -192,14 +190,6 @@ const AdminSidebar = ({ collapsed, onToggle, mobileOpen, onCloseMobile }) => {
                       `}
                     >
                       <span className="truncate leading-snug">{label}</span>
-                      {readOnly && (
-                        <Eye
-                          className={`w-3.5 h-3.5 shrink-0 ${
-                            active ? 'text-blue-100' : 'text-slate-400'
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
                     </span>
 
                     {/* Tooltip khi collapsed ở desktop */}

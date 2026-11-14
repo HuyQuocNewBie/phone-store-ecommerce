@@ -91,6 +91,26 @@ const AdminAdjustmentsPage = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [processingMap, setProcessingMap] = useState({});
+  const [rejectItem, setRejectItem] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectError, setRejectError] = useState('');
+
+  // Đóng modal từ chối khi bấm ESC
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && rejectItem) {
+        setRejectItem(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [rejectItem]);
+
+  const openRejectModal = (item) => {
+    setRejectItem(item);
+    setRejectReason('');
+    setRejectError('');
+  };
 
   // Cập nhật URL search param khi đổi tab
   const handleSwitchView = (view) => {
@@ -330,7 +350,7 @@ const AdminAdjustmentsPage = () => {
   };
 
   // 2. Phê duyệt / Từ chối Phiếu Báo Lệch Kho: PUT /api/v1/admin/inventory/adjustments/:id/approve
-  const handleAdjustDecision = async (item, hanhDong) => {
+  const handleAdjustDecision = async (item, hanhDong, lyDoTuChoi = '') => {
     const adjustmentId = item.MaPhieuAdjust;
     const processKey = `adjust_${adjustmentId}`;
     if (processingMap[processKey]) return;
@@ -338,9 +358,14 @@ const AdminAdjustmentsPage = () => {
     setProcessingMap((prev) => ({ ...prev, [processKey]: hanhDong }));
 
     try {
+      const payload = { hanhDong };
+      if (hanhDong === 'Reject' && lyDoTuChoi) {
+        payload.lyDoTuChoi = lyDoTuChoi;
+      }
+
       const res = await api.put(
         `/admin/inventory/adjustments/${adjustmentId}/approve`,
-        { hanhDong }
+        payload
       );
       const updated = res.data?.data;
 
@@ -351,11 +376,13 @@ const AdminAdjustmentsPage = () => {
             return {
               ...row,
               TrangThai: hanhDong === 'Approve' ? 'DaDuyet' : 'TuChoi',
+              LyDoTuChoi: lyDoTuChoi || row.LyDoTuChoi,
             };
           }
           return {
             ...row,
             ...updated,
+            LyDoTuChoi: updated.LyDoTuChoi || lyDoTuChoi || row.LyDoTuChoi,
             TonKhoHeThong:
               updated.TonKhoMoi !== undefined
                 ? Number(updated.TonKhoMoi)
@@ -411,9 +438,6 @@ const AdminAdjustmentsPage = () => {
             <ClipboardCheck className="w-7 h-7 text-blue-600 shrink-0" />
             Trung tâm Phê duyệt Kho hàng
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Đối chiếu và phê duyệt Phiếu nhập kho từ Nhà sản xuất &amp; Phiếu báo lệch kho trước khi cập nhật tồn kho hệ thống
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -883,6 +907,16 @@ const AdminAdjustmentsPage = () => {
                                 <span>Từ chối</span>
                               </button>
                             </div>
+                          ) : receipt.TrangThai === 'DaDuyet' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Đã cộng tồn kho</span>
+                            </span>
+                          ) : receipt.TrangThai === 'TuChoi' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs font-semibold">
+                              <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Đã từ chối</span>
+                            </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-medium">
                               Đã xử lý
@@ -946,7 +980,7 @@ const AdminAdjustmentsPage = () => {
                     <th className="px-4 py-3.5 w-[140px] text-center whitespace-nowrap">
                       Trạng thái
                     </th>
-                    <th className="px-5 py-3.5 w-[200px] text-center whitespace-nowrap">
+                    <th className="px-5 py-3.5 min-w-[260px] text-center whitespace-nowrap">
                       Thao tác duyệt
                     </th>
                   </tr>
@@ -998,11 +1032,8 @@ const AdminAdjustmentsPage = () => {
                               <p className="font-bold text-slate-900 leading-snug line-clamp-2">
                                 {item.TenSanPham || `Sản phẩm #${item.MaSanPham}`}
                               </p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-                                <span className="font-mono font-semibold text-slate-600">
-                                  SP #{item.MaSanPham}
-                                </span>
-                                {item.MaChiTietDonHang && (
+                              {item.MaChiTietDonHang && (
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500">
                                   <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200/80 font-semibold">
                                     {`Màu: ${
                                       item.MauSac && String(item.MauSac).trim()
@@ -1014,8 +1045,8 @@ const AdminAdjustmentsPage = () => {
                                         : 'N/A'
                                     }`}
                                   </span>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1126,9 +1157,9 @@ const AdminAdjustmentsPage = () => {
                               <button
                                 type="button"
                                 disabled={Boolean(activeAction)}
-                                onClick={() => handleAdjustDecision(item, 'Reject')}
+                                onClick={() => openRejectModal(item)}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                title="Từ chối phiếu điều chỉnh và giữ nguyên tồn kho"
+                                title="Từ chối phiếu điều chỉnh và yêu cầu nhập lý do"
                               >
                                 {activeAction === 'Reject' ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1138,6 +1169,27 @@ const AdminAdjustmentsPage = () => {
                                 <span>Từ chối</span>
                               </button>
                             </div>
+                          ) : item.TrangThai === 'DaDuyet' ? (
+                            (() => {
+                              const before = item.TonKhoTruoc ?? (Number(item.SoLuongThucTe) - Number(item.SoLuongChechLech));
+                              const after = item.TonKhoMoi ?? Number(item.SoLuongThucTe);
+                              return (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span>Đã cập nhật tồn kho ({before} → {after})</span>
+                                </span>
+                              );
+                            })()
+                          ) : item.TrangThai === 'TuChoi' ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs font-semibold max-w-[280px]"
+                              title={item.LyDoTuChoi ? `Lý do từ chối: ${item.LyDoTuChoi}` : 'Đã từ chối'}
+                            >
+                              <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span className="truncate">
+                                Đã từ chối{item.LyDoTuChoi ? `: ${item.LyDoTuChoi}` : ''}
+                              </span>
+                            </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-medium">
                               Đã xử lý
@@ -1153,6 +1205,159 @@ const AdminAdjustmentsPage = () => {
           )
         )}
       </div>
+
+      {/* ── Modal popup nhập lý do từ chối phiếu điều chỉnh kho ── */}
+      {rejectItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-modal-title"
+          onClick={() => {
+            if (!processingMap[`adjust_${rejectItem.MaPhieuAdjust}`]) {
+              setRejectItem(null);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-rose-50/50">
+              <div className="flex items-center gap-2 text-rose-700">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <h3 id="reject-modal-title" className="font-bold text-slate-800 text-sm sm:text-base">
+                  Từ chối phiếu lệch kho #ADJ{String(rejectItem.MaPhieuAdjust).padStart(4, '0')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!processingMap[`adjust_${rejectItem.MaPhieuAdjust}`]) {
+                    setRejectItem(null);
+                  }
+                }}
+                disabled={Boolean(processingMap[`adjust_${rejectItem.MaPhieuAdjust}`])}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4 text-xs sm:text-sm">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
+                <p className="font-semibold text-slate-800 line-clamp-1">
+                  {rejectItem.TenSanPham || `Sản phẩm #${rejectItem.MaSanPham}`}
+                </p>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>
+                    Tồn HT: <strong className="text-slate-700">{Number(rejectItem.TonKhoHeThong ?? rejectItem.TonKhoHienTai ?? 0).toLocaleString('vi-VN')}</strong>
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                  <span>
+                    Thực tế: <strong className="text-blue-700">{Number(rejectItem.SoLuongThucTe).toLocaleString('vi-VN')}</strong>
+                  </span>
+                  <span>
+                    Lệch: <strong className={Number(rejectItem.SoLuongChechLech) < 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                      {Number(rejectItem.SoLuongChechLech) > 0 ? `+${rejectItem.SoLuongChechLech}` : rejectItem.SoLuongChechLech}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="reject-reason-input" className="block font-semibold text-slate-700 mb-1.5">
+                  Lý do từ chối <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  id="reject-reason-input"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => {
+                    setRejectReason(e.target.value);
+                    if (rejectError) setRejectError('');
+                  }}
+                  placeholder="Nhập lý do từ chối để Nhân viên Kho biết nguyên nhân..."
+                  className={`w-full p-3 rounded-xl border text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all resize-none ${
+                    rejectError
+                      ? 'border-rose-400 focus:ring-rose-500/20 bg-rose-50/20'
+                      : 'border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-slate-50 focus:bg-white'
+                  }`}
+                  disabled={Boolean(processingMap[`adjust_${rejectItem.MaPhieuAdjust}`])}
+                  autoFocus
+                />
+                {rejectError && (
+                  <p className="text-xs text-rose-600 font-medium mt-1">{rejectError}</p>
+                )}
+              </div>
+
+              {/* Quick suggestion tags */}
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Gợi ý nhanh:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Kiểm đếm lại chưa khớp thực tế',
+                    'Cần bổ sung biên bản giải trình chi tiết',
+                    'Số liệu đề xuất không có cơ sở xác thực',
+                    'Yêu cầu thủ kho kiểm tra lại vị trí kệ',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setRejectReason(preset);
+                        if (rejectError) setRejectError('');
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-slate-50 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRejectItem(null)}
+                disabled={Boolean(processingMap[`adjust_${rejectItem.MaPhieuAdjust}`])}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(processingMap[`adjust_${rejectItem.MaPhieuAdjust}`])}
+                onClick={async () => {
+                  if (!rejectReason.trim()) {
+                    setRejectError('Vui lòng nhập lý do từ chối');
+                    return;
+                  }
+                  const itemToReject = rejectItem;
+                  const reasonToReject = rejectReason.trim();
+                  setRejectItem(null);
+                  await handleAdjustDecision(itemToReject, 'Reject', reasonToReject);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs shadow-rose-600/20 disabled:opacity-50 cursor-pointer"
+              >
+                {processingMap[`adjust_${rejectItem.MaPhieuAdjust}`] === 'Reject' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5" />
+                )}
+                <span>Xác nhận từ chối</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

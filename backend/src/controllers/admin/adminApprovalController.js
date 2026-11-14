@@ -17,6 +17,7 @@ const formatAdjustmentRecord = (row) => ({
   SoLuongThucTe: Number(row.SoLuongThucTe),
   SoLuongChechLech: Number(row.SoLuongChechLech),
   LyDoGiaiTrinh: row.LyDoGiaiTrinh,
+  LyDoTuChoi: row.LyDoTuChoi || null,
   TrangThai: row.TrangThai,
   MaNguoiDung_Admin: row.MaNguoiDung_Admin,
   NguoiDuyetAdmin: row.TaiKhoanAdmin || null,
@@ -195,6 +196,11 @@ const approveInventoryAdjustment = async (req, res, next) => {
     const hanhDong =
       rawHanhDong !== undefined && rawHanhDong !== null ? String(rawHanhDong).trim() : '';
 
+    const rawLyDoTuChoi =
+      body.lyDoTuChoi ?? body.lyDo ?? body.LyDoTuChoi ?? body.ghiChu ?? body.GhiChu;
+    const lyDoTuChoi =
+      rawLyDoTuChoi !== undefined && rawLyDoTuChoi !== null ? String(rawLyDoTuChoi).trim() : null;
+
     if (!hanhDong || !VALID_APPROVAL_ACTIONS.includes(hanhDong)) {
       return res.status(400).json({
         success: false,
@@ -312,14 +318,15 @@ const approveInventoryAdjustment = async (req, res, next) => {
         [adjustment.MaSanPham, soLuongThayDoi, tonKhoMoi, adjustmentId, logNote]
       );
     } else {
-      // Trường hợp Reject: cập nhật TrangThai = 'TuChoi', giữ nguyên TonKho của sanpham
+      // Trường hợp Reject: cập nhật TrangThai = 'TuChoi', ghi nhận LyDoTuChoi, giữ nguyên TonKho của sanpham
       await connection.query(
         `UPDATE phieudieuchinhkho
          SET TrangThai = 'TuChoi',
              MaNguoiDung_Admin = ?,
+             LyDoTuChoi = ?,
              NgayDuyet = NOW()
          WHERE MaPhieuAdjust = ?`,
-        [adminId, adjustmentId]
+        [adminId, lyDoTuChoi, adjustmentId]
       );
     }
 
@@ -337,6 +344,7 @@ const approveInventoryAdjustment = async (req, res, next) => {
          p.SoLuongThucTe,
          p.SoLuongChechLech,
          p.LyDoGiaiTrinh,
+         p.LyDoTuChoi,
          p.TrangThai,
          p.MaNguoiDung_Admin,
          ua.TaiKhoan AS TaiKhoanAdmin,

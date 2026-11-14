@@ -7,7 +7,7 @@ import AdminHeader from '../components/admin/AdminHeader';
  * AdminLayout
  * Layout chính cho toàn bộ cổng Quản trị Admin (Light Mode).
  * Phân định rạch ròi vai trò:
- *  - Admin Portal: Dashboard, Thống kê, Quản lý Kinh doanh, Phê duyệt & Theo dõi Tồn kho (Chỉ xem).
+ *  - Admin Portal: Dashboard, Thống kê, Quản lý Kinh doanh, Phê duyệt & Theo dõi Tồn kho.
  *  - Warehouse Portal (/warehouse/*): Thực hiện toàn bộ tác nghiệp nhập/xuất/kiểm kê kho.
  */
 const AdminLayout = () => {

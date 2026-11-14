@@ -1314,6 +1314,14 @@ const WarehouseInventoryPage = () => {
 
                           <td className="py-4 px-4 text-center whitespace-nowrap">
                             {getAdjustStatusBadge(req.TrangThai)}
+                            {req.TrangThai === 'TuChoi' && req.LyDoTuChoi && (
+                              <div
+                                className="text-[11px] text-rose-600 mt-1 max-w-[160px] truncate mx-auto font-medium"
+                                title={`Lý do từ chối: ${req.LyDoTuChoi}`}
+                              >
+                                Lý do: {req.LyDoTuChoi}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

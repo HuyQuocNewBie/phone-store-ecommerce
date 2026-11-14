@@ -359,6 +359,7 @@ CREATE TABLE IF NOT EXISTS `phieudieuchinhkho` (
   `SoLuongThucTe` int(11) NOT NULL,
   `SoLuongChechLech` int(11) NOT NULL,
   `LyDoGiaiTrinh` text NOT NULL,
+  `LyDoTuChoi` text DEFAULT NULL,
   `TrangThai` enum('ChoDuyet','DaDuyet','TuChoi') NOT NULL DEFAULT 'ChoDuyet',
   `MaNguoiDung_Admin` int(11) DEFAULT NULL,
   `NgayTao` datetime DEFAULT current_timestamp(),
