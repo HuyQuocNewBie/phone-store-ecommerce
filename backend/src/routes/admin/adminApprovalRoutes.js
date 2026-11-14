@@ -27,7 +27,15 @@ router.put(
   adminApprovalController.approveInventoryAdjustment
 );
 
-// POST /api/v1/admin/returns/:id/refund - Admin xác nhận hoàn tiền cho phiếu đổi trả đạt kiểm định
+// GET /api/v1/admin/returns - Admin lấy danh sách phiếu đổi trả hoàn tiền (đạt kiểm định kho)
+router.get(
+  '/returns',
+  verifyToken,
+  verifyRole(1, 'Admin'),
+  adminApprovalController.getReturnRefunds
+);
+
+// POST /api/v1/admin/returns/:id/refund - Admin xử lý hoàn tiền 2 giai đoạn (Duyệt lệnh & Xác nhận chuyển tiền)
 router.post(
   '/returns/:id/refund',
   verifyToken,

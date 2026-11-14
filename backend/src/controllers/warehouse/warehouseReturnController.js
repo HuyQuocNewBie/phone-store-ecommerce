@@ -58,6 +58,18 @@ const formatReturnRecord = (row) => {
     GhiChuKho: row.GhiChuKho,
     GhiChu: ghiChu,
     TrangThaiHoanTien: row.TrangThaiHoanTien,
+    MaGiaoDichHoanTien: row.MaGiaoDichHoanTien || null,
+    PhuongThucHoanTien: row.PhuongThucHoanTien || null,
+    GhiChuHoanTien: row.GhiChuHoanTien || null,
+    NgayHoanTien: row.NgayHoanTien || null,
+    PhuongThucThanhToan: row.PhuongThucThanhToan || 'COD',
+    KenhHoanTien:
+      row.PhuongThucHoanTien ||
+      (String(row.PhuongThucThanhToan || '').toUpperCase().includes('VNPAY')
+        ? 'Hoàn tự động về cổng VNPay'
+        : String(row.PhuongThucThanhToan || '').toUpperCase().includes('ZALO')
+        ? 'Hoàn tự động về cổng ZaloPay'
+        : 'Chuyển khoản ngân hàng cho đơn COD'),
     NgayTao: row.NgayTao,
     NgayCapNhat: row.NgayCapNhat,
     TrangThaiDonHang: row.TrangThaiDonHang,
@@ -136,6 +148,10 @@ const getReturns = async (req, res, next) => {
          p.KetQuaKiemDinh,
          p.GhiChuKho,
          p.TrangThaiHoanTien,
+         p.MaGiaoDichHoanTien,
+         p.PhuongThucHoanTien,
+         p.GhiChuHoanTien,
+         p.NgayHoanTien,
          p.NgayTao,
          p.NgayCapNhat,
          d.NgayMuaHang,
@@ -151,7 +167,12 @@ const getReturns = async (req, res, next) => {
          u.TaiKhoan,
          u.Email,
          u.SoDienThoai AS SoDienThoaiUser,
-         u.AnhDaiDien
+         u.AnhDaiDien,
+         COALESCE(
+           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+           'COD'
+         ) AS PhuongThucThanhToan
        FROM phieudoitra p
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
@@ -274,6 +295,10 @@ const inspectReturn = async (req, res, next) => {
          p.KetQuaKiemDinh,
          p.GhiChuKho,
          p.TrangThaiHoanTien,
+         p.MaGiaoDichHoanTien,
+         p.PhuongThucHoanTien,
+         p.GhiChuHoanTien,
+         p.NgayHoanTien,
          p.NgayTao,
          p.NgayCapNhat,
          d.NgayMuaHang,
@@ -289,7 +314,12 @@ const inspectReturn = async (req, res, next) => {
          u.TaiKhoan,
          u.Email,
          u.SoDienThoai AS SoDienThoaiUser,
-         u.AnhDaiDien
+         u.AnhDaiDien,
+         COALESCE(
+           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+           'COD'
+         ) AS PhuongThucThanhToan
        FROM phieudoitra p
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham

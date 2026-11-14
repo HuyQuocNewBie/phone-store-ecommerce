@@ -632,8 +632,13 @@ const WarehouseReturnsPage = () => {
                       )}
 
                       {/* Refund Status */}
+                      {item.TrangThaiHoanTien === 'DangHoanTien' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          Đang hoàn tiền
+                        </span>
+                      )}
                       {item.TrangThaiHoanTien === 'DaHoanTien' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
                           Đã hoàn tiền
                         </span>
                       )}

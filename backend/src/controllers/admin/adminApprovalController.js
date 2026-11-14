@@ -25,42 +25,138 @@ const formatAdjustmentRecord = (row) => ({
 });
 
 /**
+ * Helper: chuẩn hóa HinhAnhProof thành mảng URL
+ */
+const parseProofImages = (rawProof) => {
+  if (!rawProof) return [];
+  try {
+    const parsed = JSON.parse(rawProof);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    // Non JSON array
+  }
+  return String(rawProof)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+/**
+ * Helper: Xác định kênh hoàn tiền & loại kênh dựa trên phương thức thanh toán của đơn
+ * Nghiệp vụ thanh toán thực tế:
+ * - Đơn VNPay -> "Hoàn tự động về cổng VNPay"
+ * - Đơn ZaloPay -> "Hoàn tự động về cổng ZaloPay"
+ * - Đơn COD -> "Chuyển khoản ngân hàng cho đơn COD"
+ */
+const resolveRefundChannel = (paymentMethodName) => {
+  const norm = String(paymentMethodName || '').toUpperCase().trim();
+  if (norm.includes('VNPAY') || norm.includes('VN PAY')) {
+    return {
+      tenKenh: 'Hoàn tự động về cổng VNPay',
+      loaiKenh: 'VNPay',
+      isAutoGateway: true,
+      moTa: 'Hoàn tự động về tài khoản/thẻ liên kết cổng VNPay của khách hàng'
+    };
+  }
+  if (norm.includes('ZALO')) {
+    return {
+      tenKenh: 'Hoàn tự động về cổng ZaloPay',
+      loaiKenh: 'ZaloPay',
+      isAutoGateway: true,
+      moTa: 'Hoàn tự động về ví ZaloPay của khách hàng'
+    };
+  }
+  return {
+    tenKenh: 'Chuyển khoản ngân hàng cho đơn COD',
+    loaiKenh: 'COD_BankTransfer',
+    isAutoGateway: false,
+    moTa: 'Chuyển khoản ngân hàng trực tiếp cho đơn thanh toán COD'
+  };
+};
+
+/**
  * Helper: format 1 bản ghi phiếu đổi trả kèm thông tin đơn hàng, sản phẩm & khách hàng
  */
-const formatReturnRecord = (row) => ({
-  MaPhieuDoiTra: row.MaPhieuDoiTra,
-  MaDonHang: row.MaDonHang,
-  CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
-  MaSanPham: row.MaSanPham,
-  MaChiTietDonHang: row.MaChiTietDonHang || null,
-  TenSanPham: row.TenSanPham || null,
-  DungLuong:
-    row.DungLuong && String(row.DungLuong).trim() !== ''
-      ? String(row.DungLuong).trim()
-      : null,
-  MauSac:
-    row.MauSac && String(row.MauSac).trim() !== ''
-      ? String(row.MauSac).trim()
-      : null,
-  SoLuong: row.SoLuong !== null && row.SoLuong !== undefined ? Number(row.SoLuong) : null,
-  DonGia: row.DonGia !== null && row.DonGia !== undefined ? Number(row.DonGia) : null,
-  MaNguoiDung_User: row.MaNguoiDung_User,
-  TaiKhoan: row.TaiKhoan || null,
-  Email: row.Email || null,
-  LyDo: row.LyDo,
-  HinhAnhProof: row.HinhAnhProof,
-  KetQuaKiemDinh: row.KetQuaKiemDinh,
-  GhiChuKho: row.GhiChuKho,
-  GhiChu:
-    row.GhiChu && String(row.GhiChu).trim() !== ''
-      ? String(row.GhiChu).trim()
-      : null,
-  TrangThaiHoanTien: row.TrangThaiHoanTien,
-  TrangThaiDonHang: row.TrangThaiDonHang,
-  TongTien: row.TongTien !== null && row.TongTien !== undefined ? Number(row.TongTien) : null,
-  NgayTao: row.NgayTao,
-  NgayCapNhat: row.NgayCapNhat
-});
+const formatReturnRecord = (row) => {
+  const pttt = row.PhuongThucThanhToan || 'COD';
+  const channelInfo = resolveRefundChannel(pttt);
+  const kenh = row.PhuongThucHoanTien || channelInfo.tenKenh;
+
+  return {
+    MaPhieuDoiTra: row.MaPhieuDoiTra,
+    MaDonHang: row.MaDonHang,
+    CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
+    MaSanPham: row.MaSanPham,
+    MaChiTietDonHang: row.MaChiTietDonHang || null,
+    TenSanPham: row.TenSanPham || null,
+    AnhSanPham: row.AnhSanPham || null,
+    GiaSanPham:
+      row.GiaSanPham !== null && row.GiaSanPham !== undefined
+        ? Number(row.GiaSanPham)
+        : null,
+    DungLuong:
+      row.DungLuong && String(row.DungLuong).trim() !== ''
+        ? String(row.DungLuong).trim()
+        : null,
+    MauSac:
+      row.MauSac && String(row.MauSac).trim() !== ''
+        ? String(row.MauSac).trim()
+        : null,
+    SoLuong:
+      row.SoLuong !== null && row.SoLuong !== undefined ? Number(row.SoLuong) : null,
+    DonGia:
+      row.DonGia !== null && row.DonGia !== undefined ? Number(row.DonGia) : null,
+    MaNguoiDung_User: row.MaNguoiDung_User,
+    TaiKhoan: row.TaiKhoan || null,
+    TenKhachHang: row.TenNguoiNhan || row.TaiKhoan || 'Khách hàng',
+    Email: row.Email || null,
+    SoDienThoai: row.SoDienThoaiDonHang || row.SoDienThoaiUser || null,
+    LyDo: row.LyDo,
+    HinhAnhProof: row.HinhAnhProof,
+    HinhAnhProofList: parseProofImages(row.HinhAnhProof),
+    KetQuaKiemDinh: row.KetQuaKiemDinh,
+    GhiChuKho: row.GhiChuKho,
+    GhiChu:
+      row.GhiChu && String(row.GhiChu).trim() !== ''
+        ? String(row.GhiChu).trim()
+        : null,
+    TrangThaiHoanTien: row.TrangThaiHoanTien,
+    TrangThaiDonHang: row.TrangThaiDonHang,
+    TongTien:
+      row.TongTien !== null && row.TongTien !== undefined ? Number(row.TongTien) : null,
+    PhuongThucThanhToan: pttt,
+    PhuongThucHoanTien: kenh,
+    KenhHoanTien: kenh,
+    IsAutoGateway: channelInfo.isAutoGateway,
+    MaGiaoDichHoanTien: row.MaGiaoDichHoanTien || null,
+    GhiChuHoanTien: row.GhiChuHoanTien || null,
+    NgayHoanTien: row.NgayHoanTien || null,
+    MaNguoiDung_Admin: row.MaNguoiDung_Admin || null,
+    TaiKhoanAdmin: row.TaiKhoanAdmin || null,
+    NguoiDuyetHoanTien: row.TaiKhoanAdmin || null,
+    NgayTao: row.NgayTao,
+    NgayCapNhat: row.NgayCapNhat,
+    donhang: {
+      MaDonHang: row.MaDonHang,
+      CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
+      NgayMuaHang: row.NgayMuaHang,
+      TrangThaiDonHang: row.TrangThaiDonHang,
+      TongTien:
+        row.TongTien !== null && row.TongTien !== undefined ? Number(row.TongTien) : null,
+      TenNguoiNhan: row.TenNguoiNhan,
+      SoDienThoai: row.SoDienThoaiDonHang,
+      DiaChiGiaoHang: row.DiaChiGiaoHang,
+      GhiChu: row.GhiChu
+    },
+    sanpham: {
+      MaSanPham: row.MaSanPham,
+      TenSanPham: row.TenSanPham,
+      Anh: row.AnhSanPham
+    }
+  };
+};
 
 /**
  * 1. PUT /api/v1/admin/inventory/adjustments/:id/approve
@@ -283,11 +379,22 @@ const approveInventoryAdjustment = async (req, res, next) => {
 
 /**
  * 2. POST /api/v1/admin/returns/:id/refund
- * Admin xác nhận hoàn tiền cho phiếu đổi trả:
- * - Kiểm tra phieudoitra có KetQuaKiemDinh = 'Dat'.
- * - UPDATE phieudoitra SET TrangThaiHoanTien = 'DaHoanTien'.
- * - UPDATE donhang SET TrangThaiDonHang = 'DaHoanTien' WHERE MaDonHang = ...
- * - Đồng bộ lichsumuahang SET TrangThai = 'DaHoanTien' WHERE MaDonHang = ...
+ * Quy trình Hoàn tiền đổi trả chuẩn nghiệp vụ thanh toán thực tế (2 Giai đoạn):
+ * 
+ * - Giai đoạn 1 (Từ ChoDuyet -> DangHoanTien):
+ *   Admin bấm "Duyệt yêu cầu hoàn tiền" -> Hệ thống tạo lệnh hoàn tiền:
+ *   Xác định rõ kênh hoàn tiền dựa theo phương thức thanh toán của đơn:
+ *   * "Hoàn tự động về cổng VNPay" (với đơn thanh toán VNPay)
+ *   * "Hoàn tự động về cổng ZaloPay" (với đơn thanh toán ZaloPay)
+ *   * "Chuyển khoản ngân hàng cho đơn COD" (với đơn thanh toán COD/tiền mặt)
+ *   Cập nhật phieudoitra SET TrangThaiHoanTien = 'DangHoanTien', PhuongThucHoanTien = ...
+ * 
+ * - Giai đoạn 2 (Từ DangHoanTien -> DaHoanTien):
+ *   Admin nhập Mã giao dịch hoàn tiền / Mã tham chiếu ngân hàng (VD: REF2026...) và bấm "Xác nhận đã chuyển tiền":
+ *   Kiểm tra bắt buộc có mã giao dịch đối soát thực tế.
+ *   Cập nhật phieudoitra SET TrangThaiHoanTien = 'DaHoanTien', MaGiaoDichHoanTien = ..., GhiChuHoanTien = ..., NgayHoanTien = NOW().
+ *   Cập nhật donhang SET TrangThaiDonHang = 'DaHoanTien'.
+ *   Đồng bộ lichsumuahang SET TrangThai = 'DaHoanTien'.
  */
 const confirmReturnRefund = async (req, res, next) => {
   let connection;
@@ -302,25 +409,45 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
+    const adminId = req.user ? (req.user.MaNguoiDung || req.user.id) : null;
+    const body = req.body || {};
+    const rawAction = body.action || body.Action;
+    const action =
+      rawAction !== undefined && rawAction !== null ? String(rawAction).trim() : '';
+    const rawMaGiaoDich =
+      body.maGiaoDich ?? body.MaGiaoDich ?? body.maThamChieu ?? body.MaThamChieu;
+    const maGiaoDich =
+      rawMaGiaoDich !== undefined && rawMaGiaoDich !== null
+        ? String(rawMaGiaoDich).trim()
+        : '';
+    const rawGhiChu =
+      body.ghiChu ?? body.GhiChu ?? body.ghiChuHoanTien ?? body.GhiChuHoanTien;
+    const ghiChuHoanTien =
+      rawGhiChu !== undefined && rawGhiChu !== null ? String(rawGhiChu).trim() : '';
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Khóa bản ghi phieudoitra
+    // Khóa bản ghi phieudoitra để chống xử lý trùng lặp đồng thời
     const [returnRows] = await connection.query(
       `SELECT
-         MaPhieuDoiTra,
-         MaDonHang,
-         MaSanPham,
-         MaNguoiDung_User,
-         LyDo,
-         HinhAnhProof,
-         KetQuaKiemDinh,
-         GhiChuKho,
-         TrangThaiHoanTien,
-         NgayTao,
-         NgayCapNhat
-       FROM phieudoitra
-       WHERE MaPhieuDoiTra = ?
+         p.MaPhieuDoiTra,
+         p.MaDonHang,
+         p.MaSanPham,
+         p.MaNguoiDung_User,
+         p.LyDo,
+         p.HinhAnhProof,
+         p.KetQuaKiemDinh,
+         p.GhiChuKho,
+         p.TrangThaiHoanTien,
+         p.MaGiaoDichHoanTien,
+         p.PhuongThucHoanTien,
+         p.GhiChuHoanTien,
+         p.NgayHoanTien,
+         p.NgayTao,
+         p.NgayCapNhat
+       FROM phieudoitra p
+       WHERE p.MaPhieuDoiTra = ?
        FOR UPDATE`,
       [returnId]
     );
@@ -335,19 +462,167 @@ const confirmReturnRefund = async (req, res, next) => {
 
     const returnRecord = returnRows[0];
 
-    if (returnRecord.TrangThaiHoanTien !== 'ChoDuyet') {
-      await connection.rollback();
-      return res.status(400).json({
-        success: false,
-        message: `Phiếu đổi trả đã được xử lý ('${returnRecord.TrangThaiHoanTien}'), không thể xác nhận hoàn tiền lại`
-      });
-    }
-
+    // Kiểm tra kết quả kiểm định của Kho
     if (returnRecord.KetQuaKiemDinh !== 'Dat') {
       await connection.rollback();
       return res.status(400).json({
         success: false,
-        message: `Chỉ có thể xác nhận hoàn tiền khi phiếu đổi trả có kết quả kiểm định 'Dat'. Kết quả hiện tại: '${returnRecord.KetQuaKiemDinh}'`
+        message: `Chỉ có thể xử lý hoàn tiền khi phiếu đổi trả có kết quả kiểm định 'Dat'. Kết quả hiện tại: '${returnRecord.KetQuaKiemDinh}'`
+      });
+    }
+
+    // Tra cứu phương thức thanh toán ban đầu của đơn hàng
+    const [paymentRows] = await connection.query(
+      `SELECT COALESCE(
+         (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = ? ORDER BY tt.MaThanhToan DESC LIMIT 1),
+         (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = ? ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+         'COD'
+       ) AS PhuongThucThanhToan`,
+      [returnRecord.MaDonHang, returnRecord.MaDonHang]
+    );
+
+    const phuongThucThanhToan = paymentRows[0]?.PhuongThucThanhToan || 'COD';
+    const channelInfo = resolveRefundChannel(phuongThucThanhToan);
+    const selectedChannel =
+      body.kenhHoanTien || returnRecord.PhuongThucHoanTien || channelInfo.tenKenh;
+
+    // Phân loại giai đoạn xử lý:
+    // Nếu action = 'confirm' / 'DaHoanTien' HOẶC có maGiaoDich -> Xử lý Giai đoạn 2 (Xác nhận đã chuyển tiền)
+    // Ngược lại -> Xử lý Giai đoạn 1 (Duyệt yêu cầu hoàn tiền)
+    const actionLower = action.toLowerCase();
+    const isStage2 =
+      actionLower === 'confirm' ||
+      actionLower === 'dahoantien' ||
+      actionLower === 'xacnhan' ||
+      Boolean(maGiaoDich);
+
+    if (!isStage2) {
+      // =========================================================================
+      // GIAI ĐOẠN 1: DUYỆT YÊU CẦU HOÀN TIỀN (ChoDuyet -> DangHoanTien)
+      // =========================================================================
+      if (returnRecord.TrangThaiHoanTien === 'DangHoanTien') {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message:
+            "Phiếu đổi trả này đã được duyệt tạo lệnh hoàn tiền ('DangHoanTien'). Vui lòng thực hiện Giai đoạn 2: Nhập mã giao dịch đối soát để chốt hoàn tất."
+        });
+      }
+
+      if (returnRecord.TrangThaiHoanTien === 'DaHoanTien') {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Phiếu đổi trả đã hoàn tất hoàn tiền trước đó ('DaHoanTien'), không thể duyệt lại"
+        });
+      }
+
+      if (returnRecord.TrangThaiHoanTien !== 'ChoDuyet') {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Trạng thái hoàn tiền hiện tại ('${returnRecord.TrangThaiHoanTien}') không hợp lệ để duyệt lệnh hoàn`
+        });
+      }
+
+      // Cập nhật phieudoitra sang trạng thái 'DangHoanTien' và lưu kênh hoàn tiền
+      await connection.query(
+        `UPDATE phieudoitra
+         SET TrangThaiHoanTien = 'DangHoanTien',
+             PhuongThucHoanTien = ?,
+             MaNguoiDung_Admin = ?,
+             NgayCapNhat = NOW()
+         WHERE MaPhieuDoiTra = ?`,
+        [selectedChannel, adminId, returnId]
+      );
+
+      await connection.commit();
+
+      const [updatedRows] = await pool.query(
+        `SELECT
+           p.MaPhieuDoiTra,
+           p.MaDonHang,
+           p.MaSanPham,
+           ct.MaChiTietDonHang,
+           ct.DungLuong,
+           ct.MauSac,
+           ct.SoLuong,
+           ct.DonGia,
+           p.MaNguoiDung_User,
+           p.LyDo,
+           p.HinhAnhProof,
+           p.KetQuaKiemDinh,
+           p.GhiChuKho,
+           p.TrangThaiHoanTien,
+           p.MaGiaoDichHoanTien,
+           p.PhuongThucHoanTien,
+           p.GhiChuHoanTien,
+           p.NgayHoanTien,
+           p.MaNguoiDung_Admin,
+           ua.TaiKhoan AS TaiKhoanAdmin,
+           p.NgayTao,
+           p.NgayCapNhat,
+           d.NgayMuaHang,
+           d.TrangThaiDonHang,
+           d.TongTien,
+           d.TenNguoiNhan,
+           d.SoDienThoai AS SoDienThoaiDonHang,
+           d.DiaChiGiaoHang,
+           d.GhiChu,
+           sp.TenSanPham,
+           sp.Anh AS AnhSanPham,
+           sp.Gia AS GiaSanPham,
+           u.TaiKhoan,
+           u.Email,
+           u.SoDienThoai AS SoDienThoaiUser,
+           ? AS PhuongThucThanhToan
+         FROM phieudoitra p
+         JOIN donhang d ON p.MaDonHang = d.MaDonHang
+         JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+         JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+         LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
+         LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+           SELECT ct2.MaChiTietDonHang
+           FROM chitietdonhang ct2
+           WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+           ORDER BY ct2.MaChiTietDonHang ASC
+           LIMIT 1
+         )
+         WHERE p.MaPhieuDoiTra = ?`,
+        [phuongThucThanhToan, returnId]
+      );
+
+      const suggestedCode = `REF${new Date().getFullYear()}${String(returnRecord.MaDonHang).padStart(4, '0')}${String(returnId).padStart(4, '0')}`;
+      const responseData = formatReturnRecord(updatedRows[0]);
+      responseData.GoiYMaThamChieu = suggestedCode;
+
+      return res.status(200).json({
+        success: true,
+        stage: 1,
+        message: `Đã duyệt yêu cầu hoàn tiền thành công! Hệ thống đã tạo lệnh hoàn tiền qua kênh: "${selectedChannel}".`,
+        data: responseData
+      });
+    }
+
+    // =========================================================================
+    // GIAI ĐOẠN 2: XÁC NHẬN ĐÃ CHUYỂN TIỀN (DangHoanTien -> DaHoanTien)
+    // =========================================================================
+    if (returnRecord.TrangThaiHoanTien === 'DaHoanTien') {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message:
+          "Phiếu đổi trả này đã được xác nhận hoàn tiền hoàn tất ('DaHoanTien'), không thể thao tác lại"
+      });
+    }
+
+    // Bắt buộc phải có mã giao dịch đối soát thực tế
+    if (!maGiaoDich) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message:
+          'Vui lòng nhập Mã giao dịch hoàn tiền hoặc Mã tham chiếu ngân hàng thực tế (Ví dụ: REF2026...) để hoàn tất xác nhận chuyển tiền'
       });
     }
 
@@ -368,12 +643,18 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // 1. UPDATE phieudoitra SET TrangThaiHoanTien = 'DaHoanTien'
+    // 1. UPDATE phieudoitra SET TrangThaiHoanTien = 'DaHoanTien', MaGiaoDichHoanTien, NgayHoanTien = NOW()
     await connection.query(
       `UPDATE phieudoitra
-       SET TrangThaiHoanTien = 'DaHoanTien'
+       SET TrangThaiHoanTien = 'DaHoanTien',
+           PhuongThucHoanTien = COALESCE(PhuongThucHoanTien, ?),
+           MaGiaoDichHoanTien = ?,
+           GhiChuHoanTien = ?,
+           NgayHoanTien = NOW(),
+           MaNguoiDung_Admin = ?,
+           NgayCapNhat = NOW()
        WHERE MaPhieuDoiTra = ?`,
-      [returnId]
+      [selectedChannel, maGiaoDich, ghiChuHoanTien || null, adminId, returnId]
     );
 
     // 2. UPDATE donhang SET TrangThaiDonHang = 'DaHoanTien' WHERE MaDonHang = ...
@@ -384,7 +665,7 @@ const confirmReturnRefund = async (req, res, next) => {
       [returnRecord.MaDonHang]
     );
 
-    // Đồng bộ trạng thái trên bảng lịch sử mua hàng (nếu có)
+    // 3. Đồng bộ trạng thái trên bảng lịch sử mua hàng (nếu có)
     await connection.query(
       `UPDATE lichsumuahang
        SET TrangThai = 'DaHoanTien'
@@ -410,19 +691,33 @@ const confirmReturnRefund = async (req, res, next) => {
          p.KetQuaKiemDinh,
          p.GhiChuKho,
          p.TrangThaiHoanTien,
+         p.MaGiaoDichHoanTien,
+         p.PhuongThucHoanTien,
+         p.GhiChuHoanTien,
+         p.NgayHoanTien,
+         p.MaNguoiDung_Admin,
+         ua.TaiKhoan AS TaiKhoanAdmin,
          p.NgayTao,
          p.NgayCapNhat,
          d.NgayMuaHang,
          d.TrangThaiDonHang,
          d.TongTien,
+         d.TenNguoiNhan,
+         d.SoDienThoai AS SoDienThoaiDonHang,
+         d.DiaChiGiaoHang,
          d.GhiChu,
          sp.TenSanPham,
+         sp.Anh AS AnhSanPham,
+         sp.Gia AS GiaSanPham,
          u.TaiKhoan,
-         u.Email
+         u.Email,
+         u.SoDienThoai AS SoDienThoaiUser,
+         ? AS PhuongThucThanhToan
        FROM phieudoitra p
        JOIN donhang d ON p.MaDonHang = d.MaDonHang
        JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
        JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+       LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
        LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
          SELECT ct2.MaChiTietDonHang
          FROM chitietdonhang ct2
@@ -431,12 +726,13 @@ const confirmReturnRefund = async (req, res, next) => {
          LIMIT 1
        )
        WHERE p.MaPhieuDoiTra = ?`,
-      [returnId]
+      [phuongThucThanhToan, returnId]
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Xác nhận hoàn tiền thành công',
+      stage: 2,
+      message: `Xác nhận đã chuyển tiền thành công cho phiếu #${String(returnId).padStart(4, '0')} (Mã GD: ${maGiaoDich}). Đơn hàng đã chuyển sang trạng thái Đã hoàn tiền.`,
       data: formatReturnRecord(updatedRows[0])
     });
   } catch (error) {
@@ -448,6 +744,108 @@ const confirmReturnRefund = async (req, res, next) => {
     if (connection) {
       connection.release();
     }
+  }
+};
+
+/**
+ * GET /api/v1/admin/returns
+ * Admin lấy danh sách phiếu đổi trả hoàn tiền (đạt kiểm định kho) kèm phương thức thanh toán & thông tin đối soát
+ */
+const getReturnRefunds = async (req, res, next) => {
+  try {
+    const { trangThaiHoanTien, search } = req.query || {};
+    let whereClause = "WHERE p.KetQuaKiemDinh = 'Dat'";
+    const queryParams = [];
+
+    if (trangThaiHoanTien && trangThaiHoanTien !== 'ALL') {
+      whereClause += ' AND p.TrangThaiHoanTien = ?';
+      queryParams.push(trangThaiHoanTien);
+    }
+
+    if (search && String(search).trim() !== '') {
+      const kw = `%${String(search).trim()}%`;
+      whereClause += ` AND (
+        p.MaPhieuDoiTra LIKE ? OR
+        p.MaDonHang LIKE ? OR
+        p.MaGiaoDichHoanTien LIKE ? OR
+        sp.TenSanPham LIKE ? OR
+        u.TaiKhoan LIKE ? OR
+        u.Email LIKE ? OR
+        d.SoDienThoai LIKE ? OR
+        d.TenNguoiNhan LIKE ?
+      )`;
+      queryParams.push(kw, kw, kw, kw, kw, kw, kw, kw);
+    }
+
+    const [rows] = await pool.query(
+      `SELECT
+         p.MaPhieuDoiTra,
+         p.MaDonHang,
+         p.MaSanPham,
+         ct.MaChiTietDonHang,
+         ct.DungLuong,
+         ct.MauSac,
+         ct.SoLuong,
+         ct.DonGia,
+         p.MaNguoiDung_User,
+         p.LyDo,
+         p.HinhAnhProof,
+         p.KetQuaKiemDinh,
+         p.GhiChuKho,
+         p.TrangThaiHoanTien,
+         p.MaGiaoDichHoanTien,
+         p.PhuongThucHoanTien,
+         p.GhiChuHoanTien,
+         p.NgayHoanTien,
+         p.MaNguoiDung_Admin,
+         ua.TaiKhoan AS TaiKhoanAdmin,
+         p.NgayTao,
+         p.NgayCapNhat,
+         d.NgayMuaHang,
+         d.TrangThaiDonHang,
+         d.TongTien,
+         d.TenNguoiNhan,
+         d.SoDienThoai AS SoDienThoaiDonHang,
+         d.DiaChiGiaoHang,
+         d.GhiChu,
+         sp.TenSanPham,
+         sp.Anh AS AnhSanPham,
+         sp.Gia AS GiaSanPham,
+         u.TaiKhoan,
+         u.Email,
+         u.SoDienThoai AS SoDienThoaiUser,
+         u.AnhDaiDien,
+         COALESCE(
+           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+           'COD'
+         ) AS PhuongThucThanhToan
+       FROM phieudoitra p
+       JOIN donhang d ON p.MaDonHang = d.MaDonHang
+       JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+       JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+       LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
+       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+         SELECT ct2.MaChiTietDonHang
+         FROM chitietdonhang ct2
+         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+         ORDER BY ct2.MaChiTietDonHang ASC
+         LIMIT 1
+       )
+       ${whereClause}
+       ORDER BY p.NgayTao DESC, p.MaPhieuDoiTra DESC`,
+      queryParams
+    );
+
+    const formattedData = rows.map(formatReturnRecord);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách phiếu đổi trả hoàn tiền thành công',
+      data: formattedData
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -804,6 +1202,7 @@ const getImportReceipts = async (req, res, next) => {
 module.exports = {
   approveInventoryAdjustment,
   confirmReturnRefund,
+  getReturnRefunds,
   approveInventoryImport,
   getImportReceipts
 };
