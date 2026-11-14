@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import {
   RotateCcw,
@@ -384,11 +385,9 @@ const AdminRefundsPage = () => {
         })
       );
 
-      toast.success(
-        res.data?.message ||
-          `Đã duyệt yêu cầu và tạo lệnh hoàn tiền cho phiếu #${String(returnId).padStart(4, '0')}`,
-        { id: `stage1-ok-${returnId}`, duration: 5000 }
-      );
+      toast.success('Đã duyệt yêu cầu hoàn tiền', {
+        id: `stage1-ok-${returnId}`,
+      });
 
       setStage1ModalItem(null);
       fetchPassedReturns({ silent: true });
@@ -404,13 +403,9 @@ const AdminRefundsPage = () => {
 
   // GIAI ĐOẠN 2: Mở modal nhập mã giao dịch đối soát
   const handleOpenStage2Modal = (item) => {
-    const channel = resolveChannelInfo(item);
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const defaultRef = `${channel.refPrefix}${dateStr}-${String(item.MaDonHang).padStart(4, '0')}`;
-
     setStage2ModalItem(item);
     setStage2Form({
-      maGiaoDich: item.MaGiaoDichHoanTien || defaultRef,
+      maGiaoDich: item.MaGiaoDichHoanTien || '',
       ghiChu: item.GhiChuHoanTien || '',
     });
   };
@@ -790,7 +785,7 @@ const AdminRefundsPage = () => {
                     {isPendingApproval ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                         <Clock className="w-3.5 h-3.5 animate-pulse" />
-                        <span>GĐ 1: Chờ duyệt lệnh hoàn tiền</span>
+                        <span>Chờ duyệt lệnh hoàn tiền</span>
                       </span>
                     ) : isProcessingRefund ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
@@ -874,6 +869,19 @@ const AdminRefundsPage = () => {
                             <span className="font-mono">{item.SoDienThoai}</span>
                           </div>
                         )}
+                        {item.AnhQRHoanTien && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenLightbox([item.AnhQRHoanTien], 0)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold hover:bg-emerald-100 transition-colors cursor-pointer"
+                              title="Xem ảnh mã QR nhận hoàn tiền"
+                            >
+                              <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Xem mã QR nhận tiền</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -887,7 +895,7 @@ const AdminRefundsPage = () => {
                           ? 'bg-indigo-50/60 border-indigo-200'
                           : 'bg-slate-50 border-slate-200'
                       }`}>
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="text-xs font-bold text-slate-800 flex items-center gap-2">
                             <ChannelIcon className={`w-4 h-4 ${
                               channel.key === 'COD' ? 'text-emerald-600' : 'text-blue-600'
@@ -897,30 +905,11 @@ const AdminRefundsPage = () => {
                               {channel.label}
                             </span>
                           </span>
-
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            PT thanh toán gốc:{' '}
-                            <strong className="text-slate-800 font-semibold font-mono">
-                              {item.PhuongThucThanhToan || 'COD'}
-                            </strong>
-                          </span>
                         </div>
 
-                        {/* Diễn giải luồng thanh toán */}
-                        <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                          {channel.description}
-                        </p>
-
                         {/* Tình trạng đối soát cụ thể theo từng giai đoạn */}
-                        {isPendingApproval ? (
-                          <div className="p-2.5 rounded-lg bg-amber-100/70 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                            <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                              <strong>Giai đoạn 1:</strong> Đang chờ Admin duyệt yêu cầu. Bấm nút <em>&ldquo;Duyệt yêu cầu hoàn tiền&rdquo;</em> bên dưới để tạo lệnh đối soát chuyển tiền.
-                            </div>
-                          </div>
-                        ) : isProcessingRefund ? (
-                          <div className="p-3 rounded-lg bg-indigo-100/70 border border-indigo-200 text-xs text-indigo-950 space-y-1.5">
+                        {isProcessingRefund ? (
+                          <div className="mt-3 p-3 rounded-lg bg-indigo-100/70 border border-indigo-200 text-xs text-indigo-950 space-y-1.5">
                             <div className="flex items-center gap-2 font-bold text-indigo-900">
                               <RefreshCw className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
                               <span>Giai đoạn 2: Lệnh hoàn tiền đã được tạo</span>
@@ -929,8 +918,8 @@ const AdminRefundsPage = () => {
                               {channel.guideNote}
                             </p>
                           </div>
-                        ) : (
-                          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-2">
+                        ) : isRefunded ? (
+                          <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-2">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -975,7 +964,7 @@ const AdminRefundsPage = () => {
                               </p>
                             )}
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* Lý do đổi trả của khách hàng */}
@@ -1059,7 +1048,7 @@ const AdminRefundsPage = () => {
                           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer"
                         >
                           <FileCheck className="w-4 h-4" />
-                          <span>Duyệt yêu cầu hoàn tiền (GĐ 1)</span>
+                          <span>Duyệt yêu cầu hoàn tiền</span>
                         </button>
                       )}
 
@@ -1071,7 +1060,7 @@ const AdminRefundsPage = () => {
                           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/25 transition-all cursor-pointer animate-pulse"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Xác nhận đã chuyển tiền (GĐ 2)</span>
+                          <span>Xác nhận đã chuyển tiền</span>
                         </button>
                       )}
 
@@ -1094,181 +1083,219 @@ const AdminRefundsPage = () => {
       )}
 
       {/* ── MODAL GIAI ĐOẠN 1: DUYỆT YÊU CẦU HOÀN TIỀN & TẠO LỆNH ── */}
-      {stage1ModalItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                  <FileCheck className="w-5 h-5" />
+      {stage1ModalItem &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <FileCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Duyệt Yêu Cầu Hoàn Tiền
+                    </h3>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">
-                    Duyệt Yêu Cầu Hoàn Tiền
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    Giai đoạn 1/2: Tạo lệnh hoàn tiền đối soát
-                  </span>
+                <button
+                  type="button"
+                  onClick={() => setStage1ModalItem(null)}
+                  disabled={stage1Submitting}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-4">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Phiếu đổi trả:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      #{String(stage1ModalItem.MaPhieuDoiTra).padStart(4, '0')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mã đơn hàng:</span>
+                    <span className="font-mono font-bold text-blue-600">
+                      {stage1ModalItem.CodeDonHang || `#${stage1ModalItem.MaDonHang}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Khách hàng:</span>
+                    <span className="font-semibold text-slate-900">
+                      {stage1ModalItem.TenKhachHang || stage1ModalItem.TaiKhoan}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Sản phẩm:</span>
+                    <span className="font-semibold text-slate-900 truncate max-w-[250px]">
+                      {stage1ModalItem.TenSanPham}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Số tiền hoàn & Kênh thanh toán */}
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-amber-800">
+                      Số tiền cần hoàn trả:
+                    </span>
+                    <span className="text-lg font-extrabold text-amber-900">
+                      {formatCurrency(stage1ModalItem.TongTien)}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-xs">
+                    <span className="text-slate-600">Kênh hoàn tiền dự kiến:</span>
+                    <span className="font-bold text-slate-900">
+                      {resolveChannelInfo(stage1ModalItem).label}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setStage1ModalItem(null)}
-                disabled={stage1Submitting}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStage1ModalItem(null)}
+                  disabled={stage1Submitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmStage1}
+                  disabled={stage1Submitting}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {stage1Submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang tạo lệnh...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck className="w-4 h-4" />
+                      <span>Xác nhận Duyệt yêu cầu hoàn tiền</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Phiếu đổi trả:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    #{String(stage1ModalItem.MaPhieuDoiTra).padStart(4, '0')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Mã đơn hàng:</span>
-                  <span className="font-mono font-bold text-blue-600">
-                    {stage1ModalItem.CodeDonHang || `#${stage1ModalItem.MaDonHang}`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Khách hàng:</span>
-                  <span className="font-semibold text-slate-900">
-                    {stage1ModalItem.TenKhachHang || stage1ModalItem.TaiKhoan}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Sản phẩm:</span>
-                  <span className="font-semibold text-slate-900 truncate max-w-[250px]">
-                    {stage1ModalItem.TenSanPham}
-                  </span>
-                </div>
-              </div>
-
-              {/* Số tiền hoàn & Kênh thanh toán */}
-              <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-amber-800">
-                    Số tiền cần hoàn trả:
-                  </span>
-                  <span className="text-lg font-extrabold text-amber-900">
-                    {formatCurrency(stage1ModalItem.TongTien)}
-                  </span>
-                </div>
-
-                <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-xs">
-                  <span className="text-slate-600">Kênh hoàn tiền dự kiến:</span>
-                  <span className="font-bold text-slate-900">
-                    {resolveChannelInfo(stage1ModalItem).label}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
-                <strong>Quy trình xử lý:</strong> Sau khi bấm duyệt, phiếu sẽ chuyển sang trạng thái <strong>&ldquo;Đang hoàn tiền&rdquo;</strong>. Hệ thống sẽ ghi nhận lệnh hoàn tiền để Admin tiến hành chuyển tiền/đối soát ở Giai đoạn 2.
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setStage1ModalItem(null)}
-                disabled={stage1Submitting}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmStage1}
-                disabled={stage1Submitting}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer disabled:opacity-60"
-              >
-                {stage1Submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang tạo lệnh...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileCheck className="w-4 h-4" />
-                    <span>Xác nhận Duyệt yêu cầu hoàn tiền</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* ── MODAL GIAI ĐOẠN 2: NHẬP MÃ GIAO DỊCH ĐỐI SOÁT & XÁC NHẬN ĐÃ CHUYỂN TIỀN ── */}
-      {stage2ModalItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <CheckCircle2 className="w-5 h-5" />
+      {stage2ModalItem &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Xác Nhận Đã Chuyển Tiền & Đối Soát
+                    </h3>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">
-                    Xác Nhận Đã Chuyển Tiền & Đối Soát
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    Giai đoạn 2/2: Nhập mã giao dịch đối soát để chốt Đã hoàn tiền
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStage2ModalItem(null)}
-                disabled={stage2Submitting}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              {/* Tóm tắt phiếu & Số tiền */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <span className="text-slate-400 block text-[11px]">Đơn hàng / Phiếu:</span>
-                  <span className="font-mono font-bold text-slate-900 block truncate">
-                    {stage2ModalItem.CodeDonHang || `#${stage2ModalItem.MaDonHang}`} (Phiếu #{String(stage2ModalItem.MaPhieuDoiTra).padStart(4, '0')})
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
-                  <span className="text-emerald-700 block text-[11px] font-semibold">Số tiền cần chuyển:</span>
-                  <span className="text-base font-extrabold text-emerald-800 block">
-                    {formatCurrency(stage2ModalItem.TongTien)}
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setStage2ModalItem(null)}
+                  disabled={stage2Submitting}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Hướng dẫn nghiệp vụ kênh chuyển tiền */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  <span>Kênh hoàn: {resolveChannelInfo(stage2ModalItem).label}</span>
+              {/* Modal Body */}
+              <div className="p-6 space-y-4 overflow-y-auto">
+                {/* Tóm tắt phiếu & Số tiền */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                    <span className="text-slate-400 block text-[11px]">Đơn hàng / Phiếu:</span>
+                    <span className="font-mono font-bold text-slate-900 block truncate">
+                      {stage2ModalItem.CodeDonHang || `#${stage2ModalItem.MaDonHang}`} (Phiếu #{String(stage2ModalItem.MaPhieuDoiTra).padStart(4, '0')})
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
+                    <span className="text-emerald-700 block text-[11px] font-semibold">Số tiền cần chuyển:</span>
+                    <span className="text-base font-extrabold text-emerald-800 block">
+                      {formatCurrency(stage2ModalItem.TongTien)}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {resolveChannelInfo(stage2ModalItem).guideNote}
-                </p>
-              </div>
 
-              {/* Input: Mã giao dịch hoàn tiền / Mã tham chiếu ngân hàng */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                {/* Hiển thị trực tiếp Ảnh mã QR nhận hoàn tiền của khách */}
+                {stage2ModalItem.AnhQRHoanTien ? (
+                  <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 flex flex-col sm:flex-row items-center gap-4">
+                    <div className="relative group shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLightbox([stage2ModalItem.AnhQRHoanTien], 0)}
+                        className="w-36 h-36 sm:w-40 sm:h-40 rounded-xl bg-white border-2 border-emerald-400 p-2 shadow-xs hover:shadow-md hover:border-emerald-600 transition-all flex items-center justify-center overflow-hidden cursor-pointer"
+                        title="Bấm vào ảnh để phóng to mã QR"
+                      >
+                        <img
+                          src={formatImageUrl(stage2ModalItem.AnhQRHoanTien)}
+                          alt="Mã QR nhận hoàn tiền của khách"
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 text-[11px] font-semibold backdrop-blur-xs">
+                            <ZoomIn className="w-3.5 h-3.5" />
+                            Phóng to
+                          </span>
+                        </div>
+                      </button>
+                      <span className="text-[10px] text-center text-slate-500 block mt-1">
+                        Bấm vào ảnh để phóng to
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 flex-1 text-center sm:text-left">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">
+                        <Landmark className="w-4 h-4 text-emerald-600" />
+                        <span>Mã QR ngân hàng nhận hoàn tiền</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Admin quét mã QR trên bằng ứng dụng ngân hàng (VietQR / Mobile Banking) để chuyển tiền hoàn trả{' '}
+                        <strong className="text-emerald-700 font-bold">{formatCurrency(stage2ModalItem.TongTien)}</strong>{' '}
+                        trực tiếp cho khách hàng.
+                      </p>
+                      <div className="pt-2 border-t border-emerald-200/60 text-xs text-slate-600 space-y-0.5">
+                        <div>Khách hàng: <strong className="text-slate-800 font-semibold">{stage2ModalItem.TenKhachHang || stage2ModalItem.TaiKhoan}</strong></div>
+                        {stage2ModalItem.SoDienThoai && (
+                          <div>SĐT: <strong className="text-slate-800 font-mono">{stage2ModalItem.SoDienThoai}</strong></div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-amber-900">Không tìm thấy ảnh mã QR của khách</div>
+                      <p className="text-amber-700 text-[11px] leading-relaxed">
+                        Khách hàng chưa tải lên ảnh mã QR ngân hàng. Vui lòng liên hệ trực tiếp khách hàng qua SĐT ({stage2ModalItem.SoDienThoai || 'N/A'}) để nhận thông tin số tài khoản trước khi chuyển tiền.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input: Mã giao dịch hoàn tiền / Mã tham chiếu ngân hàng (Admin tự nhập tay) */}
+                <div className="space-y-1.5">
                   <label
                     htmlFor="maGiaoDich"
                     className="text-xs font-bold text-slate-800 flex items-center gap-1"
@@ -1276,181 +1303,169 @@ const AdminRefundsPage = () => {
                     <span>Mã giao dịch / Mã tham chiếu ngân hàng</span>
                     <span className="text-rose-500">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const channel = resolveChannelInfo(stage2ModalItem);
-                      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-                      const timeStr = Date.now().toString().slice(-4);
-                      const gen = `${channel.refPrefix}${dateStr}${String(stage2ModalItem.MaDonHang).padStart(4, '0')}${timeStr}`;
-                      setStage2Form((prev) => ({ ...prev, maGiaoDich: gen }));
-                    }}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>Sinh mã chuẩn hệ thống</span>
-                  </button>
+
+                  <input
+                    id="maGiaoDich"
+                    type="text"
+                    value={stage2Form.maGiaoDich}
+                    onChange={(e) =>
+                      setStage2Form((prev) => ({ ...prev, maGiaoDich: e.target.value }))
+                    }
+                    placeholder="Nhập mã giao dịch ngân hàng thực tế (Ví dụ: FT2431980023, MBB9823412...)"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    autoFocus
+                  />
+                  <span className="text-[11px] text-slate-500 block">
+                    Admin quét QR chuyển khoản qua app ngân hàng, sau đó nhập chính xác mã giao dịch/tham chiếu trên biên lai để lưu hồ sơ đối soát.
+                  </span>
                 </div>
 
-                <input
-                  id="maGiaoDich"
-                  type="text"
-                  value={stage2Form.maGiaoDich}
-                  onChange={(e) =>
-                    setStage2Form((prev) => ({ ...prev, maGiaoDich: e.target.value }))
-                  }
-                  placeholder="Ví dụ: REF202611140064, FT2431980023, VNP148291..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                  autoFocus
-                />
-                <span className="text-[11px] text-slate-400 block">
-                  Mã này sẽ được lưu cố định vào hồ sơ đơn hàng để đối soát với sao kê ngân hàng hoặc cổng thanh toán.
-                </span>
-              </div>
-
-              {/* Input: Ghi chú đối soát (tùy chọn) */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="ghiChuHoanTien"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  Ghi chú đối soát hoàn tiền (tùy chọn)
-                </label>
-                <textarea
-                  id="ghiChuHoanTien"
-                  rows={2}
-                  value={stage2Form.ghiChu}
-                  onChange={(e) =>
-                    setStage2Form((prev) => ({ ...prev, ghiChu: e.target.value }))
-                  }
-                  placeholder="Ví dụ: Đã chuyển khoản qua app Vietcombank lúc 10h15, khách hàng đã xác nhận nhận tiền..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setStage2ModalItem(null)}
-                disabled={stage2Submitting}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmStage2}
-                disabled={stage2Submitting || !stage2Form.maGiaoDich.trim()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {stage2Submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang chốt hoàn tiền...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Xác nhận đã chuyển tiền</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── LIGHTBOX IMAGE MODAL ── */}
-      {lightboxOpen && lightboxImages.length > 0 && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setLightboxOpen(false);
-          }}
-          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none"
-        >
-          <div className="w-full max-w-5xl flex items-center justify-between text-white py-2">
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/20">
-                Ảnh bằng chứng {lightboxIndex + 1} / {lightboxImages.length}
-              </span>
-              <a
-                href={formatImageUrl(lightboxImages[lightboxIndex])}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-300 hover:text-white underline"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Mở ảnh gốc
-              </a>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center min-h-0 py-2">
-            {lightboxImages.length > 1 && (
-              <button
-                type="button"
-                onClick={() =>
-                  setLightboxIndex(
-                    (prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length
-                  )
-                }
-                className="absolute left-2 sm:left-4 z-10 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all cursor-pointer"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-
-            <img
-              src={formatImageUrl(lightboxImages[lightboxIndex])}
-              alt={`Ảnh bằng chứng ${lightboxIndex + 1}`}
-              className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl"
-            />
-
-            {lightboxImages.length > 1 && (
-              <button
-                type="button"
-                onClick={() =>
-                  setLightboxIndex((prev) => (prev + 1) % lightboxImages.length)
-                }
-                className="absolute right-2 sm:right-4 z-10 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all cursor-pointer"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
-          </div>
-
-          {lightboxImages.length > 1 && (
-            <div className="w-full max-w-5xl py-2 flex items-center justify-center gap-2 overflow-x-auto">
-              {lightboxImages.map((img, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setLightboxIndex(idx)}
-                  className={`w-14 h-14 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                    idx === lightboxIndex
-                      ? 'border-emerald-500 scale-105'
-                      : 'border-white/20 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img
-                    src={formatImageUrl(img)}
-                    alt={`Thumb ${idx + 1}`}
-                    className="w-full h-full object-cover"
+                {/* Input: Ghi chú đối soát (tùy chọn) */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="ghiChuHoanTien"
+                    className="text-xs font-semibold text-slate-700"
+                  >
+                    Ghi chú đối soát hoàn tiền (tùy chọn)
+                  </label>
+                  <textarea
+                    id="ghiChuHoanTien"
+                    rows={2}
+                    value={stage2Form.ghiChu}
+                    onChange={(e) =>
+                      setStage2Form((prev) => ({ ...prev, ghiChu: e.target.value }))
+                    }
+                    placeholder="Ví dụ: Đã chuyển khoản qua app Vietcombank lúc 10h15, khách hàng đã xác nhận nhận tiền..."
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                   />
                 </div>
-              ))}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setStage2ModalItem(null)}
+                  disabled={stage2Submitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmStage2}
+                  disabled={stage2Submitting || !stage2Form.maGiaoDich.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {stage2Submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang chốt hoàn tiền...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Xác nhận đã chuyển tiền</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
+
+      {/* ── LIGHTBOX IMAGE MODAL ── */}
+      {lightboxOpen && lightboxImages.length > 0 &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setLightboxOpen(false);
+            }}
+            className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none"
+          >
+            <div className="w-full max-w-5xl flex items-center justify-between text-white py-2">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/20">
+                  Ảnh xem chi tiết {lightboxIndex + 1} / {lightboxImages.length}
+                </span>
+                <a
+                  href={formatImageUrl(lightboxImages[lightboxIndex])}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1 text-xs text-slate-300 hover:text-white underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Mở ảnh gốc
+                </a>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center min-h-0 py-2">
+              {lightboxImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxIndex(
+                      (prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length
+                    )
+                  }
+                  className="absolute left-2 sm:left-4 z-10 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              <img
+                src={formatImageUrl(lightboxImages[lightboxIndex])}
+                alt={`Ảnh chi tiết ${lightboxIndex + 1}`}
+                className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl"
+              />
+
+              {lightboxImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxIndex((prev) => (prev + 1) % lightboxImages.length)
+                  }
+                  className="absolute right-2 sm:right-4 z-10 p-2 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all cursor-pointer"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+
+            {lightboxImages.length > 1 && (
+              <div className="w-full max-w-5xl py-2 flex items-center justify-center gap-2 overflow-x-auto">
+                {lightboxImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => setLightboxIndex(idx)}
+                    className={`w-14 h-14 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                      idx === lightboxIndex
+                        ? 'border-emerald-500 scale-105'
+                        : 'border-white/20 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={formatImageUrl(img)}
+                      alt={`Thumb ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
