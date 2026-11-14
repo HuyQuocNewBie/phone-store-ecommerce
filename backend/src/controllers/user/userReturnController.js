@@ -4,19 +4,22 @@ const { cloudinary } = require('../../../utils/cloudinary');
 const { formatOrderCode } = require('../../utils/formatters');
 
 const VALID_DELIVERED_STATUSES = ['DaGiao', 'Đã giao'];
-const MAX_PROOF_FILES = 5;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
-const proofUpload = multer({
+/**
+ * Cấu hình Multer nhận 2 trường file ảnh:
+ * - hinhAnhProof: Ảnh minh chứng lỗi sản phẩm (maxCount: 1)
+ * - anhQRHoanTien: Ảnh mã QR ngân hàng nhận hoàn tiền cho đơn COD (maxCount: 1)
+ */
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: MAX_FILE_SIZE_BYTES,
-    files: MAX_PROOF_FILES
+    fileSize: MAX_FILE_SIZE_BYTES
   },
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype || !file.mimetype.startsWith('image/')) {
       return cb(
-        Object.assign(new Error('Chỉ chấp nhận file ảnh (image/*) làm minh chứng đổi trả'), {
+        Object.assign(new Error('Chỉ chấp nhận file ảnh (image/*) làm minh chứng đổi trả / mã QR hoàn tiền'), {
           code: 'INVALID_MIME_TYPE'
         }),
         false
@@ -26,12 +29,16 @@ const proofUpload = multer({
   }
 });
 
+const uploadFields = upload.fields([
+  { name: 'hinhAnhProof', maxCount: 1 },
+  { name: 'anhQRHoanTien', maxCount: 1 }
+]);
+
 /**
- * Middleware Multer xử lý upload ảnh minh chứng đổi trả (chấp nhận cả 1 hoặc nhiều ảnh, linh hoạt tên field)
+ * Middleware Multer xử lý upload 2 file ảnh: hinhAnhProof và anhQRHoanTien
  */
 const handleReturnProofUpload = (req, res, next) => {
-  const uploadAny = proofUpload.any();
-  uploadAny(req, res, (err) => {
+  uploadFields(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
@@ -42,7 +49,7 @@ const handleReturnProofUpload = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
         return res.status(400).json({
           success: false,
-          message: `Số lượng ảnh đính kèm vượt quá giới hạn cho phép (tối đa ${MAX_PROOF_FILES} ảnh)`
+          message: 'Chỉ chấp nhận tối đa 1 ảnh minh họa lỗi (hinhAnhProof) và 1 ảnh mã QR hoàn tiền (anhQRHoanTien)'
         });
       }
       if (err.code === 'INVALID_MIME_TYPE') {
@@ -61,13 +68,13 @@ const handleReturnProofUpload = (req, res, next) => {
 };
 
 /**
- * Helper: upload buffer ảnh lên Cloudinary (folder returns)
+ * Helper: upload buffer ảnh lên Cloudinary (folder tùy chỉnh)
  */
-const uploadBufferToCloudinary = (buffer) => {
+const uploadBufferToCloudinary = (buffer, folderName = 'returns') => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: 'returns',
+        folder: folderName,
         resource_type: 'image'
       },
       (error, result) => {
@@ -102,7 +109,10 @@ const parseProofImages = (rawProof) => {
  * POST /api/v1/user/returns
  * User gửi yêu cầu đổi trả cho đơn hàng đã giao:
  * - Chỉ cho phép khi đơn thuộc về user đang đăng nhập và có TrangThaiDonHang = 'DaGiao' (hoặc 'Đã giao').
- * - Hỗ trợ upload ảnh minh chứng bằng Multer (lưu lên Cloudinary, ghi URL vào HinhAnhProof).
+ * - Bắt buộc có lý do (lyDo tối thiểu 10 ký tự).
+ * - Bắt buộc có file ảnh minh họa lỗi (hinhAnhProof).
+ * - Nếu đơn hàng gốc thanh toán tiền mặt (COD), bắt buộc phải có file ảnh mã QR nhận hoàn tiền (anhQRHoanTien)
+ *   và lưu đường dẫn vào cột AnhQRHoanTien.
  * - Chèn record vào bảng `phieudoitra`.
  * - Cập nhật `donhang` SET TrangThaiDonHang = 'YeuCauDoiTra' (và đồng bộ `lichsumuahang`).
  */
@@ -120,8 +130,15 @@ const createReturnRequest = async (req, res, next) => {
     const body = req.body || {};
     const rawMaDonHang = body.maDonHang ?? body.MaDonHang ?? body.ma_don_hang ?? body.orderId ?? body.order_id;
     const rawMaSanPham = body.maSanPham ?? body.MaSanPham ?? body.ma_san_pham ?? body.productId ?? body.product_id;
-    const rawLyDo = body.lyDo ?? body.LyDo ?? body.ly_do ?? body.reason;
+    const rawLyDo = body.lyDo ?? body.LyDo ?? body.ly_do ?? body.reason ?? body.moTa ?? body.description;
     const rawHinhAnhProofUrl = body.hinhAnhProof ?? body.HinhAnhProof ?? body.hinh_anh_proof;
+    const rawAnhQRUrl = body.anhQRHoanTien ?? body.AnhQRHoanTien ?? body.anh_qr_hoan_tien;
+
+    // Trích xuất file từ Multer fields
+    const proofFile = req.files?.hinhAnhProof?.[0] || 
+      (Array.isArray(req.files) ? req.files.find((f) => f.fieldname === 'hinhAnhProof') : (req.file?.fieldname === 'hinhAnhProof' ? req.file : null));
+    const qrFile = req.files?.anhQRHoanTien?.[0] || 
+      (Array.isArray(req.files) ? req.files.find((f) => f.fieldname === 'anhQRHoanTien') : (req.file?.fieldname === 'anhQRHoanTien' ? req.file : null));
 
     if (
       rawMaDonHang === undefined ||
@@ -142,11 +159,20 @@ const createReturnRequest = async (req, res, next) => {
       });
     }
 
+    // Validation: Bắt buộc có lyDo (tối thiểu 10 ký tự)
     const lyDo = rawLyDo !== undefined && rawLyDo !== null ? String(rawLyDo).trim() : '';
-    if (!lyDo) {
+    if (!lyDo || lyDo.length < 10) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng nhập lý do đổi trả (lyDo)'
+        message: 'Vui lòng nhập mô tả chi tiết lý do đổi trả (tối thiểu 10 ký tự)'
+      });
+    }
+
+    // Validation: Bắt buộc có file hinhAnhProof
+    if (!proofFile && !rawHinhAnhProofUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bắt buộc phải tải lên ảnh minh họa tình trạng lỗi sản phẩm (hinhAnhProof)'
       });
     }
 
@@ -170,9 +196,14 @@ const createReturnRequest = async (req, res, next) => {
 
     // 1. Khóa & kiểm tra đơn hàng tồn tại, thuộc về user và đang ở trạng thái 'DaGiao'
     const [orderRows] = await connection.query(
-      `SELECT MaDonHang, MaNguoiDung, NgayMuaHang, TrangThaiDonHang
-       FROM donhang
-       WHERE MaDonHang = ?
+      `SELECT d.MaDonHang, d.MaNguoiDung, d.NgayMuaHang, d.TrangThaiDonHang,
+         COALESCE(
+           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+           'COD'
+         ) AS PhuongThucThanhToan
+       FROM donhang d
+       WHERE d.MaDonHang = ?
        FOR UPDATE`,
       [maDonHang]
     );
@@ -200,6 +231,18 @@ const createReturnRequest = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: `Chỉ cho phép yêu cầu đổi trả khi đơn hàng có trạng thái 'DaGiao'. Trạng thái hiện tại: '${order.TrangThaiDonHang}'`
+      });
+    }
+
+    // Validation: Nếu đơn hàng gốc thanh toán tiền mặt (COD), bắt buộc phải có file anhQRHoanTien
+    const ptttUpper = String(order.PhuongThucThanhToan || 'COD').toUpperCase().trim();
+    const isCOD = !ptttUpper.includes('VNPAY') && !ptttUpper.includes('VN PAY') && !ptttUpper.includes('ZALO');
+
+    if (isCOD && !qrFile && !rawAnhQRUrl) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Đơn hàng thanh toán tiền mặt (COD) bắt buộc phải tải lên ảnh mã QR ngân hàng nhận hoàn tiền (anhQRHoanTien)'
       });
     }
 
@@ -247,37 +290,36 @@ const createReturnRequest = async (req, res, next) => {
       });
     }
 
-    // 3. Upload ảnh minh chứng (nếu có file từ Multer) sau khi toàn bộ kiểm tra hợp lệ đều đạt
-    const files = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
-    let hinhAnhProof = null;
+    // 3. Upload ảnh minh chứng và ảnh QR hoàn tiền lên Cloudinary sau khi toàn bộ kiểm tra hợp lệ
+    let hinhAnhProof = rawHinhAnhProofUrl ? String(rawHinhAnhProofUrl).trim() : null;
+    let anhQRHoanTien = rawAnhQRUrl ? String(rawAnhQRUrl).trim() : null;
 
-    if (files.length > 0) {
-      const uploadedResults = await Promise.all(
-        files.map((file) => uploadBufferToCloudinary(file.buffer))
+    const uploadTasks = [];
+    if (proofFile) {
+      uploadTasks.push(
+        uploadBufferToCloudinary(proofFile.buffer, 'returns').then((result) => {
+          hinhAnhProof = result?.secure_url || null;
+        })
       );
-      const uploadedUrls = uploadedResults
-        .map((result) => result?.secure_url)
-        .filter(Boolean);
-
-      if (uploadedUrls.length === 1) {
-        hinhAnhProof = uploadedUrls[0];
-      } else if (uploadedUrls.length > 1) {
-        hinhAnhProof = JSON.stringify(uploadedUrls);
-      }
-    } else if (
-      rawHinhAnhProofUrl !== undefined &&
-      rawHinhAnhProofUrl !== null &&
-      String(rawHinhAnhProofUrl).trim() !== ''
-    ) {
-      hinhAnhProof = String(rawHinhAnhProofUrl).trim();
+    }
+    if (qrFile) {
+      uploadTasks.push(
+        uploadBufferToCloudinary(qrFile.buffer, 'returns_qr').then((result) => {
+          anhQRHoanTien = result?.secure_url || null;
+        })
+      );
     }
 
-    // 4. Chèn phiếu đổi trả vào bảng `phieudoitra`
+    if (uploadTasks.length > 0) {
+      await Promise.all(uploadTasks);
+    }
+
+    // 4. Chèn phiếu đổi trả vào bảng `phieudoitra` bao gồm cột AnhQRHoanTien
     const [insertResult] = await connection.query(
       `INSERT INTO phieudoitra
-         (MaDonHang, MaSanPham, MaNguoiDung_User, LyDo, HinhAnhProof, KetQuaKiemDinh, TrangThaiHoanTien)
-       VALUES (?, ?, ?, ?, ?, 'ChoKiemDinh', 'ChoDuyet')`,
-      [maDonHang, maSanPham, userId, lyDo, hinhAnhProof]
+         (MaDonHang, MaSanPham, MaNguoiDung_User, LyDo, HinhAnhProof, AnhQRHoanTien, KetQuaKiemDinh, TrangThaiHoanTien)
+       VALUES (?, ?, ?, ?, ?, ?, 'ChoKiemDinh', 'ChoDuyet')`,
+      [maDonHang, maSanPham, userId, lyDo, hinhAnhProof, anhQRHoanTien]
     );
 
     // 5. Cập nhật trạng thái đơn hàng sang 'YeuCauDoiTra' (và đồng bộ lichsumuahang nếu có)
@@ -301,6 +343,7 @@ const createReturnRequest = async (req, res, next) => {
          p.MaNguoiDung_User,
          p.LyDo,
          p.HinhAnhProof,
+         p.AnhQRHoanTien,
          p.KetQuaKiemDinh,
          p.GhiChuKho,
          p.TrangThaiHoanTien,
@@ -323,7 +366,8 @@ const createReturnRequest = async (req, res, next) => {
       data: {
         ...created,
         CodeDonHang: formatOrderCode(created.MaDonHang, order.NgayMuaHang),
-        HinhAnhProofList: parseProofImages(created.HinhAnhProof)
+        HinhAnhProofList: parseProofImages(created.HinhAnhProof),
+        AnhQRHoanTien: created.AnhQRHoanTien || null
       }
     });
   } catch (error) {
@@ -339,6 +383,8 @@ const createReturnRequest = async (req, res, next) => {
 };
 
 module.exports = {
+  upload,
+  uploadFields,
   handleReturnProofUpload,
   createReturnRequest
 };

@@ -718,30 +718,35 @@ const getUserOrders = async (req, res, next) => {
 
     let sql = `
       SELECT 
-        MaDonHang,
-        MaNguoiDung,
-        NgayMuaHang,
-        TrangThaiDonHang,
-        MaVoucher,
-        DiaChiGiaoHang,
-        GhiChu,
-        SoDienThoai,
-        TenNguoiNhan,
-        TongTien,
-        PhiShip,
-        SoTienGiam
-      FROM donhang
-      WHERE MaNguoiDung = ?
+        d.MaDonHang,
+        d.MaNguoiDung,
+        d.NgayMuaHang,
+        d.TrangThaiDonHang,
+        d.MaVoucher,
+        d.DiaChiGiaoHang,
+        d.GhiChu,
+        d.SoDienThoai,
+        d.TenNguoiNhan,
+        d.TongTien,
+        d.PhiShip,
+        d.SoTienGiam,
+        COALESCE(
+          (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+          (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+          'COD'
+        ) AS PhuongThucThanhToan
+      FROM donhang d
+      WHERE d.MaNguoiDung = ?
     `;
 
     const queryParams = [MaNguoiDung];
 
     if (statusFilterList && statusFilterList.length > 0) {
-      sql += ` AND TrangThaiDonHang IN (?)`;
+      sql += ` AND d.TrangThaiDonHang IN (?)`;
       queryParams.push(statusFilterList);
     }
 
-    sql += ` ORDER BY NgayMuaHang DESC, MaDonHang DESC`;
+    sql += ` ORDER BY d.NgayMuaHang DESC, d.MaDonHang DESC`;
 
     const [orders] = await pool.query(sql, queryParams);
 
@@ -797,22 +802,28 @@ const getUserOrders = async (req, res, next) => {
       });
     });
 
-    const formattedOrders = orders.map((order) => ({
-      MaDonHang: order.MaDonHang,
-      CodeDonHang: formatOrderCode(order.MaDonHang, order.NgayMuaHang),
-      MaNguoiDung: order.MaNguoiDung,
-      NgayMuaHang: order.NgayMuaHang,
-      TrangThaiDonHang: order.TrangThaiDonHang,
-      MaVoucher: order.MaVoucher,
-      DiaChiGiaoHang: order.DiaChiGiaoHang,
-      GhiChu: order.GhiChu,
-      SoDienThoai: order.SoDienThoai,
-      TenNguoiNhan: order.TenNguoiNhan,
-      TongTien: Number(order.TongTien),
-      PhiShip: Number(order.PhiShip || 0),
-      SoTienGiam: Number(order.SoTienGiam || 0),
-      chitietdonhang: itemsMap.get(order.MaDonHang) || []
-    }));
+    const formattedOrders = orders.map((order) => {
+      const pttt = order.PhuongThucThanhToan || 'COD';
+      const isCOD = !pttt.toUpperCase().includes('VNPAY') && !pttt.toUpperCase().includes('VN PAY') && !pttt.toUpperCase().includes('ZALO');
+      return {
+        MaDonHang: order.MaDonHang,
+        CodeDonHang: formatOrderCode(order.MaDonHang, order.NgayMuaHang),
+        MaNguoiDung: order.MaNguoiDung,
+        NgayMuaHang: order.NgayMuaHang,
+        TrangThaiDonHang: order.TrangThaiDonHang,
+        MaVoucher: order.MaVoucher,
+        DiaChiGiaoHang: order.DiaChiGiaoHang,
+        GhiChu: order.GhiChu,
+        SoDienThoai: order.SoDienThoai,
+        TenNguoiNhan: order.TenNguoiNhan,
+        TongTien: Number(order.TongTien),
+        PhiShip: Number(order.PhiShip || 0),
+        SoTienGiam: Number(order.SoTienGiam || 0),
+        PhuongThucThanhToan: pttt,
+        isCOD,
+        chitietdonhang: itemsMap.get(order.MaDonHang) || []
+      };
+    });
 
     return res.status(200).json({
       success: true,

@@ -1114,33 +1114,54 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
     [order]
   );
 
+  const isCOD = useMemo(() => {
+    if (!order) return false;
+    if (typeof order.isCOD === 'boolean') return order.isCOD;
+    const method = String(
+      order.PhuongThucThanhToan ||
+      order.phuongThucThanhToan ||
+      order.paymentMethod ||
+      'COD'
+    ).toUpperCase();
+    return !method.includes('VNPAY') && !method.includes('VN PAY') && !method.includes('ZALO');
+  }, [order]);
+
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedReason, setSelectedReason] = useState(RETURN_REASONS[0]);
   const [description, setDescription] = useState('');
-  const [proofImages, setProofImages] = useState([]);
+  const [proofImage, setProofImage] = useState(null); // { file, previewUrl, name, size }
+  const [qrImage, setQrImage] = useState(null);       // { file, previewUrl, name, size }
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const fileInputRef = useRef(null);
-  const imagesRef = useRef([]);
+  const proofInputRef = useRef(null);
+  const qrInputRef = useRef(null);
+  const proofRef = useRef(null);
+  const qrRef = useRef(null);
 
-  const revokeAllPreviews = useCallback((list) => {
-    list.forEach((item) => {
-      if (item.previewUrl) {
-        URL.revokeObjectURL(item.previewUrl);
-      }
-    });
+  useEffect(() => {
+    proofRef.current = proofImage;
+  }, [proofImage]);
+
+  useEffect(() => {
+    qrRef.current = qrImage;
+  }, [qrImage]);
+
+  const cleanupPreviews = useCallback(() => {
+    if (proofRef.current?.previewUrl) {
+      URL.revokeObjectURL(proofRef.current.previewUrl);
+    }
+    if (qrRef.current?.previewUrl) {
+      URL.revokeObjectURL(qrRef.current.previewUrl);
+    }
   }, []);
 
   useEffect(() => {
-    imagesRef.current = proofImages;
-  }, [proofImages]);
-
-  useEffect(() => {
     return () => {
-      revokeAllPreviews(imagesRef.current);
+      cleanupPreviews();
     };
-  }, [revokeAllPreviews]);
+  }, [cleanupPreviews]);
 
   useEffect(() => {
     if (isOpen && order) {
@@ -1148,104 +1169,126 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
       setSelectedProductId(firstItem?.MaSanPham ? String(firstItem.MaSanPham) : '');
       setSelectedReason(RETURN_REASONS[0]);
       setDescription('');
+      setFieldErrors({});
       setFormError('');
       setIsSubmitting(false);
-      setProofImages((prev) => {
-        revokeAllPreviews(prev);
-        return [];
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+
+      if (proofRef.current?.previewUrl) {
+        URL.revokeObjectURL(proofRef.current.previewUrl);
       }
+      if (qrRef.current?.previewUrl) {
+        URL.revokeObjectURL(qrRef.current.previewUrl);
+      }
+      setProofImage(null);
+      setQrImage(null);
+
+      if (proofInputRef.current) proofInputRef.current.value = '';
+      if (qrInputRef.current) qrInputRef.current.value = '';
     }
-  }, [isOpen, order, items, revokeAllPreviews]);
+  }, [isOpen, order, items]);
 
   if (!isOpen || !order) return null;
 
-  const handleFilesSelected = (fileList) => {
-    const incoming = Array.from(fileList || []);
-    if (incoming.length === 0) return;
-
-    setFormError('');
-    const currentCount = proofImages.length;
-    const remainingSlots = MAX_RETURN_PROOF_FILES - currentCount;
-
-    if (remainingSlots <= 0) {
-      toast.error(`Bạn chỉ có thể chọn tối đa ${MAX_RETURN_PROOF_FILES} ảnh minh họa.`);
+  const handleProofSelected = (file) => {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      toast.error(`File "${file.name}" không phải định dạng ảnh hợp lệ.`);
+      return;
+    }
+    if (file.size > MAX_RETURN_PROOF_SIZE_BYTES) {
+      toast.error(`Ảnh "${file.name}" vượt quá giới hạn 10MB.`);
       return;
     }
 
-    const validToAdd = [];
-    for (const file of incoming) {
-      if (validToAdd.length >= remainingSlots) {
-        toast.error(`Chỉ chọn tối đa ${MAX_RETURN_PROOF_FILES} ảnh minh họa lỗi.`);
-        break;
-      }
-      if (!file.type || !file.type.startsWith('image/')) {
-        toast.error(`File "${file.name}" không phải định dạng ảnh hợp lệ.`);
-        continue;
-      }
-      if (file.size > MAX_RETURN_PROOF_SIZE_BYTES) {
-        toast.error(`Ảnh "${file.name}" vượt quá giới hạn 10MB.`);
-        continue;
-      }
-      validToAdd.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        file,
-        previewUrl: URL.createObjectURL(file),
-      });
+    if (proofImage?.previewUrl) {
+      URL.revokeObjectURL(proofImage.previewUrl);
     }
 
-    if (validToAdd.length > 0) {
-      setProofImages((prev) => [...prev, ...validToAdd]);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setProofImage({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+    });
+    setFieldErrors((prev) => ({ ...prev, proofImage: '' }));
+    if (proofInputRef.current) proofInputRef.current.value = '';
   };
 
-  const handleRemoveImage = (imageId) => {
-    setProofImages((prev) => {
-      const target = prev.find((img) => img.id === imageId);
-      if (target?.previewUrl) {
-        URL.revokeObjectURL(target.previewUrl);
-      }
-      return prev.filter((img) => img.id !== imageId);
+  const handleRemoveProof = () => {
+    if (proofImage?.previewUrl) {
+      URL.revokeObjectURL(proofImage.previewUrl);
+    }
+    setProofImage(null);
+    if (proofInputRef.current) proofInputRef.current.value = '';
+  };
+
+  const handleQrSelected = (file) => {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      toast.error(`File "${file.name}" không phải định dạng ảnh hợp lệ.`);
+      return;
+    }
+    if (file.size > MAX_RETURN_PROOF_SIZE_BYTES) {
+      toast.error(`Ảnh "${file.name}" vượt quá giới hạn 10MB.`);
+      return;
+    }
+
+    if (qrImage?.previewUrl) {
+      URL.revokeObjectURL(qrImage.previewUrl);
+    }
+
+    setQrImage({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
     });
+    setFieldErrors((prev) => ({ ...prev, qrImage: '' }));
+    if (qrInputRef.current) qrInputRef.current.value = '';
+  };
+
+  const handleRemoveQr = () => {
+    if (qrImage?.previewUrl) {
+      URL.revokeObjectURL(qrImage.previewUrl);
+    }
+    setQrImage(null);
+    if (qrInputRef.current) qrInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
-    if (!selectedReason) {
-      const msg = 'Vui lòng chọn lý do đổi trả / bảo hành.';
-      setFormError(msg);
-      toast.error(msg);
-      return;
-    }
-
+    const errors = {};
     const trimmedDesc = description.trim();
-    if (selectedReason === 'Lý do khác' && !trimmedDesc) {
-      const msg = 'Vui lòng nhập mô tả chi tiết cho lý do đổi trả.';
-      setFormError(msg);
-      toast.error(msg);
-      return;
+
+    // 1. Bắt buộc nhập Mô tả chi tiết lỗi (tối thiểu 10 ký tự)
+    if (!trimmedDesc) {
+      errors.description = 'Vui lòng nhập mô tả chi tiết lỗi (tối thiểu 10 ký tự)';
+    } else if (trimmedDesc.length < 10) {
+      errors.description = `Mô tả chi tiết lỗi phải có ít nhất 10 ký tự (hiện có ${trimmedDesc.length}/10 ký tự)`;
     }
 
-    if (proofImages.length === 0) {
-      const msg = 'Vui lòng chọn ít nhất 1 ảnh minh họa tình trạng lỗi.';
-      setFormError(msg);
-      toast.error(msg);
+    // 2. Bắt buộc chọn Ảnh minh họa lỗi
+    if (!proofImage?.file) {
+      errors.proofImage = 'Vui lòng chọn ảnh minh họa lỗi';
+    }
+
+    // 3. Với đơn COD: Bắt buộc chọn Ảnh mã QR ngân hàng nhận hoàn tiền
+    if (isCOD && !qrImage?.file) {
+      errors.qrImage = 'Đơn hàng COD bắt buộc phải tải lên ảnh mã QR ngân hàng nhận hoàn tiền';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      toast.error('Vui lòng kiểm tra và hoàn thiện các trường bắt buộc');
       return;
     }
 
     const finalLyDo =
       selectedReason === 'Lý do khác'
         ? trimmedDesc
-        : trimmedDesc
-        ? `${selectedReason} — ${trimmedDesc}`
-        : selectedReason;
+        : `${selectedReason} — ${trimmedDesc}`;
 
     const formData = new FormData();
     formData.append('maDonHang', String(order.MaDonHang));
@@ -1253,9 +1296,12 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
       formData.append('maSanPham', String(selectedProductId));
     }
     formData.append('lyDo', finalLyDo);
-    proofImages.forEach((img) => {
-      formData.append('hinhAnhProof', img.file);
-    });
+    formData.append('moTa', trimmedDesc);
+    formData.append('hinhAnhProof', proofImage.file);
+
+    if (isCOD && qrImage?.file) {
+      formData.append('anhQRHoanTien', qrImage.file);
+    }
 
     setIsSubmitting(true);
     try {
@@ -1268,8 +1314,9 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
 
       if (res.data?.success) {
         toast.success(res.data?.message || 'Gửi yêu cầu đổi trả thành công!');
-        revokeAllPreviews(proofImages);
-        setProofImages([]);
+        cleanupPreviews();
+        setProofImage(null);
+        setQrImage(null);
         if (onSubmitSuccess) {
           onSubmitSuccess(order.MaDonHang, res.data.data);
         }
@@ -1305,10 +1352,23 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
         {/* Header */}
         <div className="px-6 py-5 border-b border-surface-container flex items-center justify-between bg-gradient-to-r from-orange-50 via-surface-container-lowest to-surface-container-low shrink-0">
           <div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-orange-500/15 border border-orange-500/20 px-2.5 py-0.5 rounded-full mb-1.5">
-              <span className="material-symbols-outlined text-sm leading-none">assignment_return</span>
-              Đơn hàng #{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}
-            </span>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-orange-500/15 border border-orange-500/20 px-2.5 py-0.5 rounded-full">
+                <span className="material-symbols-outlined text-sm leading-none">assignment_return</span>
+                Đơn hàng #{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}
+              </span>
+              {isCOD ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">
+                  <span className="material-symbols-outlined text-xs leading-none">payments</span>
+                  Thanh toán COD
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+                  <span className="material-symbols-outlined text-xs leading-none">credit_card</span>
+                  {order.PhuongThucThanhToan || 'Thanh toán Online'}
+                </span>
+              )}
+            </div>
             <h3
               id="return-request-modal-title"
               className="font-title-card text-title-card font-bold text-on-surface"
@@ -1418,18 +1478,17 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
               </select>
             </div>
 
-            {/* 3. Mô tả chi tiết */}
-            <div className="space-y-2">
+            {/* 3. Mô tả chi tiết lỗi (Bắt buộc tối thiểu 10 ký tự) */}
+            <div className="space-y-1.5">
               <label
                 htmlFor="return-description-input"
                 className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-on-surface-variant"
               >
                 <span>
-                  Mô tả chi tiết tình trạng lỗi{' '}
-                  {selectedReason === 'Lý do khác' && <span className="text-error">*</span>}
+                  Mô tả chi tiết lỗi <span className="text-error">*</span>
                 </span>
-                <span className="text-[11px] font-normal text-outline">
-                  {description.length}/500
+                <span className={`text-[11px] font-medium ${description.trim().length >= 10 ? 'text-emerald-600' : 'text-outline'}`}>
+                  {description.trim().length}/500 (tối thiểu 10 ký tự)
                 </span>
               </label>
               <textarea
@@ -1437,30 +1496,43 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
                 rows={3}
                 value={description}
                 onChange={(e) => {
-                  setDescription(e.target.value.slice(0, 500));
+                  const val = e.target.value.slice(0, 500);
+                  setDescription(val);
                   setFormError('');
+                  if (fieldErrors.description && val.trim().length >= 10) {
+                    setFieldErrors((prev) => ({ ...prev, description: '' }));
+                  }
                 }}
                 disabled={isSubmitting}
-                placeholder="Mô tả rõ tình trạng sản phẩm (ví dụ: không lên nguồn, nứt góc màn hình, giao nhầm màu...) để bộ phận kho kiểm định nhanh hơn."
-                className="w-full border border-outline-variant/60 bg-surface-container-low/50 rounded-xl p-3 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface-container-lowest focus:border-primary transition-all resize-none"
+                placeholder="Mô tả chi tiết tình trạng lỗi (ví dụ: máy không lên nguồn, sọc màn hình, liệt cảm ứng góc phải...) để kỹ thuật viên kiểm định nhanh chóng."
+                className={`w-full border rounded-xl p-3 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 transition-all resize-none ${
+                  fieldErrors.description
+                    ? 'border-error bg-error-container/10 focus:ring-error/30 focus:border-error'
+                    : 'border-outline-variant/60 bg-surface-container-low/50 focus:ring-primary/30 focus:bg-surface-container-lowest focus:border-primary'
+                }`}
               />
+              {fieldErrors.description && (
+                <p className="text-xs text-error font-medium flex items-center gap-1.5 pt-0.5 animate-fade-in">
+                  <span className="material-symbols-outlined text-sm leading-none shrink-0">error</span>
+                  <span>{fieldErrors.description}</span>
+                </p>
+              )}
             </div>
 
-            {/* 4. Chọn ảnh minh họa lỗi */}
-            <div className="space-y-2.5">
+            {/* 4. Chọn ảnh minh họa lỗi (Bắt buộc) */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                   Ảnh minh họa lỗi <span className="text-error">*</span>
                 </label>
                 <span className="text-xs font-semibold text-outline">
-                  {proofImages.length}/{MAX_RETURN_PROOF_FILES} ảnh (tối đa 10MB/ảnh)
+                  Tối đa 10MB (JPG, PNG, WEBP)
                 </span>
               </div>
 
-              {/* Drop / Select Zone */}
-              {proofImages.length < MAX_RETURN_PROOF_FILES && (
+              {!proofImage ? (
                 <div
-                  onClick={() => !isSubmitting && fileInputRef.current?.click()}
+                  onClick={() => !isSubmitting && proofInputRef.current?.click()}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1468,65 +1540,216 @@ const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
                   onDrop={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!isSubmitting) {
-                      handleFilesSelected(e.dataTransfer.files);
+                    if (!isSubmitting && e.dataTransfer.files?.[0]) {
+                      handleProofSelected(e.dataTransfer.files[0]);
                     }
                   }}
-                  className="border-2 border-dashed border-primary/35 hover:border-primary bg-primary-fixed/15 hover:bg-primary-fixed/25 rounded-2xl p-5 text-center cursor-pointer transition-all group"
+                  className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all group ${
+                    fieldErrors.proofImage
+                      ? 'border-error/70 bg-error-container/10 hover:border-error'
+                      : 'border-primary/35 hover:border-primary bg-primary-fixed/15 hover:bg-primary-fixed/25'
+                  }`}
                 >
-                  <div className="w-11 h-11 mx-auto mb-2 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <div className={`w-11 h-11 mx-auto mb-2 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform ${
+                    fieldErrors.proofImage ? 'bg-error/15 text-error' : 'bg-primary/10 text-primary'
+                  }`}>
                     <span className="material-symbols-outlined text-2xl leading-none">
                       add_photo_alternate
                     </span>
                   </div>
                   <p className="text-sm font-bold text-on-surface">
-                    Bấm để chọn ảnh hoặc kéo thả vào đây
+                    Bấm để chọn ảnh minh họa lỗi hoặc kéo thả vào đây
                   </p>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    Hỗ trợ JPG, PNG, WEBP — Chụp rõ tem/vết lỗi hoặc phụ kiện kèm theo
+                    Chụp rõ vết trầy xước, tem vỡ, màn hình hoặc phụ kiện đi kèm
                   </p>
+                </div>
+              ) : (
+                <div className="relative flex items-center gap-3 p-3 rounded-2xl border border-surface-container bg-surface-container-low/70 shadow-xs">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-container shrink-0 border border-surface-container">
+                    <img
+                      src={proofImage.previewUrl}
+                      alt="Ảnh minh họa lỗi"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-emerald-600 text-sm leading-none">
+                        check_circle
+                      </span>
+                      <p className="text-xs font-bold text-on-surface truncate">
+                        {proofImage.name || 'Ảnh minh họa lỗi'}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant mt-0.5">
+                      {proofImage.size ? `${(proofImage.size / (1024 * 1024)).toFixed(2)} MB` : 'Đã chọn'} · Sẵn sàng gửi
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => !isSubmitting && proofInputRef.current?.click()}
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    >
+                      Đổi ảnh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveProof}
+                      disabled={isSubmitting}
+                      title="Xóa ảnh"
+                      className="w-7 h-7 rounded-lg text-outline hover:text-error hover:bg-error-container/20 flex items-center justify-center transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base leading-none">delete</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
               <input
-                ref={fileInputRef}
+                ref={proofInputRef}
                 type="file"
                 accept="image/*"
-                multiple
-                onChange={(e) => handleFilesSelected(e.target.files)}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    handleProofSelected(e.target.files[0]);
+                  }
+                }}
                 disabled={isSubmitting}
                 className="hidden"
               />
 
-              {/* Image Previews */}
-              {proofImages.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 pt-1">
-                  {proofImages.map((img, idx) => (
-                    <div
-                      key={img.id}
-                      className="relative aspect-square rounded-xl border border-surface-container bg-surface-container-low overflow-hidden group shadow-xs"
-                    >
-                      <img
-                        src={img.previewUrl}
-                        alt={`Ảnh minh họa ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(img.id)}
-                        disabled={isSubmitting}
-                        title="Xóa ảnh này"
-                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-slate-900/75 hover:bg-error text-white flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
-                      >
-                        <span className="material-symbols-outlined text-sm leading-none">
-                          close
-                        </span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              {fieldErrors.proofImage && (
+                <p className="text-xs text-error font-medium flex items-center gap-1.5 pt-0.5 animate-fade-in">
+                  <span className="material-symbols-outlined text-sm leading-none shrink-0">error</span>
+                  <span>{fieldErrors.proofImage}</span>
+                </p>
               )}
             </div>
+
+            {/* 5. Khung upload Ảnh mã QR ngân hàng nhận hoàn tiền (Bắt buộc với đơn COD) */}
+            {isCOD && (
+              <div className="space-y-2 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-amber-700 text-lg leading-none shrink-0">
+                    qr_code_2
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <label className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                        Ảnh mã QR ngân hàng nhận hoàn tiền <span className="text-error">*</span>
+                      </label>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-200/90 text-amber-900 border border-amber-300">
+                        Đơn hàng COD
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-800/90 mt-0.5">
+                      Đơn thanh toán khi nhận hàng (COD) cần cung cấp mã QR ngân hàng để shop chuyển khoản hoàn tiền sau kiểm định.
+                    </p>
+                  </div>
+                </div>
+
+                {!qrImage ? (
+                  <div
+                    onClick={() => !isSubmitting && qrInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isSubmitting && e.dataTransfer.files?.[0]) {
+                        handleQrSelected(e.dataTransfer.files[0]);
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all group bg-surface-container-lowest/80 ${
+                      fieldErrors.qrImage
+                        ? 'border-error bg-error-container/10 hover:border-error'
+                        : 'border-amber-400 hover:border-amber-600 hover:bg-amber-100/40'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 mx-auto mb-1.5 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform ${
+                      fieldErrors.qrImage ? 'bg-error/15 text-error' : 'bg-amber-500/15 text-amber-700'
+                    }`}>
+                      <span className="material-symbols-outlined text-2xl leading-none">
+                        qr_code_scanner
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-on-surface">
+                      Tải lên ảnh mã QR ngân hàng nhận hoàn tiền
+                    </p>
+                    <p className="text-[11px] text-on-surface-variant mt-0.5">
+                      Hỗ trợ ảnh QR VietQR, MoMo, ZaloPay hoặc hình chụp mã QR tài khoản ngân hàng
+                    </p>
+                  </div>
+                ) : (
+                  <div className="relative flex items-center gap-3 p-3 rounded-xl border border-amber-300 bg-surface-container-lowest shadow-xs">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-white shrink-0 border border-surface-container flex items-center justify-center p-1">
+                      <img
+                        src={qrImage.previewUrl}
+                        alt="Mã QR nhận hoàn tiền"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-emerald-600 text-sm leading-none">
+                          check_circle
+                        </span>
+                        <p className="text-xs font-bold text-on-surface truncate">
+                          {qrImage.name || 'Ảnh mã QR hoàn tiền'}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant mt-0.5">
+                        {qrImage.size ? `${(qrImage.size / (1024 * 1024)).toFixed(2)} MB` : 'Đã chọn'} · Đã sẵn sàng
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => !isSubmitting && qrInputRef.current?.click()}
+                        disabled={isSubmitting}
+                        className="px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
+                      >
+                        Đổi ảnh
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveQr}
+                        disabled={isSubmitting}
+                        title="Xóa mã QR"
+                        className="w-7 h-7 rounded-lg text-outline hover:text-error hover:bg-error-container/20 flex items-center justify-center transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base leading-none">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <input
+                  ref={qrInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      handleQrSelected(e.target.files[0]);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className="hidden"
+                />
+
+                {fieldErrors.qrImage && (
+                  <p className="text-xs text-error font-medium flex items-center gap-1.5 pt-0.5 animate-fade-in">
+                    <span className="material-symbols-outlined text-sm leading-none shrink-0">error</span>
+                    <span>{fieldErrors.qrImage}</span>
+                  </p>
+                )}
+              </div>
+            )}
 
             {formError && (
               <div className="p-3 rounded-xl bg-error-container/25 border border-error/25 text-error text-xs font-medium flex items-center gap-2">

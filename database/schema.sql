@@ -383,6 +383,7 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
   `MaNguoiDung_User` int(11) NOT NULL,
   `LyDo` text NOT NULL,
   `HinhAnhProof` text DEFAULT NULL,
+  `AnhQRHoanTien` varchar(255) DEFAULT NULL,
   `KetQuaKiemDinh` enum('ChoKiemDinh','Dat','Loi_KhongDat') NOT NULL DEFAULT 'ChoKiemDinh',
   `GhiChuKho` text DEFAULT NULL,
   `TrangThaiHoanTien` enum('ChoDuyet','DangHoanTien','DaHoanTien','TuChoi') NOT NULL DEFAULT 'ChoDuyet',
@@ -403,8 +404,11 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 7. MIGRATION: QUY TRÌNH ADMIN PHÊ DUYỆT PHIẾU NHẬP KHO
+-- 7. MIGRATION: QUY TRÌNH ADMIN PHÊ DUYỆT PHIẾU NHẬP KHO & ĐỔI TRẢ
 -- ============================================================================
 ALTER TABLE `phieunhapkho` ADD COLUMN `TrangThai` ENUM('ChoDuyet', 'DaDuyet', 'TuChoi') NOT NULL DEFAULT 'ChoDuyet';
+
+-- 7.1 Thêm cột lưu đường dẫn ảnh QR hoàn tiền vào bảng phieudoitra
+ALTER TABLE phieudoitra ADD COLUMN AnhQRHoanTien VARCHAR(255) NULL;
 
 SET FOREIGN_KEY_CHECKS = 1;
