@@ -53,7 +53,7 @@ const navGroups = [
         path: '/admin/inventory',
         readOnly: true,
       },
-      { icon: ClipboardCheck, label: 'Duyệt lệch kho',  path: '/admin/inventory/adjustments' },
+      { icon: ClipboardCheck, label: 'Duyệt kho & kiểm kê',  path: '/admin/inventory/adjustments' },
       { icon: RotateCcw,      label: 'Duyệt hoàn tiền', path: '/admin/returns' },
     ],
   },

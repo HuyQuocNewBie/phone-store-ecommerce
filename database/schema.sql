@@ -309,11 +309,16 @@ CREATE TABLE `phieunhapkho` (
   `NgayNhap` datetime DEFAULT current_timestamp(),
   `TongTienNhap` decimal(18,2) NOT NULL DEFAULT 0.00,
   `GhiChu` text DEFAULT NULL,
+  `TrangThai` enum('ChoDuyet','DaDuyet','TuChoi') NOT NULL DEFAULT 'ChoDuyet',
+  `MaNguoiDung_Admin` int(11) DEFAULT NULL,
+  `NgayDuyet` datetime DEFAULT NULL,
   PRIMARY KEY (`MaPhieuNhap`),
   KEY `MaNhaSanXuat` (`MaNhaSanXuat`),
   KEY `MaNguoiDung` (`MaNguoiDung`),
+  KEY `MaNguoiDung_Admin` (`MaNguoiDung_Admin`),
   CONSTRAINT `phieunhapkho_ibfk_1` FOREIGN KEY (`MaNhaSanXuat`) REFERENCES `nhasanxuat` (`MaNhaSanXuat`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `phieunhapkho_ibfk_2` FOREIGN KEY (`MaNguoiDung`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `phieunhapkho_ibfk_2` FOREIGN KEY (`MaNguoiDung`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `phieunhapkho_ibfk_3` FOREIGN KEY (`MaNguoiDung_Admin`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5.2 Bảng Chi Tiết Phiếu Nhập Kho
@@ -390,5 +395,10 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
   CONSTRAINT `fk_doitra_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_doitra_user` FOREIGN KEY (`MaNguoiDung_User`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- 7. MIGRATION: QUY TRÌNH ADMIN PHÊ DUYỆT PHIẾU NHẬP KHO
+-- ============================================================================
+ALTER TABLE `phieunhapkho` ADD COLUMN `TrangThai` ENUM('ChoDuyet', 'DaDuyet', 'TuChoi') NOT NULL DEFAULT 'ChoDuyet';
 
 SET FOREIGN_KEY_CHECKS = 1;

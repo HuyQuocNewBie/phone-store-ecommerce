@@ -12,7 +12,10 @@ router.get('/stock-list', warehouseInventoryController.getWarehouseStockList);
 // GET /api/v1/warehouse/inventory/adjust-requests - Lấy danh sách phiếu báo lệch kho
 router.get('/adjust-requests', warehouseInventoryController.getAdjustRequests);
 
-// POST /api/v1/warehouse/inventory/import - Nhập kho thực tế
+// GET /api/v1/warehouse/inventory/import-receipts - Lấy danh sách phiếu nhập kho
+router.get('/import-receipts', warehouseInventoryController.getImportReceipts);
+
+// POST /api/v1/warehouse/inventory/import - Nhập kho thực tế (tạo phiếu chờ duyệt)
 router.post('/import', warehouseInventoryController.importInventory);
 
 // POST /api/v1/warehouse/inventory/adjust-request - Lập phiếu đề nghị điều chỉnh lệch kho

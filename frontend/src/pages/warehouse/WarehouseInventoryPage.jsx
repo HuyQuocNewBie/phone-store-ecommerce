@@ -100,12 +100,13 @@ const WarehouseInventoryPage = () => {
   const [products, setProducts] = useState([]);
   const [manufacturers, setManufacturers] = useState([]);
   const [adjustRequests, setAdjustRequests] = useState([]);
+  const [importReceipts, setImportReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Page view & filter state
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'adjust_requests'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'import_receipts' | 'adjust_requests'
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
   const [highlightedProductId, setHighlightedProductId] = useState(null);
@@ -132,7 +133,7 @@ const WarehouseInventoryPage = () => {
   const [adjustError, setAdjustError] = useState(null);
   const [isSubmittingAdjust, setIsSubmittingAdjust] = useState(false);
 
-  // Fetch products (TonKho từ bảng sanpham), manufacturers & adjustment requests
+  // Fetch products (TonKho từ bảng sanpham), manufacturers, adjustment requests & import receipts
   const fetchInventoryData = useCallback(async ({ silent = false } = {}) => {
     if (silent) {
       setRefreshing(true);
@@ -162,10 +163,20 @@ const WarehouseInventoryPage = () => {
           throw err;
         });
 
-      const [stockRes, manuRes, adjRes] = await Promise.all([
+      const fetchImportsPromise = api
+        .get('/warehouse/inventory/import-receipts')
+        .catch((err) => {
+          if (err.response?.status === 404) {
+            return { data: { data: null } };
+          }
+          throw err;
+        });
+
+      const [stockRes, manuRes, adjRes, importsRes] = await Promise.all([
         fetchStockPromise,
         fetchManufacturersPromise,
         fetchAdjustmentsPromise,
+        fetchImportsPromise,
       ]);
 
       const rawProducts = Array.isArray(stockRes.data?.data) ? stockRes.data.data : [];
@@ -188,6 +199,10 @@ const WarehouseInventoryPage = () => {
 
       if (Array.isArray(adjRes.data?.data)) {
         setAdjustRequests(adjRes.data.data);
+      }
+
+      if (Array.isArray(importsRes.data?.data)) {
+        setImportReceipts(importsRes.data.data);
       }
     } catch (err) {
       const msg =
@@ -240,6 +255,9 @@ const WarehouseInventoryPage = () => {
     const pendingAdjustCount = adjustRequests.filter(
       (req) => req.TrangThai === 'ChoDuyet'
     ).length;
+    const pendingImportCount = importReceipts.filter(
+      (req) => req.TrangThai === 'ChoDuyet'
+    ).length;
 
     return {
       totalProducts,
@@ -248,8 +266,9 @@ const WarehouseInventoryPage = () => {
       lowStockCount,
       attentionCount: outOfStockCount + lowStockCount,
       pendingAdjustCount,
+      pendingImportCount,
     };
-  }, [products, adjustRequests]);
+  }, [products, adjustRequests, importReceipts]);
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -279,6 +298,33 @@ const WarehouseInventoryPage = () => {
       );
     });
   }, [products, searchTerm, stockFilter]);
+
+  // Filtered import receipts
+  const filteredImportReceipts = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return importReceipts;
+
+    return importReceipts.filter((item) => {
+      const idStr = String(item.MaPhieuNhap || '');
+      const codeStr = `#pn${String(item.MaPhieuNhap || '').padStart(4, '0')}`.toLowerCase();
+      const manu = String(item.TenNhaSanXuat || '').toLowerCase();
+      const note = String(item.GhiChu || '').toLowerCase();
+      const creator = String(item.TaiKhoanKho || '').toLowerCase();
+      const matchProduct = (item.ChiTiet || []).some((ct) =>
+        String(ct.TenSanPham || '').toLowerCase().includes(keyword) ||
+        String(ct.MaSanPham || '').includes(keyword)
+      );
+
+      return (
+        idStr.includes(keyword) ||
+        codeStr.includes(keyword) ||
+        manu.includes(keyword) ||
+        note.includes(keyword) ||
+        creator.includes(keyword) ||
+        matchProduct
+      );
+    });
+  }, [importReceipts, searchTerm]);
 
   // Filtered adjustment requests
   const filteredAdjustRequests = useMemo(() => {
@@ -370,8 +416,17 @@ const WarehouseInventoryPage = () => {
     }
 
     const price = Number(importForm.DonGiaNhap);
-    if (!Number.isFinite(price) || price <= 0) {
-      setImportError('Giá nhập phải lớn hơn 0 (VNĐ)');
+    if (!Number.isFinite(price) || price < 100000) {
+      setImportError('Đơn giá nhập tối thiểu là 100.000đ (không chấp nhận giá ảo)');
+      return;
+    }
+
+    if (selectedImportProduct && price >= Number(selectedImportProduct.Gia)) {
+      setImportError(
+        `Đơn giá nhập (${formatVND(price)}) phải thấp hơn giá bán niêm yết (${formatVND(
+          selectedImportProduct.Gia
+        )}) của sản phẩm "${selectedImportProduct.TenSanPham}"`
+      );
       return;
     }
 
@@ -391,38 +446,16 @@ const WarehouseInventoryPage = () => {
     try {
       const res = await api.post('/warehouse/inventory/import', payload);
       const createdReceipt = res.data?.data;
-      const importedItem = createdReceipt?.ChiTietPhieuNhap?.[0];
       const targetProdId = Number(importForm.MaSanPham);
-      const newStock =
-        importedItem?.TonKhoMoi !== undefined
-          ? Number(importedItem.TonKhoMoi)
-          : (selectedImportProduct?.TonKho || 0) + qty;
 
-      // Cập nhật TonKho tức thì trên UI
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (Number(p.MaSanPham) !== targetProdId) return p;
-          return {
-            ...p,
-            TonKho: newStock,
-            TrangThai: newStock > 0 && p.TrangThai === 'HetHang' ? 'DangBan' : p.TrangThai,
-          };
-        })
-      );
-
-      setHighlightedProductId(targetProdId);
-      setTimeout(() => {
-        setHighlightedProductId((prev) => (prev === targetProdId ? null : prev));
-      }, 3000);
-
+      // Lưu phiếu vào phieunhapkho với TrangThai = 'ChoDuyet'. CHƯA cộng vào sanpham.TonKho lúc này.
       toast.success(
-        `Phiếu nhập #${createdReceipt?.MaPhieuNhap || ''} thành công! Tồn kho "${
-          importedItem?.TenSanPham || selectedImportProduct?.TenSanPham || `#${targetProdId}`
-        }" tăng lên ${newStock} máy.`,
-        { id: `import-ok-${targetProdId}`, duration: 4500 }
+        `Đã tạo Phiếu nhập kho #${createdReceipt?.MaPhieuNhap || ''} thành công! Phiếu đang ở trạng thái "Chờ duyệt", tồn kho sẽ được cộng sau khi Admin phê duyệt.`,
+        { id: `import-pending-${targetProdId}`, duration: 5000 }
       );
 
       setIsImportModalOpen(false);
+      setActiveTab('import_receipts');
       fetchInventoryData({ silent: true });
     } catch (err) {
       const msg =
@@ -586,7 +619,7 @@ const WarehouseInventoryPage = () => {
       </div>
 
         {/* ── Summary KPI Cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             type="button"
             onClick={() => {
@@ -601,7 +634,7 @@ const WarehouseInventoryPage = () => {
           >
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Tổng sản phẩm trong kho
+                Tổng SP trong kho
               </p>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-extrabold text-blue-600">
@@ -610,11 +643,7 @@ const WarehouseInventoryPage = () => {
                 <span className="text-xs font-medium text-slate-500">dòng SP</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Tổng tồn thực tế:{' '}
-                <strong className="text-slate-800">
-                  {summaryStats.totalUnits.toLocaleString('vi-VN')}
-                </strong>{' '}
-                máy
+                Tổng tồn: <strong className="text-slate-800">{summaryStats.totalUnits.toLocaleString('vi-VN')}</strong> máy
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
@@ -648,18 +677,39 @@ const WarehouseInventoryPage = () => {
                 <span className="text-xs font-medium text-slate-500">sản phẩm</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Hết hàng:{' '}
-                <strong className="text-rose-600">
-                  {summaryStats.outOfStockCount}
-                </strong>{' '}
-                · Sắp hết:{' '}
-                <strong className="text-amber-600">
-                  {summaryStats.lowStockCount}
-                </strong>
+                Hết: <strong className="text-rose-600">{summaryStats.outOfStockCount}</strong> · Sắp hết: <strong className="text-amber-600">{summaryStats.lowStockCount}</strong>
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
               <AlertTriangle className="w-6 h-6" />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('import_receipts')}
+            className={`text-left bg-white rounded-2xl p-4 sm:p-5 border transition-all flex items-center justify-between cursor-pointer ${
+              activeTab === 'import_receipts'
+                ? 'border-indigo-400 ring-2 ring-indigo-500/15 shadow-md'
+                : 'border-slate-200 hover:border-slate-300 shadow-sm'
+            }`}
+          >
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Phiếu nhập chờ duyệt
+              </p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-extrabold text-indigo-600">
+                  {summaryStats.pendingImportCount}
+                </span>
+                <span className="text-xs font-medium text-slate-500">phiếu</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Tổng đã tạo: <strong className="text-slate-700">{importReceipts.length}</strong> phiếu nhập
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+              <PackagePlus className="w-6 h-6" />
             </div>
           </button>
 
@@ -683,9 +733,7 @@ const WarehouseInventoryPage = () => {
                 <span className="text-xs font-medium text-slate-500">phiếu</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Tổng đã lập:{' '}
-                <strong className="text-slate-700">{adjustRequests.length}</strong>{' '}
-                phiếu điều chỉnh
+                Tổng đã lập: <strong className="text-slate-700">{adjustRequests.length}</strong> phiếu
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
@@ -696,7 +744,7 @@ const WarehouseInventoryPage = () => {
 
         {/* ── Tabs + Search & Filter Bar ── */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-2 border-b border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-3 border-b border-slate-200">
             <button
               type="button"
               role="tab"
@@ -709,7 +757,7 @@ const WarehouseInventoryPage = () => {
               }`}
             >
               <Package className="w-4 h-4 shrink-0" />
-              <span>Danh sách Tồn kho thực tế</span>
+              <span>Danh sách Tồn kho</span>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                   activeTab === 'inventory'
@@ -718,6 +766,32 @@ const WarehouseInventoryPage = () => {
                 }`}
               >
                 {products.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'import_receipts'}
+              onClick={() => setActiveTab('import_receipts')}
+              className={`flex items-center justify-center gap-2.5 px-4 py-4 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
+                activeTab === 'import_receipts'
+                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50/60'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <PackagePlus className="w-4 h-4 shrink-0" />
+              <span>Phiếu nhập kho hàng</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'import_receipts'
+                    ? 'bg-indigo-600 text-white'
+                    : summaryStats.pendingImportCount > 0
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {importReceipts.length}
               </span>
             </button>
 
@@ -738,6 +812,8 @@ const WarehouseInventoryPage = () => {
                 className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                   activeTab === 'adjust_requests'
                     ? 'bg-amber-500 text-white'
+                    : summaryStats.pendingAdjustCount > 0
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold'
                     : 'bg-slate-100 text-slate-600'
                 }`}
               >
@@ -763,6 +839,13 @@ const WarehouseInventoryPage = () => {
                     {f.label}
                   </button>
                 ))}
+              </div>
+            ) : activeTab === 'import_receipts' ? (
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <AlertCircle className="w-4 h-4 text-indigo-500 shrink-0" />
+                <span>
+                  Phiếu nhập kho cần qua bước Admin đối chiếu và phê duyệt mới chính thức cộng <strong>TonKho</strong>.
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs text-slate-600">
@@ -1007,8 +1090,136 @@ const WarehouseInventoryPage = () => {
               </div>
             )}
           </div>
+        ) : activeTab === 'import_receipts' ? (
+          /* ── Tab 2: Submitted Import Receipts History ── */
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            {filteredImportReceipts.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <PackagePlus className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-800">
+                  {searchTerm
+                    ? 'Không tìm thấy phiếu nhập kho phù hợp'
+                    : 'Chưa có phiếu nhập kho nào'}
+                </h3>
+                <p className="text-sm text-slate-500 max-w-md mx-auto">
+                  Tất cả các phiếu nhập kho đều được lưu lại và hiển thị tại đây để theo dõi tiến độ phê duyệt từ Admin.
+                </p>
+                {!searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => openImportModal()}
+                    disabled={products.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <PackagePlus className="w-3.5 h-3.5" />
+                    Lập phiếu nhập kho mới
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3.5 px-4 w-28 text-center">Mã phiếu</th>
+                      <th className="py-3.5 px-4 min-w-[180px]">Nhà sản xuất</th>
+                      <th className="py-3.5 px-4 min-w-[280px]">Sản phẩm nhập</th>
+                      <th className="py-3.5 px-4 text-right whitespace-nowrap">Tổng tiền nhập</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap hidden md:table-cell">
+                        Thời gian lập
+                      </th>
+                      <th className="py-3.5 px-4 text-center whitespace-nowrap">Trạng thái</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap hidden lg:table-cell">
+                        Admin duyệt
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {filteredImportReceipts.map((receipt) => {
+                      const firstItem = receipt.ChiTiet?.[0];
+                      const totalItemsCount = receipt.ChiTiet?.length || 0;
+
+                      return (
+                        <tr key={receipt.MaPhieuNhap} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-4 px-4 text-center">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 font-mono text-xs font-bold text-indigo-700">
+                              #PN{String(receipt.MaPhieuNhap).padStart(4, '0')}
+                            </span>
+                          </td>
+
+                          <td className="py-4 px-4">
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-slate-900">
+                                {receipt.TenNhaSanXuat || 'Nhà sản xuất đối tác'}
+                              </p>
+                              {receipt.GhiChu && (
+                                <p className="text-xs text-slate-500 line-clamp-1 italic">
+                                  &ldquo;{receipt.GhiChu}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-4 px-4">
+                            {firstItem ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-slate-800">
+                                    {firstItem.TenSanPham}
+                                  </span>
+                                  {totalItemsCount > 1 && (
+                                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                      +{totalItemsCount - 1} SP khác
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                  <span>SL: <strong className="text-slate-800">+{firstItem.SoLuongNhap}</strong></span>
+                                  <span>Giá nhập: <strong className="text-emerald-600">{formatVND(firstItem.DonGiaNhap)}</strong></span>
+                                  {firstItem.Gia > 0 && (
+                                    <span className="text-slate-400">Giá bán: {formatVND(firstItem.Gia)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Không có chi tiết</span>
+                            )}
+                          </td>
+
+                          <td className="py-4 px-4 text-right font-bold text-emerald-600 whitespace-nowrap">
+                            {formatVND(receipt.TongTienNhap)}
+                          </td>
+
+                          <td className="py-4 px-4 whitespace-nowrap text-xs text-slate-500 hidden md:table-cell">
+                            {formatDateTime(receipt.NgayNhap)}
+                          </td>
+
+                          <td className="py-4 px-4 text-center whitespace-nowrap">
+                            {getAdjustStatusBadge(receipt.TrangThai)}
+                          </td>
+
+                          <td className="py-4 px-4 whitespace-nowrap text-xs text-slate-500 hidden lg:table-cell">
+                            {receipt.TaiKhoanAdmin ? (
+                              <div>
+                                <span className="font-semibold text-slate-700">{receipt.TaiKhoanAdmin}</span>
+                                {receipt.NgayDuyet && (
+                                  <p className="text-[11px] text-slate-400">{formatDateTime(receipt.NgayDuyet)}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         ) : (
-          /* ── Tab 2: Submitted Adjust Requests History ── */
+          /* ── Tab 3: Submitted Adjust Requests History ── */
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             {filteredAdjustRequests.length === 0 ? (
               <div className="p-12 text-center space-y-3">
@@ -1282,16 +1493,44 @@ const WarehouseInventoryPage = () => {
                   <input
                     id="import-price"
                     type="number"
-                    min="1"
-                    step="1000"
+                    min="100000"
+                    step="10000"
                     value={importForm.DonGiaNhap}
                     onChange={(e) => {
                       setImportForm((prev) => ({ ...prev, DonGiaNhap: e.target.value }));
                       if (importError) setImportError(null);
                     }}
                     disabled={isSubmittingImport}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    placeholder="Tối thiểu 100.000đ"
+                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none transition-all ${
+                      parsedImportPrice > 0 &&
+                      (parsedImportPrice < 100000 ||
+                        (selectedImportProduct && parsedImportPrice >= Number(selectedImportProduct.Gia)))
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                    }`}
                   />
+                  {parsedImportPrice > 0 && parsedImportPrice < 100000 && (
+                    <p className="mt-1.5 text-xs text-rose-600 font-semibold flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      Đơn giá nhập tối thiểu là 100.000đ (chặn giá ảo)
+                    </p>
+                  )}
+                  {selectedImportProduct &&
+                    parsedImportPrice >= Number(selectedImportProduct.Gia) && (
+                      <p className="mt-1.5 text-xs text-rose-600 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        Giá nhập phải nhỏ hơn giá niêm yết ({formatVND(selectedImportProduct.Gia)})
+                      </p>
+                    )}
+                  {selectedImportProduct &&
+                    parsedImportPrice >= 100000 &&
+                    parsedImportPrice < Number(selectedImportProduct.Gia) && (
+                      <p className="mt-1.5 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        Hợp lệ ({Math.round((parsedImportPrice / Number(selectedImportProduct.Gia)) * 100)}% giá niêm yết)
+                      </p>
+                    )}
                   {importTotalAmount > 0 && (
                     <div className="mt-1 text-xs text-emerald-600 font-semibold flex items-center justify-between">
                       <span className="text-slate-500 text-[11px]">Tổng tiền:</span>
@@ -1330,7 +1569,7 @@ const WarehouseInventoryPage = () => {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 flex items-center gap-1.5 font-medium">
                     <Boxes className="w-3.5 h-3.5 text-blue-600" />
-                    Dự kiến TonKho sau nhập:
+                    Dự kiến TonKho sau khi Admin duyệt:
                   </span>
                   <span className="font-bold text-blue-700 flex items-center gap-1.5">
                     <span>{selectedImportProduct?.TonKho ?? 0}</span>
@@ -1354,6 +1593,13 @@ const WarehouseInventoryPage = () => {
                     {formatVND(importTotalAmount)}
                   </span>
                 </div>
+
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Quy trình phê duyệt:</strong> Phiếu nhập sẽ lưu ở trạng thái <strong>Chờ duyệt</strong>. Tồn kho thực tế chỉ tăng sau khi Admin đối chiếu và phê duyệt.
+                  </span>
+                </div>
               </div>
 
               {/* Modal Actions */}
@@ -1374,12 +1620,12 @@ const WarehouseInventoryPage = () => {
                   {isSubmittingImport ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang nhập kho...</span>
+                      <span>Đang tạo phiếu...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Xác nhận Nhập kho</span>
+                      <ClipboardCheck className="w-4 h-4" />
+                      <span>Gửi phiếu chờ Admin duyệt</span>
                     </>
                   )}
                 </button>

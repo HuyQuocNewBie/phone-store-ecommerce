@@ -168,10 +168,10 @@ const createImportReceipt = async (req, res, next) => {
         });
       }
 
-      if (isNaN(donGiaNhap) || donGiaNhap <= 0) {
+      if (isNaN(donGiaNhap) || donGiaNhap < 100000) {
         return res.status(400).json({
           success: false,
-          message: `Đơn giá nhập phải lớn hơn 0 (sản phẩm mã ${maSanPham})`
+          message: `Đơn giá nhập tối thiểu là 100.000đ (sản phẩm mã ${maSanPham})`
         });
       }
     }
@@ -186,15 +186,16 @@ const createImportReceipt = async (req, res, next) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // 1. Thêm 1 dòng vào phieunhapkho (MaNhaSanXuat, MaNguoiDung = admin_id, TongTienNhap, GhiChu)
+    // 1. Thêm 1 dòng vào phieunhapkho (MaNhaSanXuat, MaNguoiDung = admin_id, TongTienNhap, GhiChu, TrangThai = 'DaDuyet')
     const [phieuResult] = await connection.query(
-      `INSERT INTO phieunhapkho (MaNhaSanXuat, MaNguoiDung, TongTienNhap, GhiChu)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO phieunhapkho (MaNhaSanXuat, MaNguoiDung, TongTienNhap, GhiChu, TrangThai, MaNguoiDung_Admin, NgayDuyet)
+       VALUES (?, ?, ?, ?, 'DaDuyet', ?, NOW())`,
       [
         MaNhaSanXuat ? Number(MaNhaSanXuat) : null,
         admin_id,
         tongTienNhap,
-        GhiChu || null
+        GhiChu || null,
+        admin_id
       ]
     );
 
@@ -208,12 +209,21 @@ const createImportReceipt = async (req, res, next) => {
 
       // Kiểm tra sản phẩm có tồn tại và khóa dòng dữ liệu (FOR UPDATE)
       const [spRows] = await connection.query(
-        `SELECT MaSanPham, TonKho FROM sanpham WHERE MaSanPham = ? FOR UPDATE`,
+        `SELECT MaSanPham, TenSanPham, Gia, TonKho, TrangThai FROM sanpham WHERE MaSanPham = ? FOR UPDATE`,
         [maSanPham]
       );
 
       if (spRows.length === 0) {
         throw new Error(`Sản phẩm có mã ${maSanPham} không tồn tại`);
+      }
+
+      const product = spRows[0];
+      const productPrice = Number(product.Gia);
+
+      if (donGiaNhap >= productPrice) {
+        throw new Error(
+          `Đơn giá nhập (${donGiaNhap.toLocaleString('vi-VN')}đ) phải nhỏ hơn giá bán niêm yết (${productPrice.toLocaleString('vi-VN')}đ) của sản phẩm "${product.TenSanPham}"`
+        );
       }
 
       const currentTonKho = Number(spRows[0].TonKho) || 0;
