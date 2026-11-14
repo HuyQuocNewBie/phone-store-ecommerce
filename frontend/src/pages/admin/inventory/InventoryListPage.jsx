@@ -6,7 +6,6 @@ import {
   Search,
   AlertCircle,
   ClipboardCheck,
-  Eye,
   History,
   ArrowDownLeft,
   ArrowUpRight,
@@ -16,7 +15,6 @@ import {
   AlertTriangle,
   Package,
   X,
-  ShieldCheck,
 } from 'lucide-react';
 import api from '../../../services/api';
 import { formatVND, formatDateTime } from '../../../utils/formatters';
@@ -253,22 +251,11 @@ const InventoryListPage = () => {
     <div className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
       {/* ── Read-only Oversight Banner ── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <Boxes className="w-5 h-5 text-blue-600" />
-              Theo dõi Tồn kho
-            </h2>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-              <Eye className="w-3.5 h-3.5 text-slate-500" />
-              Chỉ xem (Read-only)
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-            Admin theo dõi số lượng tồn kho hiện có và lịch sử biến động nhập/xuất theo thời gian thực.
-            Mọi thao tác nhập kho, đóng gói xuất hàng và báo lệch kho được thực hiện tập trung tại{' '}
-            <strong className="text-slate-700">Cổng Nhân viên Kho</strong>.
-          </p>
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Boxes className="w-5 h-5 text-blue-600" />
+            Theo dõi Tồn kho
+          </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -291,15 +278,6 @@ const InventoryListPage = () => {
             <span>Làm mới</span>
           </button>
         </div>
-      </div>
-
-      {/* ── Read-only Notice Strip ── */}
-      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs text-blue-800">
-        <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-        <span>
-          Chế độ phân quyền tinh gọn: Trang này không cho phép nhập/xuất kho trực tiếp nhằm tách biệt giữa{' '}
-          <strong>Giám sát Thống kê (Admin)</strong> và <strong>Tác nghiệp Vận hành (Kho)</strong>.
-        </span>
       </div>
 
       {/* ── 3 Summary KPI Cards ── */}
@@ -663,9 +641,6 @@ const InventoryListPage = () => {
                               <p className="font-semibold text-slate-800 truncate max-w-[240px]">
                                 {log.TenSanPham}
                               </p>
-                              <p className="text-[11px] font-mono text-slate-400">
-                                SP #{log.MaSanPham}
-                              </p>
                             </div>
                           </div>
                         </td>
@@ -692,11 +667,6 @@ const InventoryListPage = () => {
                           <p className="leading-relaxed">
                             {log.GhiChu || 'Biến động tồn kho hệ thống'}
                           </p>
-                          {log.MaThamChieu && (
-                            <span className="inline-block mt-1 px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">
-                              Ref #{log.MaThamChieu}
-                            </span>
-                          )}
                         </td>
                       </tr>
                     );
