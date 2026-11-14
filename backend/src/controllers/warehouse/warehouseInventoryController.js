@@ -221,10 +221,10 @@ const importInventory = async (req, res, next) => {
         });
       }
 
-      if (!Number.isFinite(donGiaNhap) || donGiaNhap < 100000) {
+      if (!Number.isFinite(donGiaNhap) || donGiaNhap < 1000000) {
         return res.status(400).json({
           success: false,
-          message: `Đơn giá nhập tối thiểu là 100.000đ (sản phẩm mã ${maSanPham} có giá nhập ${Number.isFinite(donGiaNhap) ? donGiaNhap.toLocaleString('vi-VN') : 0}đ)`
+          message: 'Đơn giá nhập tối thiểu là 1.000.000đ'
         });
       }
 

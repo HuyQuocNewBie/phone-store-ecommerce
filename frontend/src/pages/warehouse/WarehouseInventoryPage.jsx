@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import {
   Boxes,
@@ -416,8 +417,8 @@ const WarehouseInventoryPage = () => {
     }
 
     const price = Number(importForm.DonGiaNhap);
-    if (!Number.isFinite(price) || price < 100000) {
-      setImportError('Đơn giá nhập tối thiểu là 100.000đ (không chấp nhận giá ảo)');
+    if (!Number.isFinite(price) || price < 1000000) {
+      setImportError('Đơn giá nhập tối thiểu là 1.000.000đ');
       return;
     }
 
@@ -449,10 +450,7 @@ const WarehouseInventoryPage = () => {
       const targetProdId = Number(importForm.MaSanPham);
 
       // Lưu phiếu vào phieunhapkho với TrangThai = 'ChoDuyet'. CHƯA cộng vào sanpham.TonKho lúc này.
-      toast.success(
-        `Đã tạo Phiếu nhập kho #${createdReceipt?.MaPhieuNhap || ''} thành công! Phiếu đang ở trạng thái "Chờ duyệt", tồn kho sẽ được cộng sau khi Admin phê duyệt.`,
-        { id: `import-pending-${targetProdId}`, duration: 5000 }
-      );
+      toast.success('Đã gửi phiếu nhập kho chờ Admin duyệt');
 
       setIsImportModalOpen(false);
       setActiveTab('import_receipts');
@@ -1336,18 +1334,19 @@ const WarehouseInventoryPage = () => {
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {/* ── MODAL 1: NHẬP KHO HÀNG MỚI (POST /api/v1/warehouse/inventory/import) ── */}
       {/* ══════════════════════════════════════════════════════════════════════════ */}
-      {isImportModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
-          onClick={() => !isSubmittingImport && setIsImportModalOpen(false)}
-        >
+      {isImportModalOpen &&
+        createPortal(
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-modal-title"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden"
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => !isSubmittingImport && setIsImportModalOpen(false)}
           >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="import-modal-title"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
             {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1490,7 +1489,7 @@ const WarehouseInventoryPage = () => {
                   <input
                     id="import-price"
                     type="number"
-                    min="100000"
+                    min="1000000"
                     step="10000"
                     value={importForm.DonGiaNhap}
                     onChange={(e) => {
@@ -1498,19 +1497,18 @@ const WarehouseInventoryPage = () => {
                       if (importError) setImportError(null);
                     }}
                     disabled={isSubmittingImport}
-                    placeholder="Tối thiểu 100.000đ"
                     className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none transition-all ${
                       parsedImportPrice > 0 &&
-                      (parsedImportPrice < 100000 ||
+                      (parsedImportPrice < 1000000 ||
                         (selectedImportProduct && parsedImportPrice >= Number(selectedImportProduct.Gia)))
                         ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
                         : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
                     }`}
                   />
-                  {parsedImportPrice > 0 && parsedImportPrice < 100000 && (
+                  {parsedImportPrice > 0 && parsedImportPrice < 1000000 && (
                     <p className="mt-1.5 text-xs text-rose-600 font-semibold flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      Đơn giá nhập tối thiểu là 100.000đ (chặn giá ảo)
+                      Đơn giá nhập tối thiểu là 1.000.000đ
                     </p>
                   )}
                   {selectedImportProduct &&
@@ -1521,7 +1519,7 @@ const WarehouseInventoryPage = () => {
                       </p>
                     )}
                   {selectedImportProduct &&
-                    parsedImportPrice >= 100000 &&
+                    parsedImportPrice >= 1000000 &&
                     parsedImportPrice < Number(selectedImportProduct.Gia) && (
                       <p className="mt-1.5 text-xs text-emerald-600 font-medium flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -1629,7 +1627,8 @@ const WarehouseInventoryPage = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════════ */}
