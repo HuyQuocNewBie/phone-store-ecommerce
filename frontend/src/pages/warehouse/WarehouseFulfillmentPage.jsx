@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
 import {
   notifyOrderStatusChanged,
@@ -116,6 +117,8 @@ const WarehouseFulfillmentPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending_pack');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 2;
   const [processingIds, setProcessingIds] = useState({});
   const [copiedKey, setCopiedKey] = useState(null);
   const [pickedItems, setPickedItems] = useState({});
@@ -275,6 +278,17 @@ const WarehouseFulfillmentPage = () => {
       });
     });
   }, [tabOrders, searchTerm]);
+
+  // Tự động reset về trang 1 khi đổi Tab hoặc nhập từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm]);
+
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE) || 1;
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
 
   const handleCopyText = async (text, key) => {
     if (!text) return;
@@ -652,7 +666,8 @@ const WarehouseFulfillmentPage = () => {
           </div>
         ) : (
           <div className="space-y-5">
-            {filteredOrders.map((order) => {
+            <div className="space-y-5">
+              {paginatedOrders.map((order) => {
               const items = getOrderItems(order);
               const orderCode =
                 order.CodeDonHang ||
@@ -1083,6 +1098,15 @@ const WarehouseFulfillmentPage = () => {
                 </article>
               );
             })}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+              className="rounded-2xl border border-slate-200 shadow-sm"
+            />
           </div>
         )}
     </div>

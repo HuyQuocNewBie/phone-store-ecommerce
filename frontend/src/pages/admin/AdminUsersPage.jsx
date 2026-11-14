@@ -15,6 +15,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_OPTIONS = [
@@ -43,6 +44,8 @@ const AdminUsersPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 3;
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
 
   // Fetch Users
@@ -194,6 +197,17 @@ const AdminUsersPage = () => {
       return matchSearch && matchRole;
     });
   }, [users, searchTerm, roleFilter]);
+
+  // Reset về trang 1 khi đổi vai trò lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, searchTerm]);
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE) || 1;
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -408,7 +422,7 @@ const AdminUsersPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((u, index) => {
+                  paginatedUsers.map((u, index) => {
                     const roleNum = Number(u.MaVaiTro) || 2;
                     const isSelf =
                       currentUser &&
@@ -428,7 +442,7 @@ const AdminUsersPage = () => {
                       >
                         {/* STT */}
                         <td className="px-6 py-4 text-center font-medium text-slate-400 text-xs">
-                          {index + 1}
+                          {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                         </td>
 
                         {/* Tài khoản */}
@@ -547,6 +561,17 @@ const AdminUsersPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredUsers.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
     </div>

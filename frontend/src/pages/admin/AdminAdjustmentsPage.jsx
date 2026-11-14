@@ -25,6 +25,7 @@ import {
   Tag,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { formatVND, formatDateTime } from '../../utils/formatters';
 
 const STATUS_TABS = [
@@ -90,6 +91,8 @@ const AdminAdjustmentsPage = () => {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 4;
   const [processingMap, setProcessingMap] = useState({});
   const [rejectItem, setRejectItem] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -282,6 +285,23 @@ const AdminAdjustmentsPage = () => {
       );
     });
   }, [adjustments, statusFilter, searchTerm]);
+
+  // Reset về trang 1 khi đổi tab, bộ lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeView, statusFilter, searchTerm]);
+
+  const totalImportPages = Math.ceil(filteredImports.length / ITEMS_PER_PAGE) || 1;
+  const paginatedImports = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredImports.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredImports, currentPage]);
+
+  const totalAdjustPages = Math.ceil(filteredAdjustments.length / ITEMS_PER_PAGE) || 1;
+  const paginatedAdjustments = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAdjustments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAdjustments, currentPage]);
 
   // 1. Phê duyệt / Từ chối Phiếu Nhập Kho: PUT /api/v1/admin/inventory/imports/:id/approve
   const handleImportDecision = async (item, hanhDong) => {
@@ -726,7 +746,7 @@ const AdminAdjustmentsPage = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {filteredImports.map((receipt) => {
+                  {paginatedImports.map((receipt) => {
                     const isPending = receipt.TrangThai === 'ChoDuyet';
                     const activeAction = processingMap[`import_${receipt.MaPhieuNhap}`];
                     const items = receipt.ChiTiet || [];
@@ -919,6 +939,16 @@ const AdminAdjustmentsPage = () => {
                   })}
                 </tbody>
               </table>
+              {filteredImports.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalImportPages}
+                  totalItems={filteredImports.length}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onPageChange={setCurrentPage}
+                  className="border-t border-slate-200"
+                />
+              )}
             </div>
           )
         ) : (
@@ -978,7 +1008,7 @@ const AdminAdjustmentsPage = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {filteredAdjustments.map((item) => {
+                  {paginatedAdjustments.map((item) => {
                     const diff = Number(item.SoLuongChechLech) || 0;
                     const actualStock = Number(item.SoLuongThucTe) || 0;
                     const isPending = item.TrangThai === 'ChoDuyet';
@@ -1200,6 +1230,16 @@ const AdminAdjustmentsPage = () => {
                   })}
                 </tbody>
               </table>
+              {filteredAdjustments.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalAdjustPages}
+                  totalItems={filteredAdjustments.length}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onPageChange={setCurrentPage}
+                  className="border-t border-slate-200"
+                />
+              )}
             </div>
           )
         )}

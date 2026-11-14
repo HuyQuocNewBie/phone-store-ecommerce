@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 import { formatVND, formatDateTime } from '../../../utils/formatters';
 
 const STOCK_FILTERS = [
@@ -152,6 +153,8 @@ const InventoryListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState(initialStockFilter);
   const [historyType, setHistoryType] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
     if (location.state?.stockFilter) {
@@ -246,6 +249,23 @@ const InventoryListPage = () => {
       );
     });
   }, [historyList, searchTerm, historyType]);
+
+  // Reset về trang 1 khi đổi tab, bộ lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, stockFilter, historyType]);
+
+  const totalStockPages = Math.ceil(filteredStock.length / ITEMS_PER_PAGE) || 1;
+  const paginatedStock = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredStock.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredStock, currentPage]);
+
+  const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE) || 1;
+  const paginatedHistory = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredHistory, currentPage]);
 
   return (
     <div className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -533,10 +553,10 @@ const InventoryListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStock.map((item, index) => (
+                  paginatedStock.map((item, index) => (
                     <tr key={item.MaSanPham} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-5 py-3.5 text-center font-medium text-slate-400 text-xs">
-                        {index + 1}
+                        {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
@@ -589,6 +609,16 @@ const InventoryListPage = () => {
                 )}
               </tbody>
             </table>
+            {filteredStock.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalStockPages}
+                totalItems={filteredStock.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                className="border-t border-slate-200"
+              />
+            )}
           </div>
         ) : (
           /* Tab 2: Lịch sử nhập / xuất kho (Chỉ xem) */
@@ -626,7 +656,7 @@ const InventoryListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map((log) => {
+                  paginatedHistory.map((log) => {
                     const delta = Number(log.SoLuongThayDoi) || 0;
                     const isPositive = delta > 0;
                     return (
@@ -674,6 +704,16 @@ const InventoryListPage = () => {
                 )}
               </tbody>
             </table>
+            {filteredHistory.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalHistoryPages}
+                totalItems={filteredHistory.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                className="border-t border-slate-200"
+              />
+            )}
           </div>
         )}
       </div>

@@ -27,6 +27,7 @@ import {
   Minus,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { useAuth } from '../../context/AuthContext';
 import { formatVND, formatDateTime } from '../../utils/formatters';
 
@@ -111,6 +112,8 @@ const WarehouseInventoryPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
   const [highlightedProductId, setHighlightedProductId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 3;
 
   // Modal 1: Nhập kho hàng mới
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -348,6 +351,29 @@ const WarehouseInventoryPage = () => {
       );
     });
   }, [adjustRequests, searchTerm]);
+
+  // Reset trang về 1 khi đổi tab, bộ lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, stockFilter]);
+
+  const totalProductPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  const totalReceiptPages = Math.ceil(filteredImportReceipts.length / ITEMS_PER_PAGE) || 1;
+  const paginatedImportReceipts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredImportReceipts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredImportReceipts, currentPage]);
+
+  const totalAdjustPages = Math.ceil(filteredAdjustRequests.length / ITEMS_PER_PAGE) || 1;
+  const paginatedAdjustRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAdjustRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAdjustRequests, currentPage]);
 
   // ── Open Modal 1: Nhập kho hàng mới ──
   const openImportModal = (preselectedProduct = null) => {
@@ -950,7 +976,7 @@ const WarehouseInventoryPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm">
-                    {filteredProducts.map((product) => {
+                    {paginatedProducts.map((product) => {
                       const isHighlighted = highlightedProductId === product.MaSanPham;
                       return (
                         <tr
@@ -1077,6 +1103,16 @@ const WarehouseInventoryPage = () => {
                 </table>
               </div>
             )}
+            {filteredProducts.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalProductPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                className="border-t border-slate-200"
+              />
+            )}
           </div>
         ) : activeTab === 'import_receipts' ? (
           /* ── Tab 2: Submitted Import Receipts History ── */
@@ -1123,7 +1159,7 @@ const WarehouseInventoryPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm">
-                    {filteredImportReceipts.map((receipt) => {
+                    {paginatedImportReceipts.map((receipt) => {
                       const firstItem = receipt.ChiTiet?.[0];
                       const totalItemsCount = receipt.ChiTiet?.length || 0;
 
@@ -1205,6 +1241,16 @@ const WarehouseInventoryPage = () => {
                 </table>
               </div>
             )}
+            {filteredImportReceipts.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalReceiptPages}
+                totalItems={filteredImportReceipts.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                className="border-t border-slate-200"
+              />
+            )}
           </div>
         ) : (
           /* ── Tab 3: Submitted Adjust Requests History ── */
@@ -1249,7 +1295,7 @@ const WarehouseInventoryPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm">
-                    {filteredAdjustRequests.map((req) => {
+                    {paginatedAdjustRequests.map((req) => {
                       const diff = Number(req.SoLuongChechLech) || 0;
                       return (
                         <tr key={req.MaPhieuAdjust} className="hover:bg-slate-50/80 transition-colors">
@@ -1327,6 +1373,16 @@ const WarehouseInventoryPage = () => {
                   </tbody>
                 </table>
               </div>
+            )}
+            {filteredAdjustRequests.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalAdjustPages}
+                totalItems={filteredAdjustRequests.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                className="border-t border-slate-200"
+              />
             )}
           </div>
         )}

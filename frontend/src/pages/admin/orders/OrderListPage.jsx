@@ -6,6 +6,7 @@ import {
   Eye, X, User, Phone, MapPin, FileText, CreditCard, ChevronDown, Check
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 import { formatOrderCode } from '../../../utils/formatters';
 import {
   ORDER_STATUS,
@@ -98,6 +99,8 @@ const OrderListPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
   const [updatingId, setUpdatingId] = useState(null);
 
   // Modal Chi tiết Đơn Hàng State
@@ -258,6 +261,17 @@ const OrderListPage = () => {
       return matchesSearch && matchesTab;
     });
   }, [orders, searchTerm, activeTab]);
+
+  // Reset về trang 1 khi đổi tab hoặc nhập từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm]);
+
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE) || 1;
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -439,7 +453,7 @@ const OrderListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order) => {
+                  paginatedOrders.map((order) => {
                     const currentCanonical = normalizeOrderStatus(order.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
                     const allowedNext = ALLOWED_NEXT_TRANSITIONS[currentCanonical] || [];
                     const selectOptions = EXTRA_STATUS_OPTIONS.some((o) => o.value === currentCanonical)
@@ -521,16 +535,15 @@ const OrderListPage = () => {
                         </td>
 
                         {/* Nút Xác nhận nhanh / Chi tiết */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-6 py-4 text-center whitespace-nowrap">
                           <div className="inline-flex items-center justify-center gap-1.5">
                             {currentCanonical === ORDER_STATUS.CHO_XAC_NHAN && (
                               <button
                                 onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_XAC_NHAN)}
                                 disabled={isUpdating}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+                                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
                                 title="Xác nhận đơn -> chuyển sang Chờ đóng gói của Kho"
                               >
-                                <Check className="w-3.5 h-3.5" />
                                 <span>Xác nhận</span>
                               </button>
                             )}
@@ -538,10 +551,9 @@ const OrderListPage = () => {
                               <button
                                 onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_GIAO)}
                                 disabled={isUpdating}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50"
+                                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50 whitespace-nowrap"
                                 title="Xác nhận đã giao hàng thành công (Đơn vị vận chuyển báo giao hoàn tất)"
                               >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>Xác nhận đã giao</span>
                               </button>
                             )}
@@ -562,6 +574,17 @@ const OrderListPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredOrders.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
 
@@ -802,10 +825,9 @@ const OrderListPage = () => {
                     type="button"
                     disabled={updatingId === selectedOrder.MaDonHang}
                     onClick={() => handleStatusChange(selectedOrder.MaDonHang, ORDER_STATUS.DA_GIAO)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 hover:scale-105 active:scale-95"
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center disabled:opacity-50 hover:scale-105 active:scale-95 whitespace-nowrap"
                     title="Xác nhận đã giao hàng thành công"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
                     <span>Xác nhận đã giao hàng</span>
                   </button>
                 )}

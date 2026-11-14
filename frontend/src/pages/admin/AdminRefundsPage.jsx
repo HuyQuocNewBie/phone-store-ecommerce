@@ -38,6 +38,7 @@ import {
   Building2,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
 
 const formatCurrency = (amount) => formatVND(Number(amount) || 0);
@@ -193,6 +194,8 @@ const AdminRefundsPage = () => {
   const [error, setError] = useState(null);
   const [refundFilter, setRefundFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 2;
 
   // Modal Giai đoạn 1: Duyệt yêu cầu & tạo lệnh
   const [stage1ModalItem, setStage1ModalItem] = useState(null);
@@ -354,6 +357,17 @@ const AdminRefundsPage = () => {
       );
     });
   }, [returnsList, refundFilter, searchQuery]);
+
+  // Reset về trang 1 khi đổi bộ lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [refundFilter, searchQuery]);
+
+  const totalPages = Math.ceil(filteredReturns.length / ITEMS_PER_PAGE) || 1;
+  const paginatedReturns = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredReturns.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredReturns, currentPage]);
 
   // GIAI ĐOẠN 1: Mở modal duyệt yêu cầu
   const handleOpenStage1Modal = (item) => {
@@ -718,7 +732,8 @@ const AdminRefundsPage = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredReturns.map((item) => {
+          <div className="space-y-4">
+            {paginatedReturns.map((item) => {
             const isPendingApproval = item.TrangThaiHoanTien === 'ChoDuyet';
             const isProcessingRefund = item.TrangThaiHoanTien === 'DangHoanTien';
             const isRefunded = item.TrangThaiHoanTien === 'DaHoanTien';
@@ -1079,6 +1094,15 @@ const AdminRefundsPage = () => {
               </div>
             );
           })}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredReturns.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="rounded-2xl border border-slate-200 shadow-sm"
+          />
         </div>
       )}
 

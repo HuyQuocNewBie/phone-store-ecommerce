@@ -28,6 +28,7 @@ import {
   ImageOff,
 } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import { formatOrderCode, formatVND, formatDateTime } from '../../utils/formatters';
 
 const formatCurrency = (amount) => formatVND(Number(amount) || 0);
@@ -148,6 +149,8 @@ const WarehouseReturnsPage = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [filterVerdict, setFilterVerdict] = useState('all'); // 'all' | 'ChoKiemDinh' | 'Dat' | 'Loi_KhongDat'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 2;
 
   // Inspection Modal state
   const [inspectModalOpen, setInspectModalOpen] = useState(false);
@@ -247,6 +250,17 @@ const WarehouseReturnsPage = () => {
       );
     });
   }, [returnsList, filterVerdict, searchQuery]);
+
+  // Reset trang về 1 khi đổi bộ lọc hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterVerdict, searchQuery]);
+
+  const totalPages = Math.ceil(filteredReturns.length / ITEMS_PER_PAGE) || 1;
+  const paginatedReturns = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredReturns.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredReturns, currentPage]);
 
   // Open Inspection Modal
   const handleOpenInspect = (item) => {
@@ -559,7 +573,8 @@ const WarehouseReturnsPage = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredReturns.map((item) => {
+            <div className="space-y-4">
+              {paginatedReturns.map((item) => {
               const isPending = item.KetQuaKiemDinh === 'ChoKiemDinh';
               const isPassed = item.KetQuaKiemDinh === 'Dat';
               const isFailed = item.KetQuaKiemDinh === 'Loi_KhongDat';
@@ -848,6 +863,15 @@ const WarehouseReturnsPage = () => {
                 </div>
               );
             })}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredReturns.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+              className="rounded-2xl border border-slate-200 shadow-2xs"
+            />
           </div>
         )}
 

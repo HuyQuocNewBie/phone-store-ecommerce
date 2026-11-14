@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Search, Edit3, Trash2, AlertTriangle, RefreshCw, Package, Image as ImageIcon, X } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 
 /**
  * ProductListPage
@@ -17,6 +18,8 @@ const ProductListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   // Pop-up Xác nhận Xóa State
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -67,9 +70,22 @@ const ProductListPage = () => {
   };
 
   // ─── Lọc danh sách theo tìm kiếm ─────────────────────────────────────────────
-  const filteredProducts = products.filter((p) =>
-    p.TenSanPham?.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) =>
+      p.TenSanPham?.toLowerCase().includes(searchQuery.toLowerCase().trim())
+    );
+  }, [products, searchQuery]);
+
+  // Reset về trang 1 khi đổi từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
 
   // ─── Xử lý Xóa Sản Phẩm ─────────────────────────────────────────────────────
   const confirmDelete = (product) => {
@@ -195,14 +211,14 @@ const ProductListPage = () => {
               </thead>
 
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {filteredProducts.map((item, index) => (
+                {paginatedProducts.map((item, index) => (
                   <tr
                     key={item.MaSanPham}
                     className="hover:bg-slate-50 transition-colors group"
                   >
                     {/* STT */}
                     <td className="py-4 px-4 text-center font-medium text-slate-400 text-xs">
-                      {item.STT || index + 1}
+                      {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                     </td>
 
                     {/* Ảnh đại diện */}
@@ -282,6 +298,17 @@ const ProductListPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredProducts.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredProducts.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
 

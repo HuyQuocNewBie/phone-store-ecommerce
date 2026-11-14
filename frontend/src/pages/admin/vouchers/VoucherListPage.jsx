@@ -6,6 +6,7 @@ import {
   CheckCircle2, PauseCircle, Clock, Sparkles
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 
 // ── Helper format VNĐ ──
 const formatVND = (value) => {
@@ -32,6 +33,8 @@ const VoucherListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 3;
   const [togglingId, setTogglingId] = useState(null);
 
   // 1. Fetch Vouchers
@@ -119,6 +122,17 @@ const VoucherListPage = () => {
       (v.Code || '').toLowerCase().includes(searchTerm.toLowerCase().trim())
     );
   }, [vouchers, searchTerm]);
+
+  // Reset về trang 1 khi đổi từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.ceil(filteredVouchers.length / ITEMS_PER_PAGE) || 1;
+  const paginatedVouchers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredVouchers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredVouchers, currentPage]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -277,7 +291,7 @@ const VoucherListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredVouchers.map((v, index) => {
+                  paginatedVouchers.map((v, index) => {
                     const isToggling = togglingId === v.MaVoucher;
                     const isExpired = new Date(v.NgayHetHan) <= new Date();
 
@@ -285,7 +299,7 @@ const VoucherListPage = () => {
                       <tr key={v.MaVoucher} className="hover:bg-slate-50/80 transition-colors">
                         {/* STT */}
                         <td className="px-6 py-4 text-center font-medium text-slate-400 text-xs">
-                          {index + 1}
+                          {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                         </td>
 
                         {/* Mã Code */}
@@ -367,6 +381,17 @@ const VoucherListPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredVouchers.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredVouchers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
     </div>

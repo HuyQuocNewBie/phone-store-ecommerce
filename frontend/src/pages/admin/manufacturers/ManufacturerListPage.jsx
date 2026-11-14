@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -6,6 +6,7 @@ import {
   Trash2, Edit3, Phone, Mail, MapPin
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 
 const ManufacturerListPage = () => {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ const ManufacturerListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 4;
 
   // Fetch Manufacturers
   const fetchManufacturers = useCallback(async () => {
@@ -48,15 +51,28 @@ const ManufacturerListPage = () => {
   };
 
   // Filter list
-  const filteredManufacturers = manufacturers.filter((m) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (m.TenNhaSanXuat || '').toLowerCase().includes(term) ||
-      (m.Email || '').toLowerCase().includes(term) ||
-      (m.SoDienThoai || '').includes(term) ||
-      (m.DiaChi || '').toLowerCase().includes(term)
-    );
-  });
+  const filteredManufacturers = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    return manufacturers.filter((m) => {
+      return (
+        (m.TenNhaSanXuat || '').toLowerCase().includes(term) ||
+        (m.Email || '').toLowerCase().includes(term) ||
+        (m.SoDienThoai || '').includes(term) ||
+        (m.DiaChi || '').toLowerCase().includes(term)
+      );
+    });
+  }, [manufacturers, searchTerm]);
+
+  // Reset về trang 1 khi đổi từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.ceil(filteredManufacturers.length / ITEMS_PER_PAGE) || 1;
+  const paginatedManufacturers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredManufacturers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredManufacturers, currentPage]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -145,10 +161,10 @@ const ManufacturerListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredManufacturers.map((m, index) => (
+                  paginatedManufacturers.map((m, index) => (
                     <tr key={m.MaNhaSanXuat} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-center font-medium text-slate-400">
-                        {index + 1}
+                        {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800 flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-sky-500 shrink-0" />
@@ -196,6 +212,17 @@ const ManufacturerListPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredManufacturers.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredManufacturers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
     </div>

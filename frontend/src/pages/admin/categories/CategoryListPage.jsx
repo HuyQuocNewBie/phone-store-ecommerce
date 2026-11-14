@@ -1,16 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import {
   Tag, Plus, RefreshCw, Search, AlertCircle,
   Trash2, Edit3, X, FolderTree, Check, Sparkles
 } from 'lucide-react';
 import api from '../../../services/api';
+import Pagination from '../../../components/common/Pagination';
 
 const CategoryListPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 4;
 
   // Slide-over Drawer State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -124,9 +127,22 @@ const CategoryListPage = () => {
   };
 
   // Filter list
-  const filteredCategories = categories.filter((c) =>
-    (c.TenLoaiSanPham || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCategories = useMemo(() => {
+    return categories.filter((c) =>
+      (c.TenLoaiSanPham || '').toLowerCase().includes(searchTerm.toLowerCase().trim())
+    );
+  }, [categories, searchTerm]);
+
+  // Reset về trang 1 khi đổi từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE) || 1;
+  const paginatedCategories = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCategories.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredCategories, currentPage]);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto relative">
@@ -209,10 +225,10 @@ const CategoryListPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredCategories.map((c, index) => (
+                  paginatedCategories.map((c, index) => (
                     <tr key={c.MaLoaiSanPham} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-center font-medium text-slate-400">
-                        {index + 1}
+                        {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800 flex items-center gap-2">
                         <Tag className="w-4 h-4 text-sky-500 shrink-0" />
@@ -242,6 +258,17 @@ const CategoryListPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+
+        {filteredCategories.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredCategories.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="border-t border-slate-200"
+          />
         )}
       </div>
 
