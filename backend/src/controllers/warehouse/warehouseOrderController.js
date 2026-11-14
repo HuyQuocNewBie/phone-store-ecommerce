@@ -7,20 +7,20 @@ const {
 } = require('../../utils/orderStatus');
 
 const STAGE_STATUS_MAP = {
-  pending_confirm: ORDER_STATUS.CHO_XAC_NHAN,
   pending_pack: ORDER_STATUS.DA_XAC_NHAN,
-  ready_ship: ORDER_STATUS.DANG_DONG_GOI,
-  shipping: ORDER_STATUS.DANG_GIAO
+  ready_ship: ORDER_STATUS.DANG_DONG_GOI
 };
 
 /**
  * 1. GET /api/v1/warehouse/orders/fulfillment
- * Lấy danh sách đơn hàng phục vụ xác nhận, đóng gói, bàn giao shipper & hoàn tất cho Nhân viên Kho.
- * Query ?stage=pending_confirm (TrangThaiDonHang = 'ChoXacNhan')
- *       ?stage=pending_pack    (TrangThaiDonHang = 'DaXacNhan' -> Tab "Chờ đóng gói")
- *       ?stage=ready_ship      (TrangThaiDonHang = 'DangDongGoi' -> Tab "Sẵn sàng giao")
- *       ?stage=shipping        (TrangThaiDonHang = 'DangGiao' -> Tab "Đang giao")
- * Nếu không truyền stage hoặc stage=all -> lấy tất cả 4 nấc xử lý của Kho
+ * Lấy danh sách đơn hàng phục vụ đóng gói và bàn giao shipper cho Nhân viên Kho.
+ * Cổng Kho chỉ quản lý đúng 2 nấc tác nghiệp:
+ *   ?stage=pending_pack (TrangThaiDonHang = 'DaXacNhan' -> Tab "Chờ đóng gói")
+ *   ?stage=ready_ship   (TrangThaiDonHang = 'DangDongGoi' -> Tab "Sẵn sàng giao")
+ * Nếu không truyền stage hoặc stage=all -> lấy tất cả đơn thuộc 2 nấc tác nghiệp của Kho.
+ * Lưu ý:
+ *   - Đơn 'ChoXacNhan' do Admin duyệt tại /admin/orders (không hiển thị tại Kho).
+ *   - Sau khi bàn giao Shipper ('DangGiao'), đơn rời khỏi hàng đợi của Kho.
  */
 const getFulfillmentOrders = async (req, res, next) => {
   try {
@@ -32,10 +32,8 @@ const getFulfillmentOrders = async (req, res, next) => {
 
     if (!stage || stage === 'all') {
       const allWarehouseStatuses = [
-        ...STATUS_DB_GROUPS[ORDER_STATUS.CHO_XAC_NHAN],
         ...STATUS_DB_GROUPS[ORDER_STATUS.DA_XAC_NHAN],
-        ...STATUS_DB_GROUPS[ORDER_STATUS.DANG_DONG_GOI],
-        ...STATUS_DB_GROUPS[ORDER_STATUS.DANG_GIAO]
+        ...STATUS_DB_GROUPS[ORDER_STATUS.DANG_DONG_GOI]
       ];
       whereClause = `WHERE d.TrangThaiDonHang IN (?)`;
       queryParams.push(allWarehouseStatuses);
@@ -47,7 +45,7 @@ const getFulfillmentOrders = async (req, res, next) => {
     } else {
       return res.status(400).json({
         success: false,
-        message: "Tham số stage không hợp lệ. Chỉ chấp nhận 'pending_confirm', 'pending_pack', 'ready_ship', 'shipping' hoặc 'all'"
+        message: "Tham số stage không hợp lệ. Chỉ chấp nhận 'pending_pack', 'ready_ship' hoặc 'all'"
       });
     }
 
@@ -234,20 +232,16 @@ const transitionWarehouseOrderStage = async ({ req, res, next, expectedStatus, n
 };
 
 /**
- * 2. PUT /api/v1/warehouse/orders/:id/confirm
- * Admin/Kho xác nhận đơn hàng mới:
- * Chuyển TrangThaiDonHang từ 'ChoXacNhan' -> 'DaXacNhan' (Hiện ở Tab "Chờ đóng gói" của Kho)
+ * 2. PUT /api/v1/warehouse/orders/:id/confirm (Vô hiệu hóa tác nghiệp tại Kho)
+ * Quyền duyệt đơn mới từ 'ChoXacNhan' -> 'DaXacNhan' chỉ thuộc về Admin tại /admin/orders.
+ * Kho không có quyền duyệt đơn mới.
  */
-const confirmOrder = async (req, res, next) =>
-  transitionWarehouseOrderStage({
-    req,
-    res,
-    next,
-    expectedStatus: ORDER_STATUS.CHO_XAC_NHAN,
-    nextStatus: ORDER_STATUS.DA_XAC_NHAN,
-    successMessage: 'Xác nhận đơn hàng thành công — đã chuyển sang Chờ đóng gói',
-    invalidMessage: `Chỉ có thể xác nhận đơn hàng ở trạng thái '${ORDER_STATUS.CHO_XAC_NHAN}'`
+const confirmOrder = async (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: 'Nhân viên Kho không có quyền duyệt đơn hàng mới. Quyền duyệt đơn mới (ChoXacNhan -> DaXacNhan) chỉ thuộc về Admin tại Quản lý đơn hàng (/admin/orders).'
   });
+};
 
 /**
  * 3. PUT /api/v1/warehouse/orders/:id/pack
@@ -268,7 +262,8 @@ const packOrder = async (req, res, next) =>
 /**
  * 4. PUT /api/v1/warehouse/orders/:id/ship
  * Nhân viên Kho bàn giao đơn hàng cho shipper:
- * Chuyển TrangThaiDonHang từ 'DangDongGoi' -> 'DangGiao'
+ * Chuyển TrangThaiDonHang từ 'DangDongGoi' -> 'DangGiao'.
+ * Sau khi bàn giao, đơn rời khỏi hàng đợi xử lý của Kho.
  */
 const shipOrder = async (req, res, next) =>
   transitionWarehouseOrderStage({
@@ -277,25 +272,20 @@ const shipOrder = async (req, res, next) =>
     next,
     expectedStatus: ORDER_STATUS.DANG_DONG_GOI,
     nextStatus: ORDER_STATUS.DANG_GIAO,
-    successMessage: 'Cập nhật trạng thái đang giao thành công',
+    successMessage: 'Bàn giao Shipper thành công — đơn hàng đã chuyển sang trạng thái Đang giao và rời hàng đợi Kho',
     invalidMessage: `Chỉ có thể giao shipper đơn hàng ở trạng thái '${ORDER_STATUS.DANG_DONG_GOI}'`
   });
 
 /**
- * 5. PUT /api/v1/warehouse/orders/:id/deliver
- * Hoàn tất giao đơn hàng cho khách:
- * Chuyển TrangThaiDonHang từ 'DangGiao' -> 'DaGiao'
+ * 5. PUT /api/v1/warehouse/orders/:id/deliver (Vô hiệu hóa tác nghiệp tại Kho)
+ * Sau khi Kho bàn giao Shipper, đơn rời khỏi hàng đợi của Kho; việc hoàn tất giao do đơn vị vận chuyển/Admin xử lý.
  */
-const deliverOrder = async (req, res, next) =>
-  transitionWarehouseOrderStage({
-    req,
-    res,
-    next,
-    expectedStatus: ORDER_STATUS.DANG_GIAO,
-    nextStatus: ORDER_STATUS.DA_GIAO,
-    successMessage: 'Xác nhận hoàn tất giao hàng thành công',
-    invalidMessage: `Chỉ có thể hoàn tất đơn hàng ở trạng thái '${ORDER_STATUS.DANG_GIAO}'`
+const deliverOrder = async (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: 'Nhân viên Kho không có quyền hoàn tất đơn hàng. Sau khi bàn giao Shipper, việc hoàn tất giao do đơn vị vận chuyển hoặc Admin xử lý.'
   });
+};
 
 module.exports = {
   getFulfillmentOrders,
