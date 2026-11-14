@@ -867,18 +867,7 @@ const AdminRefundsPage = () => {
                           <span className="font-semibold text-slate-800">
                             {item.TenKhachHang || item.TaiKhoan || 'Khách hàng'}
                           </span>
-                          {item.TaiKhoan && (
-                            <span className="text-slate-400 text-[11px]">
-                              (@{item.TaiKhoan})
-                            </span>
-                          )}
                         </div>
-                        {item.Email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{item.Email}</span>
-                          </div>
-                        )}
                         {item.SoDienThoai && (
                           <div className="flex items-center gap-2">
                             <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
