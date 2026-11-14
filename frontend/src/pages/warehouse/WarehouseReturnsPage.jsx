@@ -334,14 +334,11 @@ const WarehouseReturnsPage = () => {
     <div className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6 pb-12">
       {/* ── Page Header & Action Bar ── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+        <div>
           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2.5">
             <RotateCcw className="w-6 h-6 text-blue-600 shrink-0" />
             <span>Kiểm định Hàng Đổi trả</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Tiếp nhận máy trả về, đối chiếu ảnh chụp bằng chứng khách gửi &amp; lập biên bản kiểm định gửi Admin duyệt hoàn tiền.
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">

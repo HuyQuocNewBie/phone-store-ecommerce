@@ -569,13 +569,10 @@ const WarehouseInventoryPage = () => {
     <div className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
       {/* ── Action Banner ── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
+        <div>
           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
             Quản lý Tồn kho &amp; Đề nghị Điều chỉnh Lệch kho
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Nhập kho hàng mới từ nhà sản xuất để tăng <strong>TonKho</strong> tức thì, hoặc lập phiếu báo lệch kho gửi Admin phê duyệt.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -864,7 +861,7 @@ const WarehouseInventoryPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={
                   activeTab === 'inventory'
-                    ? 'Tìm tên sản phẩm, #Mã SP, dung lượng, màu sắc, NSX...'
+                    ? 'Tìm tên sản phẩm, dung lượng, màu sắc, NSX...'
                     : 'Tìm theo mã phiếu, tên sản phẩm, lý do giải trình...'
                 }
                 className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
@@ -944,7 +941,6 @@ const WarehouseInventoryPage = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3.5 px-4 w-24 text-center">Mã SP</th>
                       <th className="py-3.5 px-4 min-w-[280px]">Sản phẩm</th>
                       <th className="py-3.5 px-4 hidden md:table-cell">Nhà sản xuất</th>
                       <th className="py-3.5 px-4 text-right whitespace-nowrap">Giá bán</th>
@@ -967,12 +963,6 @@ const WarehouseInventoryPage = () => {
                               : 'hover:bg-slate-50/80'
                           }`}
                         >
-                          <td className="py-4 px-4 text-center">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-700">
-                              #{product.MaSanPham}
-                            </span>
-                          </td>
-
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
@@ -1274,14 +1264,13 @@ const WarehouseInventoryPage = () => {
                           <td className="py-4 px-4">
                             <div className="space-y-0.5">
                               <p className="font-bold text-slate-900">
-                                {req.TenSanPham || `Sản phẩm #${req.MaSanPham}`}
+                                {req.TenSanPham || 'Sản phẩm'}
                               </p>
-                              <p className="text-xs text-slate-500">
-                                Mã SP #{req.MaSanPham}
-                                {req.TonKhoHeThong !== undefined && (
-                                  <span> · Tồn HT hiện tại: {req.TonKhoHeThong}</span>
-                                )}
-                              </p>
+                              {req.TonKhoHeThong !== undefined && (
+                                <p className="text-xs text-slate-500">
+                                  Tồn HT hiện tại: {req.TonKhoHeThong}
+                                </p>
+                              )}
                             </div>
                           </td>
 

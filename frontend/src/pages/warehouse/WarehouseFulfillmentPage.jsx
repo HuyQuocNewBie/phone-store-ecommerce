@@ -419,14 +419,11 @@ const WarehouseFulfillmentPage = () => {
     <div className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
       {/* ── Page Header & Action Bar ── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+        <div>
           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2.5">
             <Truck className="w-6 h-6 text-blue-600 shrink-0" />
             <span>Điều phối Soạn hàng &amp; Đóng gói</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Đối chiếu SKU &amp; nhặt máy trên kệ, đóng gói và bàn giao cho Shipper vận chuyển.
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -703,10 +700,6 @@ const WarehouseFulfillmentPage = () => {
                           )}
                         </button>
                       </div>
-
-                      <span className="text-xs font-mono text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">
-                        ID #{order.MaDonHang}
-                      </span>
 
                       <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -1007,14 +1000,11 @@ const WarehouseFulfillmentPage = () => {
                                     SL: &times;{qty}
                                   </span>
 
-                                  <div className="text-[11px] text-slate-400 text-right">
-                                    <span>Mã SP #{item.MaSanPham}</span>
-                                    {item.TonKho !== undefined && (
-                                      <span className="ml-2 text-slate-500 font-medium">
-                                        · Kho: {item.TonKho}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {item.TonKho !== undefined && (
+                                    <div className="text-[11px] text-slate-500 font-medium text-right">
+                                      Kho: {item.TonKho}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );

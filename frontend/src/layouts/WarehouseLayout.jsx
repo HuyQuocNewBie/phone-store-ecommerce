@@ -382,11 +382,6 @@ const WarehouseLayout = ({ children }) => {
               <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
                 {routeMeta.title}
               </h1>
-              <span
-                className={`hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${routeMeta.badgeClass}`}
-              >
-                {routeMeta.badge}
-              </span>
             </div>
           </div>
 
