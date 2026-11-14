@@ -1134,12 +1134,122 @@ const cancelOrder = async (req, res, next) => {
   }
 };
 
+/**
+ * 6. PUT /api/v1/user/orders/:id/confirm-received
+ * Khách hàng xác nhận đã nhận được hàng khi đơn hàng ở trạng thái "Đang giao" (DangGiao)
+ * - Cập nhật TrangThaiDonHang thành "DaGiao"
+ * - Cập nhật bảng donhang và lichsumuahang
+ * - Mở khóa nút "Yêu cầu Đổi trả / Bảo hành" cho khách hàng
+ */
+const confirmReceived = async (req, res, next) => {
+  let connection;
+  try {
+    const { MaNguoiDung } = req.user;
+    const { id, order_id } = req.params;
+    const orderId = Number(id || order_id);
+
+    if (!orderId || isNaN(orderId) || orderId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã đơn hàng không hợp lệ'
+      });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Kiểm tra đơn hàng có tồn tại và thuộc về người dùng không (FOR UPDATE chống xung đột)
+    const [orders] = await connection.query(
+      `SELECT MaDonHang, MaNguoiDung, TrangThaiDonHang 
+       FROM donhang 
+       WHERE MaDonHang = ? AND MaNguoiDung = ?
+       FOR UPDATE`,
+      [orderId, MaNguoiDung]
+    );
+
+    if (orders.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền thao tác trên đơn hàng này'
+      });
+    }
+
+    const order = orders[0];
+    const currentCanonical = normalizeOrderStatus(order.TrangThaiDonHang);
+
+    // Nếu đơn hàng đã hoàn tất / đã giao trước đó
+    if (currentCanonical === ORDER_STATUS.DA_GIAO) {
+      await connection.rollback();
+      return res.status(200).json({
+        success: true,
+        message: 'Đơn hàng này đã được xác nhận đã nhận hàng trước đó.',
+        data: {
+          MaDonHang: orderId,
+          TrangThaiDonHang: ORDER_STATUS.DA_GIAO
+        }
+      });
+    }
+
+    // 2. Kiểm tra trạng thái đơn hàng (chỉ cho phép xác nhận khi đang ở 'DangGiao')
+    const isShipping =
+      currentCanonical === ORDER_STATUS.DANG_GIAO ||
+      (STATUS_DB_GROUPS[ORDER_STATUS.DANG_GIAO] && STATUS_DB_GROUPS[ORDER_STATUS.DANG_GIAO].includes(order.TrangThaiDonHang));
+
+    if (!isShipping) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Chỉ có thể xác nhận đã nhận hàng khi đơn hàng đang ở trạng thái đang giao hàng (${ORDER_STATUS.DANG_GIAO}). Trạng thái hiện tại: "${order.TrangThaiDonHang}".`
+      });
+    }
+
+    // 3. Cập nhật TrangThaiDonHang thành 'DaGiao'
+    await connection.query(
+      `UPDATE donhang SET TrangThaiDonHang = ? WHERE MaDonHang = ?`,
+      [ORDER_STATUS.DA_GIAO, orderId]
+    );
+
+    // Cập nhật bảng lichsumuahang nếu tồn tại bản ghi của đơn hàng này
+    await connection.query(
+      `UPDATE lichsumuahang SET TrangThai = ? WHERE MaDonHang = ?`,
+      [ORDER_STATUS.DA_GIAO, orderId]
+    );
+
+    await connection.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Xác nhận đã nhận hàng thành công',
+      data: {
+        MaDonHang: orderId,
+        TrangThaiDonHang: ORDER_STATUS.DA_GIAO
+      }
+    });
+
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackErr) {
+        console.error('Lỗi rollback transaction confirmReceived:', rollbackErr);
+      }
+    }
+    next(error);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
 module.exports = {
   calculateShipping,
   createOrder,
   getUserOrders,
   reorder,
   cancelOrder,
+  confirmReceived,
   sendInvoiceEmail
 };
 

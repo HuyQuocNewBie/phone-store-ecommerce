@@ -59,14 +59,17 @@ const getVisiblePageNumbers = (currentPage, totalPages) => {
 const isOrderCancellable = (status) =>
   ['Chờ xác nhận', 'ChoXacNhan', 'Chờ thanh toán', 'ChoThanhToan'].includes(status);
 
+const isOrderShipping = (status) =>
+  ['DangGiao', 'Đang giao', 'Đang giao hàng'].includes(status);
+
 const isOrderDelivered = (status) =>
   ['DaGiao', 'Đã giao', 'Đã hoàn thành', 'HoanTat'].includes(status);
 
 const canRequestReturn = (status) =>
-  status === 'DaGiao' || status === 'Đã giao';
+  ['DaGiao', 'Đã giao', 'Đã hoàn thành', 'HoanTat'].includes(status);
 
 const isOrderCancelled = (status) =>
-  status === 'Đã hủy' || status === 'DaHuy';
+  ['Đã hủy', 'DaHuy'].includes(status);
 
 const getTabKeyForStatus = (status) => {
   if (['Chờ xác nhận', 'ChoXacNhan', 'Chờ thanh toán', 'ChoThanhToan'].includes(status)) {
@@ -763,6 +766,347 @@ const CancelOrderConfirmModal = ({ isOpen, onClose, order, onConfirm, isCancelli
   );
 };
 
+/* ─── ConfirmReceivedModal (Modal Xác Nhận Đã Nhận Được Hàng) ──────────────── */
+const ConfirmReceivedModal = ({ isOpen, onClose, order, onConfirm, isConfirming }) => {
+  if (!isOpen || !order) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md animate-fade-in">
+      <div
+        className="relative w-full max-w-md bg-surface-container-lowest border border-surface-container rounded-3xl p-6 sm:p-7 shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header with Icon */}
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0 text-emerald-600">
+            <span className="material-symbols-outlined text-2xl leading-none">task_alt</span>
+          </div>
+          <div className="flex-1">
+            <h3 className="font-title-card text-title-card font-bold text-on-surface">
+              Xác nhận đã nhận hàng
+            </h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
+              Bạn xác nhận đã nhận được đầy đủ kiện hàng <strong className="text-on-surface font-mono">#{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}</strong>?
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isConfirming}
+            className="p-1.5 rounded-xl text-outline hover:text-on-surface hover:bg-surface-container-low transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg leading-none">close</span>
+          </button>
+        </div>
+
+        {/* Order Brief Info */}
+        <div className="mt-5 p-4 rounded-2xl bg-surface-container-low text-body-sm space-y-2">
+          <div className="flex justify-between text-on-surface-variant">
+            <span>Mã đơn hàng:</span>
+            <span className="font-bold text-on-surface font-mono">
+              #{formatOrderCode(order.MaDonHang, order.NgayMuaHang)}
+            </span>
+          </div>
+          <div className="flex justify-between text-on-surface-variant">
+            <span>Ngày đặt:</span>
+            <span className="text-on-surface">{formatDateTime(order.NgayMuaHang)}</span>
+          </div>
+          <div className="flex justify-between text-on-surface-variant">
+            <span>Tổng thanh toán:</span>
+            <span className="font-bold text-emerald-600">{formatVND(order.TongTien)}</span>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 text-xs flex items-center gap-2">
+          <span className="material-symbols-outlined text-base leading-none text-emerald-600 shrink-0">
+            verified
+          </span>
+          <span>
+            Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái <strong>Đã giao</strong> và mở khóa nút <strong>Yêu cầu Đổi trả / Bảo hành</strong>.
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isConfirming}
+            className="px-5 py-2.5 rounded-xl font-body-md text-body-md font-semibold text-on-surface-variant hover:text-on-surface bg-surface-container-low hover:bg-surface-container transition-colors disabled:opacity-50"
+          >
+            Chưa nhận được
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(order.MaDonHang)}
+            disabled={isConfirming}
+            className="px-5 py-2.5 rounded-xl font-body-md text-body-md font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
+          >
+            {isConfirming ? (
+              <span>Đang xử lý...</span>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-base leading-none">task_alt</span>
+                <span>Xác nhận đã nhận hàng</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── OrderDetailModal (Modal Xem Chi Tiết Đơn Hàng Cho User) ──────────────── */
+const OrderDetailModal = ({
+  isOpen,
+  onClose,
+  order,
+  onOpenConfirmReceived,
+  onOpenReturn,
+  onOpenReview,
+  onReorder,
+  onCancel,
+  reorderingOrderId
+}) => {
+  if (!isOpen || !order) return null;
+
+  const statusInfo = getStatusInfo(order.TrangThaiDonHang);
+  const timeline = getTimelineProgress(order.TrangThaiDonHang);
+  const items = order.ChiTietDonHang || order.chitietdonhang || order.items || [];
+  const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+      <div
+        className="relative w-full max-w-3xl bg-surface-container-lowest border border-surface-container rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="p-5 sm:p-6 border-b border-surface-container flex items-center justify-between bg-surface-container-low/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-2xl">receipt_long</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-title-card text-title-card font-bold text-on-surface font-mono tracking-wide">
+                  #{orderCode}
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusInfo.badgeClass}`}>
+                  {statusInfo.label}
+                </span>
+              </div>
+              <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                Ngày đặt: {formatDateTime(order.NgayMuaHang)}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl leading-none">close</span>
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-6">
+          {/* Stepper Timeline */}
+          <div className="p-4 rounded-2xl bg-surface-container-low/60 border border-surface-container">
+            <div className="grid grid-cols-5 gap-2 text-center">
+              {TIMELINE_STEPS.map((stepItem) => {
+                const isPassed = timeline.step >= stepItem.step && !timeline.isCancelled;
+                const isCurrent = timeline.step === stepItem.step && !timeline.isCancelled;
+                return (
+                  <div key={stepItem.step} className="flex flex-col items-center">
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all shadow-xs ${
+                        isCurrent
+                          ? 'bg-primary text-on-primary ring-4 ring-primary/20 scale-105'
+                          : isPassed
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-surface-container text-on-surface-variant/40'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base leading-none">
+                        {isPassed ? 'check' : stepItem.icon}
+                      </span>
+                    </div>
+                    <span className={`text-[11px] font-semibold mt-1.5 line-clamp-1 ${
+                      isCurrent ? 'text-primary font-bold' : isPassed ? 'text-on-surface' : 'text-on-surface-variant/60'
+                    }`}>
+                      {stepItem.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {timeline.hint && (
+              <p className="text-center font-body-sm text-body-sm text-on-surface-variant mt-3 italic">
+                {timeline.hint}
+              </p>
+            )}
+          </div>
+
+          {/* Grid 2 Thẻ: Người nhận & Thanh toán */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-surface-container-low/60 border border-surface-container space-y-2 text-xs">
+              <h4 className="font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-surface-container">
+                <span className="material-symbols-outlined text-sm text-primary">person</span>
+                Thông tin người nhận
+              </h4>
+              <p><span className="text-on-surface-variant">Người nhận:</span> <strong className="text-on-surface">{order.TenNguoiNhan || 'Khách hàng'}</strong></p>
+              <p><span className="text-on-surface-variant">Số điện thoại:</span> <strong className="text-on-surface font-mono">{order.SoDienThoai || 'Chưa cập nhật'}</strong></p>
+              <p><span className="text-on-surface-variant">Địa chỉ:</span> <span className="text-on-surface">{order.DiaChiGiaoHang || 'Tại cửa hàng'}</span></p>
+              {order.GhiChu && (
+                <p className="pt-1 border-t border-surface-container italic text-on-surface-variant">
+                  Ghi chú: {order.GhiChu}
+                </p>
+              )}
+            </div>
+
+            <div className="p-4 rounded-2xl bg-surface-container-low/60 border border-surface-container space-y-2 text-xs">
+              <h4 className="font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-surface-container">
+                <span className="material-symbols-outlined text-sm text-emerald-600">payments</span>
+                Thanh toán & Vận chuyển
+              </h4>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Phí vận chuyển:</span>
+                <span className="font-semibold text-on-surface">{formatVND(order.PhiShip || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Giảm giá voucher:</span>
+                <span className="font-semibold text-error">-{formatVND(order.SoTienGiam || 0)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-surface-container text-sm font-bold">
+                <span className="text-on-surface">Tổng thanh toán:</span>
+                <span className="text-primary">{formatVND(order.TongTien)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Danh sách sản phẩm */}
+          <div>
+            <h4 className="font-bold text-on-surface text-xs uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-primary">shopping_bag</span>
+              Sản phẩm trong đơn ({items.length})
+            </h4>
+            <div className="border border-surface-container rounded-2xl overflow-hidden divide-y divide-surface-container bg-surface-container-lowest">
+              {items.map((it, idx) => (
+                <div key={it.MaChiTietDonHang || idx} className="p-3.5 flex items-center gap-3.5 hover:bg-surface-container-low/40 transition-colors">
+                  <div className="w-14 h-14 rounded-xl bg-surface-container overflow-hidden shrink-0 flex items-center justify-center border border-surface-container">
+                    {it.Anh ? (
+                      <img src={it.Anh} alt={it.TenSanPham} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="material-symbols-outlined text-2xl text-outline">devices</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h5 className="font-semibold text-on-surface text-xs sm:text-sm truncate">
+                      {it.TenSanPham || 'Sản phẩm'}
+                    </h5>
+                    {(it.MauSac || it.DungLuong) && (
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                          {`Màu: ${it.MauSac || 'N/A'} | Dung lượng: ${it.DungLuong || 'N/A'}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-bold text-on-surface text-xs sm:text-sm">
+                      {formatVND(it.TongGia || it.DonGia * it.SoLuong)}
+                    </div>
+                    <div className="text-[11px] text-on-surface-variant mt-0.5">
+                      {formatVND(it.DonGia)} &times; {it.SoLuong}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-4 sm:p-5 border-t border-surface-container bg-surface-container-low/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Nút Đã nhận được hàng (Màu xanh lá) khi DangGiao */}
+            {isOrderShipping(order.TrangThaiDonHang) && (
+              <button
+                type="button"
+                onClick={() => onOpenConfirmReceived(order)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+              >
+                <span className="material-symbols-outlined text-base leading-none">task_alt</span>
+                Đã nhận được hàng
+              </button>
+            )}
+
+            {/* Nút Yêu cầu Đổi trả / Bảo hành khi DaGiao */}
+            {canRequestReturn(order.TrangThaiDonHang) && (
+              <button
+                type="button"
+                onClick={() => onOpenReturn(order)}
+                className="px-4 py-2 bg-orange-500/15 hover:bg-orange-500/25 text-orange-700 border border-orange-500/30 text-xs sm:text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <span className="material-symbols-outlined text-base leading-none">assignment_return</span>
+                Yêu cầu Đổi trả / Bảo hành
+              </button>
+            )}
+
+            {/* Nút Hủy đơn khi Chờ xác nhận */}
+            {isOrderCancellable(order.TrangThaiDonHang) && (
+              <button
+                type="button"
+                onClick={() => onCancel(order)}
+                className="px-4 py-2 bg-error-container/20 text-error hover:bg-error-container/40 text-xs sm:text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base leading-none">cancel</span>
+                Hủy đơn
+              </button>
+            )}
+
+            {/* Đánh giá khi DaGiao */}
+            {isOrderDelivered(order.TrangThaiDonHang) && (
+              <button
+                type="button"
+                onClick={() => onOpenReview(order)}
+                className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-semibold rounded-xl transition-colors flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-base leading-none text-tertiary-container" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  star
+                </span>
+                Đánh giá
+              </button>
+            )}
+
+            {/* Mua lại khi DaGiao */}
+            {isOrderDelivered(order.TrangThaiDonHang) && (
+              <button
+                type="button"
+                onClick={() => onReorder(order.MaDonHang)}
+                disabled={reorderingOrderId === order.MaDonHang}
+                className="px-3.5 py-2 bg-primary text-on-primary text-xs sm:text-sm font-bold rounded-xl hover:bg-primary-container transition-all flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-base leading-none">replay</span>
+                Mua lại
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-semibold transition-colors ml-auto"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── ReturnRequestModal (Modal Yêu Cầu Đổi Trả / Bảo Hành) ───────────────── */
 const ReturnRequestModal = ({ isOpen, onClose, order, onSubmitSuccess }) => {
   const items = useMemo(
@@ -1286,6 +1630,9 @@ const OrderHistoryPage = () => {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [cancelTargetOrder, setCancelTargetOrder] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [confirmReceivedTargetOrder, setConfirmReceivedTargetOrder] = useState(null);
+  const [isConfirmingReceived, setIsConfirmingReceived] = useState(false);
+  const [detailModalOrder, setDetailModalOrder] = useState(null);
 
   const spotlightRef = useRef(null);
   const historySectionRef = useRef(null);
@@ -1379,18 +1726,22 @@ const OrderHistoryPage = () => {
 
   // Khóa cuộn body khi có bất kỳ modal nào đang mở
   useEffect(() => {
-    const hasOpenModal = !!(returnTargetOrder || reviewOrder || cancelTargetOrder);
+    const hasOpenModal = !!(returnTargetOrder || reviewOrder || cancelTargetOrder || confirmReceivedTargetOrder || detailModalOrder);
     document.body.style.overflow = hasOpenModal ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [returnTargetOrder, reviewOrder, cancelTargetOrder]);
+  }, [returnTargetOrder, reviewOrder, cancelTargetOrder, confirmReceivedTargetOrder, detailModalOrder]);
 
   // Đóng modal trên cùng bằng phím Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key !== 'Escape') return;
-      if (returnTargetOrder) {
+      if (confirmReceivedTargetOrder && !isConfirmingReceived) {
+        setConfirmReceivedTargetOrder(null);
+      } else if (detailModalOrder) {
+        setDetailModalOrder(null);
+      } else if (returnTargetOrder) {
         setReturnTargetOrder(null);
       } else if (cancelTargetOrder && !isCancelling) {
         setCancelTargetOrder(null);
@@ -1400,7 +1751,7 @@ const OrderHistoryPage = () => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [returnTargetOrder, cancelTargetOrder, isCancelling, reviewOrder]);
+  }, [returnTargetOrder, cancelTargetOrder, isCancelling, reviewOrder, confirmReceivedTargetOrder, isConfirmingReceived, detailModalOrder]);
 
   const handleSelectTab = (tabId) => {
     setActiveTab(tabId);
@@ -1478,6 +1829,12 @@ const OrderHistoryPage = () => {
     return filteredOrders[0];
   }, [isSpotlightOpen, filteredOrders, orders, selectedOrderId]);
 
+  /* ── 4.1. Đơn hàng đang được xem chi tiết trong Modal ── */
+  const currentDetailModalOrder = useMemo(() => {
+    if (!detailModalOrder) return null;
+    return orders.find((o) => o.MaDonHang === detailModalOrder.MaDonHang) || detailModalOrder;
+  }, [detailModalOrder, orders]);
+
   useEffect(() => {
     if (isSpotlightOpen && currentFeaturedOrder && shouldScrollToSpotlightRef.current) {
       shouldScrollToSpotlightRef.current = false;
@@ -1499,6 +1856,7 @@ const OrderHistoryPage = () => {
     shouldScrollToSpotlightRef.current = true;
     setSelectedOrderId(order.MaDonHang);
     setIsSpotlightOpen(true);
+    setDetailModalOrder(order);
     fetchOrders({ silent: true, force: true });
     if (spotlightRef.current) {
       shouldScrollToSpotlightRef.current = false;
@@ -1550,6 +1908,53 @@ const OrderHistoryPage = () => {
       toast.error(error.response?.data?.message || 'Hủy đơn hàng thất bại. Vui lòng thử lại!');
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  /* ── 10. Xác nhận đã nhận được hàng (DangGiao -> DaGiao) ── */
+  const handleConfirmReceived = async (orderId) => {
+    if (!orderId) return;
+    setIsConfirmingReceived(true);
+    try {
+      // Gọi API PUT /api/v1/user/orders/:id/confirm-received
+      let res;
+      try {
+        res = await api.put(`/user/orders/${orderId}/confirm-received`);
+      } catch (firstErr) {
+        if (firstErr.response?.status === 404) {
+          res = await api.put(`/orders/${orderId}/confirm-received`);
+        } else {
+          throw firstErr;
+        }
+      }
+
+      if (res.data?.success) {
+        toast.success(res.data?.message || 'Xác nhận đã nhận hàng thành công!');
+        // Cập nhật trạng thái tức thì trên state cục bộ
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.MaDonHang === orderId ? { ...o, TrangThaiDonHang: 'DaGiao' } : o
+          )
+        );
+        setAllOrdersForCounts((prev) =>
+          prev.map((o) =>
+            o.MaDonHang === orderId ? { ...o, TrangThaiDonHang: 'DaGiao' } : o
+          )
+        );
+        if (detailModalOrder && detailModalOrder.MaDonHang === orderId) {
+          setDetailModalOrder((prev) => (prev ? { ...prev, TrangThaiDonHang: 'DaGiao' } : null));
+        }
+        setConfirmReceivedTargetOrder(null);
+        notifyOrderStatusChanged({ orderId, status: 'DaGiao', source: 'user' });
+        await fetchOrders({ silent: true, force: true });
+      } else {
+        toast.error(res.data?.message || 'Không thể xác nhận nhận hàng.');
+      }
+    } catch (error) {
+      console.error('Lỗi khi xác nhận nhận hàng:', error);
+      toast.error(error.response?.data?.message || 'Xác nhận nhận hàng thất bại. Vui lòng thử lại!');
+    } finally {
+      setIsConfirmingReceived(false);
     }
   };
 
@@ -1874,6 +2279,19 @@ const OrderHistoryPage = () => {
                         </button>
                       )}
 
+                      {/* Đã nhận được hàng (Màu xanh lá) khi đơn đang giao (DangGiao) */}
+                      {isOrderShipping(currentFeaturedOrder.TrangThaiDonHang) && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReceivedTargetOrder(currentFeaturedOrder)}
+                          className="px-unit-md py-unit-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-body-md text-body-md font-bold flex items-center gap-unit-xs transition-all shadow-sm hover:shadow active:scale-95"
+                          title="Xác nhận bạn đã nhận được đầy đủ kiện hàng từ đơn vị giao hàng"
+                        >
+                          <span className="material-symbols-outlined leading-none">task_alt</span>
+                          Đã nhận được hàng
+                        </button>
+                      )}
+
                       {/* Nút Yêu cầu Đổi trả / Bảo hành khi đơn đã giao (DaGiao / Đã giao) */}
                       {canRequestReturn(currentFeaturedOrder.TrangThaiDonHang) && (
                         <button
@@ -2081,6 +2499,19 @@ const OrderHistoryPage = () => {
                             </button>
                           )}
 
+                          {/* Đã nhận được hàng (Màu xanh lá) khi đơn đang giao (DangGiao) */}
+                          {isOrderShipping(order.TrangThaiDonHang) && (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmReceivedTargetOrder(order)}
+                              className="px-unit-md py-unit-xs bg-emerald-600 hover:bg-emerald-700 text-white font-body-md text-body-md font-bold rounded-xl transition-all flex items-center gap-unit-2xs shadow-sm hover:shadow active:scale-95"
+                              title="Xác nhận bạn đã nhận được kiện hàng này"
+                            >
+                              <span className="material-symbols-outlined text-base leading-none">task_alt</span>
+                              Đã nhận được hàng
+                            </button>
+                          )}
+
                           {/* Yêu cầu Đổi trả / Bảo hành khi đơn đã giao */}
                           {canRequestReturn(order.TrangThaiDonHang) && (
                             <button
@@ -2210,6 +2641,26 @@ const OrderHistoryPage = () => {
         order={cancelTargetOrder}
         onConfirm={handleCancelOrder}
         isCancelling={isCancelling}
+      />
+
+      <ConfirmReceivedModal
+        isOpen={!!confirmReceivedTargetOrder}
+        onClose={() => setConfirmReceivedTargetOrder(null)}
+        order={confirmReceivedTargetOrder}
+        onConfirm={handleConfirmReceived}
+        isConfirming={isConfirmingReceived}
+      />
+
+      <OrderDetailModal
+        isOpen={!!detailModalOrder}
+        onClose={() => setDetailModalOrder(null)}
+        order={currentDetailModalOrder}
+        onOpenConfirmReceived={(ord) => setConfirmReceivedTargetOrder(ord)}
+        onOpenReturn={(ord) => setReturnTargetOrder(ord)}
+        onOpenReview={(ord) => setReviewOrder(ord)}
+        onReorder={handleReorder}
+        onCancel={(ord) => setCancelTargetOrder(ord)}
+        reorderingOrderId={reorderingOrderId}
       />
     </>
   );

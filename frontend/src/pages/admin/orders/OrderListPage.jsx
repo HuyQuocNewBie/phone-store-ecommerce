@@ -534,6 +534,17 @@ const OrderListPage = () => {
                                 <span>Xác nhận</span>
                               </button>
                             )}
+                            {currentCanonical === ORDER_STATUS.DANG_GIAO && (
+                              <button
+                                onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_GIAO)}
+                                disabled={isUpdating}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50"
+                                title="Xác nhận đã giao hàng thành công (Đơn vị vận chuyển báo giao hoàn tất)"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Xác nhận đã giao</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOpenDetailModal(order)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
@@ -785,13 +796,27 @@ const OrderListPage = () => {
                 })()}
               </div>
 
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold transition-colors"
-              >
-                Đóng
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {normalizeOrderStatus(selectedOrder.TrangThaiDonHang) === ORDER_STATUS.DANG_GIAO && (
+                  <button
+                    type="button"
+                    disabled={updatingId === selectedOrder.MaDonHang}
+                    onClick={() => handleStatusChange(selectedOrder.MaDonHang, ORDER_STATUS.DA_GIAO)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 hover:scale-105 active:scale-95"
+                    title="Xác nhận đã giao hàng thành công"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Xác nhận đã giao hàng</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold transition-colors"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -25,5 +25,11 @@ router.post('/:id/reorder', orderController.reorder);
 router.post('/:order_id/cancel', orderController.cancelOrder);
 router.post('/:id/cancel', orderController.cancelOrder);
 
+// 6. PUT / POST /api/v1/orders/:id/confirm-received -> Khách hàng xác nhận đã nhận được hàng
+router.put('/:order_id/confirm-received', orderController.confirmReceived);
+router.put('/:id/confirm-received', orderController.confirmReceived);
+router.post('/:order_id/confirm-received', orderController.confirmReceived);
+router.post('/:id/confirm-received', orderController.confirmReceived);
+
 module.exports = router;
 
