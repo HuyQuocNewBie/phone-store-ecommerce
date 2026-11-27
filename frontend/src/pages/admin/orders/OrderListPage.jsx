@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import {
   ShoppingCart, RefreshCw, Search, AlertCircle,
   CheckCircle2, Clock, Settings, Truck, XCircle, Package,
-  Eye, X, User, Phone, MapPin, FileText, CreditCard, ChevronDown, Check
+  Eye, X, User, Phone, MapPin, FileText, CreditCard, Check
 } from 'lucide-react';
 import api from '../../../services/api';
 import Pagination from '../../../components/common/Pagination';
@@ -35,32 +35,6 @@ const formatDate = (dateStr) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
-// ── Trạng thái chuẩn theo luồng 5 bước (đồng bộ User <-> Admin <-> Kho) ──
-const ORDER_STATUS_OPTIONS = [
-  { value: ORDER_STATUS.CHO_XAC_NHAN, label: 'Chờ xác nhận' },
-  { value: ORDER_STATUS.DA_XAC_NHAN, label: 'Đã xác nhận (Chờ đóng gói)' },
-  { value: ORDER_STATUS.DANG_DONG_GOI, label: 'Đang đóng gói (Sẵn sàng giao)' },
-  { value: ORDER_STATUS.DANG_GIAO, label: 'Đang giao hàng' },
-  { value: ORDER_STATUS.DA_GIAO, label: 'Đã giao' },
-  { value: ORDER_STATUS.DA_HUY, label: 'Đã hủy' },
-];
-
-const EXTRA_STATUS_OPTIONS = [
-  { value: ORDER_STATUS.YEU_CAU_DOI_TRA, label: 'Yêu cầu đổi trả' },
-  { value: ORDER_STATUS.DA_HOAN_TIEN, label: 'Đã hoàn tiền' },
-];
-
-const ALLOWED_NEXT_TRANSITIONS = {
-  [ORDER_STATUS.CHO_XAC_NHAN]: [ORDER_STATUS.DA_XAC_NHAN, ORDER_STATUS.DA_HUY],
-  [ORDER_STATUS.DA_XAC_NHAN]: [ORDER_STATUS.DANG_DONG_GOI, ORDER_STATUS.DA_HUY],
-  [ORDER_STATUS.DANG_DONG_GOI]: [ORDER_STATUS.DANG_GIAO],
-  [ORDER_STATUS.DANG_GIAO]: [ORDER_STATUS.DA_GIAO],
-  [ORDER_STATUS.DA_GIAO]: [ORDER_STATUS.YEU_CAU_DOI_TRA],
-  [ORDER_STATUS.YEU_CAU_DOI_TRA]: [ORDER_STATUS.DA_HOAN_TIEN, ORDER_STATUS.DA_GIAO],
-  [ORDER_STATUS.DA_HOAN_TIEN]: [],
-  [ORDER_STATUS.DA_HUY]: [],
-};
-
 // ── 6 Tabs: Tất cả + nhóm trạng thái đồng bộ với User ──
 const ORDER_TABS = [
   { id: 'ALL',        label: 'Tất cả',       icon: Package,      statuses: null },
@@ -71,16 +45,50 @@ const ORDER_TABS = [
   { id: 'CANCELLED',  label: 'Đã hủy',       icon: XCircle,      statuses: [ORDER_STATUS.DA_HUY] },
 ];
 
-// ── Map Màu cho Trạng thái (Tông màu sáng) ──
-const STATUS_STYLE_MAP = {
-  [ORDER_STATUS.CHO_XAC_NHAN]:    'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
-  [ORDER_STATUS.DA_XAC_NHAN]:     'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100',
-  [ORDER_STATUS.DANG_DONG_GOI]:   'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100',
-  [ORDER_STATUS.DANG_GIAO]:       'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
-  [ORDER_STATUS.DA_GIAO]:         'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-  [ORDER_STATUS.DA_HUY]:          'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
-  [ORDER_STATUS.YEU_CAU_DOI_TRA]: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100',
-  [ORDER_STATUS.DA_HOAN_TIEN]:    'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100',
+// ── Map Badge Trạng thái (Pill bo tròn màu sắc tương ứng từng trạng thái) ──
+const STATUS_BADGE_MAP = {
+  [ORDER_STATUS.CHO_XAC_NHAN]: {
+    label: 'Chờ xác nhận',
+    style: 'bg-purple-50 text-purple-700 border-purple-200',
+  },
+  [ORDER_STATUS.DA_XAC_NHAN]: {
+    label: 'Đã xác nhận',
+    style: 'bg-sky-50 text-sky-700 border-sky-200',
+  },
+  [ORDER_STATUS.DANG_DONG_GOI]: {
+    label: 'Đang đóng gói',
+    style: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  },
+  [ORDER_STATUS.DANG_GIAO]: {
+    label: 'Đang giao',
+    style: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  [ORDER_STATUS.DA_GIAO]: {
+    label: 'Đã giao',
+    style: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  [ORDER_STATUS.YEU_CAU_DOI_TRA]: {
+    label: 'Yêu cầu đổi trả',
+    style: 'bg-orange-50 text-orange-700 border-orange-200',
+  },
+  [ORDER_STATUS.DA_HOAN_TIEN]: {
+    label: 'Đã hoàn tiền',
+    style: 'bg-teal-50 text-teal-700 border-teal-200',
+  },
+  [ORDER_STATUS.DA_HUY]: {
+    label: 'Đã hủy',
+    style: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+};
+
+const getStatusBadge = (rawStatus) => {
+  const canonical = normalizeOrderStatus(rawStatus);
+  return (
+    STATUS_BADGE_MAP[canonical] || {
+      label: getOrderStatusDisplayLabel(canonical) || rawStatus || 'Chờ xác nhận',
+      style: 'bg-slate-100 text-slate-700 border-slate-200',
+    }
+  );
 };
 
 // ── Màu Tab khi active (Tông màu sáng) ──
@@ -427,8 +435,8 @@ const OrderListPage = () => {
                   <th className="px-6 py-4 w-44">Ngày đặt</th>
                   <th className="px-6 py-4">Khách hàng / SĐT</th>
                   <th className="px-6 py-4 text-right w-44">Tổng tiền</th>
-                  <th className="px-6 py-4 text-center w-52">Trạng thái</th>
-                  <th className="px-6 py-4 text-center w-36">Thao tác</th>
+                  <th className="px-6 py-4 text-center w-48">Trạng thái</th>
+                  <th className="px-6 py-4 text-center w-56">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -455,11 +463,7 @@ const OrderListPage = () => {
                 ) : (
                   paginatedOrders.map((order) => {
                     const currentCanonical = normalizeOrderStatus(order.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
-                    const allowedNext = ALLOWED_NEXT_TRANSITIONS[currentCanonical] || [];
-                    const selectOptions = EXTRA_STATUS_OPTIONS.some((o) => o.value === currentCanonical)
-                      ? [...ORDER_STATUS_OPTIONS, ...EXTRA_STATUS_OPTIONS]
-                      : ORDER_STATUS_OPTIONS;
-                    const statusStyle = STATUS_STYLE_MAP[currentCanonical] || 'bg-slate-100 text-slate-700 border-slate-200';
+                    const statusBadge = getStatusBadge(currentCanonical);
                     const isUpdating = updatingId === order.MaDonHang;
                     const orderCode = formatOrderCode(order.MaDonHang, order.NgayMuaHang);
 
@@ -499,67 +503,56 @@ const OrderListPage = () => {
                           {formatVND(order.TongTien)}
                         </td>
 
-                        {/* Dropdown Đổi Nhanh Trạng Thái */}
-                        <td className="px-6 py-4 text-center">
-                          <div className="relative inline-block w-52">
-                            <select
-                              value={currentCanonical}
-                              disabled={isUpdating}
-                              onChange={(e) => handleStatusChange(order.MaDonHang, e.target.value)}
-                              className={`w-full appearance-none pl-3 pr-7 py-2 min-h-[38px] rounded-xl border text-xs font-semibold text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${statusStyle} ${
-                                isUpdating ? 'opacity-50 cursor-not-allowed' : 'shadow-sm'
-                              }`}
-                            >
-                              {selectOptions.map((st) => {
-                                const canChoose = st.value === currentCanonical || allowedNext.includes(st.value);
-                                return (
-                                  <option
-                                    key={st.value}
-                                    value={st.value}
-                                    disabled={!canChoose}
-                                    className="bg-white text-slate-700 py-1 text-left font-normal disabled:text-slate-300"
-                                  >
-                                    {st.label}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                            {isUpdating ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
-                                <RefreshCw className="w-3.5 h-3.5 text-sky-600 animate-spin" />
-                              </div>
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            )}
-                          </div>
+                        {/* Cột TRẠNG THÁI: Pill Badge bo tròn tương ứng từng trạng thái */}
+                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold border ${statusBadge.style}`}
+                          >
+                            {statusBadge.label}
+                          </span>
                         </td>
 
-                        {/* Nút Xác nhận nhanh / Chi tiết */}
+                        {/* Cột THAO TÁC: Chỉ hiển thị đúng nút hợp lệ theo quy trình 3 Role */}
                         <td className="px-6 py-4 text-center whitespace-nowrap">
-                          <div className="inline-flex items-center justify-center gap-1.5">
+                          <div className="inline-flex items-center justify-center gap-2">
                             {currentCanonical === ORDER_STATUS.CHO_XAC_NHAN && (
                               <button
+                                type="button"
                                 onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_XAC_NHAN)}
                                 disabled={isUpdating}
-                                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
-                                title="Xác nhận đơn -> chuyển sang Chờ đóng gói của Kho"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                                title="Xác nhận đơn -> chuyển sang Đã xác nhận để đẩy xuống Kho"
                               >
+                                {isUpdating ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
                                 <span>Xác nhận</span>
                               </button>
                             )}
+
                             {currentCanonical === ORDER_STATUS.DANG_GIAO && (
                               <button
+                                type="button"
                                 onClick={() => handleStatusChange(order.MaDonHang, ORDER_STATUS.DA_GIAO)}
                                 disabled={isUpdating}
-                                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50 whitespace-nowrap"
-                                title="Xác nhận đã giao hàng thành công (Đơn vị vận chuyển báo giao hoàn tất)"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm hover:scale-105 active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                                title="Xác nhận đã giao hàng thành công"
                               >
+                                {isUpdating ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
                                 <span>Xác nhận đã giao</span>
                               </button>
                             )}
+
                             <button
+                              type="button"
                               onClick={() => handleOpenDetailModal(order)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/80 text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm whitespace-nowrap"
                               title="Xem chi tiết đơn hàng"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -605,9 +598,9 @@ const OrderListPage = () => {
                       {formatOrderCode(selectedOrder.MaDonHang, selectedOrder.NgayMuaHang)}
                     </h3>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                      STATUS_STYLE_MAP[normalizeOrderStatus(selectedOrder.TrangThaiDonHang)] || 'bg-slate-100 text-slate-700 border-slate-200'
+                      getStatusBadge(selectedOrder.TrangThaiDonHang).style
                     }`}>
-                      {getOrderStatusDisplayLabel(selectedOrder.TrangThaiDonHang)}
+                      {getStatusBadge(selectedOrder.TrangThaiDonHang).label}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -791,46 +784,53 @@ const OrderListPage = () => {
 
             {/* Footer Modal */}
             <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-xs text-slate-500 whitespace-nowrap">Đổi trạng thái:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 whitespace-nowrap">Trạng thái hiện tại:</span>
                 {(() => {
-                  const modalCanonical = normalizeOrderStatus(selectedOrder.TrangThaiDonHang) || ORDER_STATUS.CHO_XAC_NHAN;
-                  const modalAllowed = ALLOWED_NEXT_TRANSITIONS[modalCanonical] || [];
-                  const modalOptions = EXTRA_STATUS_OPTIONS.some((o) => o.value === modalCanonical)
-                    ? [...ORDER_STATUS_OPTIONS, ...EXTRA_STATUS_OPTIONS]
-                    : ORDER_STATUS_OPTIONS;
+                  const modalBadge = getStatusBadge(selectedOrder.TrangThaiDonHang);
                   return (
-                    <select
-                      value={modalCanonical}
-                      disabled={updatingId === selectedOrder.MaDonHang}
-                      onChange={(e) => handleStatusChange(selectedOrder.MaDonHang, e.target.value)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-sm disabled:opacity-60"
-                    >
-                      {modalOptions.map((st) => {
-                        const canChoose = st.value === modalCanonical || modalAllowed.includes(st.value);
-                        return (
-                          <option key={st.value} value={st.value} disabled={!canChoose}>
-                            {st.label}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${modalBadge.style}`}>
+                      {modalBadge.label}
+                    </span>
                   );
                 })()}
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {normalizeOrderStatus(selectedOrder.TrangThaiDonHang) === ORDER_STATUS.CHO_XAC_NHAN && (
+                  <button
+                    type="button"
+                    disabled={updatingId === selectedOrder.MaDonHang}
+                    onClick={() => handleStatusChange(selectedOrder.MaDonHang, ORDER_STATUS.DA_XAC_NHAN)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 hover:scale-105 active:scale-95 whitespace-nowrap"
+                    title="Xác nhận đơn -> chuyển sang Đã xác nhận để đẩy xuống Kho"
+                  >
+                    {updatingId === selectedOrder.MaDonHang ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>Xác nhận</span>
+                  </button>
+                )}
+
                 {normalizeOrderStatus(selectedOrder.TrangThaiDonHang) === ORDER_STATUS.DANG_GIAO && (
                   <button
                     type="button"
                     disabled={updatingId === selectedOrder.MaDonHang}
                     onClick={() => handleStatusChange(selectedOrder.MaDonHang, ORDER_STATUS.DA_GIAO)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center disabled:opacity-50 hover:scale-105 active:scale-95 whitespace-nowrap"
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 hover:scale-105 active:scale-95 whitespace-nowrap"
                     title="Xác nhận đã giao hàng thành công"
                   >
-                    <span>Xác nhận đã giao hàng</span>
+                    {updatingId === selectedOrder.MaDonHang ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>Xác nhận đã giao</span>
                   </button>
                 )}
+
                 <button
                   type="button"
                   onClick={handleCloseModal}
