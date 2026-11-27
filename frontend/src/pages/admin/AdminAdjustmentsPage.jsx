@@ -321,15 +321,29 @@ const AdminAdjustmentsPage = () => {
       setImports((prev) =>
         prev.map((row) => {
           if (row.MaPhieuNhap !== importId) return row;
+          const nextChiTiet = (row.ChiTiet || []).map((ct) => {
+            const up = updated?.sanPhamCapNhat?.find?.((u) => u.MaSanPham === ct.MaSanPham);
+            return {
+              ...ct,
+              TonKhoHienTai:
+                up?.TonKhoMoi !== undefined
+                  ? up.TonKhoMoi
+                  : hanhDong === 'Approve'
+                  ? (Number(ct.TonKhoHienTai) || 0) + (Number(ct.SoLuongNhap) || 0)
+                  : ct.TonKhoHienTai,
+            };
+          });
           if (!updated) {
             return {
               ...row,
+              ChiTiet: nextChiTiet,
               TrangThai: hanhDong === 'Approve' ? 'DaDuyet' : 'TuChoi',
             };
           }
           return {
             ...row,
             ...updated,
+            ChiTiet: nextChiTiet,
             TrangThai: hanhDong === 'Approve' ? 'DaDuyet' : 'TuChoi',
           };
         })
@@ -801,6 +815,16 @@ const AdminAdjustmentsPage = () => {
                               const unitPrice = Number(prod.DonGiaNhap) || 0;
                               const retailPrice = Number(prod.Gia) || 0;
 
+                              const validDungLuong = prod.DungLuong
+                                ? String(prod.DungLuong).split(/[,;|•]/)[0].trim()
+                                : '';
+                              const validMauSac = prod.MauSac
+                                ? String(prod.MauSac).split(/[,;|•]/)[0].trim()
+                                : '';
+                              const specs = [validDungLuong, validMauSac]
+                                .filter(Boolean)
+                                .join(' · ');
+
                               return (
                                 <div
                                   key={prod.MaChiTietNhap || prod.MaSanPham}
@@ -822,11 +846,11 @@ const AdminAdjustmentsPage = () => {
                                       <p className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
                                         {prod.TenSanPham}
                                       </p>
-                                      <p className="text-[11px] text-slate-500">
-                                        Mã SP: #{prod.MaSanPham}
-                                        {prod.DungLuong && ` · ${prod.DungLuong}`}
-                                        {prod.MauSac && ` · ${prod.MauSac}`}
-                                      </p>
+                                      {specs && (
+                                        <p className="text-[11px] text-slate-500">
+                                          {specs}
+                                        </p>
+                                      )}
                                     </div>
                                     <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                                       +{importQty} máy
@@ -845,11 +869,23 @@ const AdminAdjustmentsPage = () => {
                                       )}
                                     </div>
 
-                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                                      <span>Tồn: {currStock}</span>
-                                      <ArrowRight className="w-3 h-3 text-slate-400" />
-                                      <span className="font-bold text-blue-700">Dự kiến {expectedStock}</span>
-                                    </div>
+                                    {receipt.TrangThai === 'DaDuyet' ? (
+                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                                        <span>Tồn kho: {currStock - importQty}</span>
+                                        <ArrowRight className="w-3 h-3 text-slate-400" />
+                                        <span className="font-bold text-emerald-700">{currStock}</span>
+                                      </div>
+                                    ) : receipt.TrangThai === 'TuChoi' ? (
+                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                                        <span>Tồn hiện tại: <strong className="font-bold text-slate-700">{currStock}</strong></span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                                        <span>Tồn hiện tại: {currStock}</span>
+                                        <ArrowRight className="w-3 h-3 text-slate-400" />
+                                        <span className="font-bold text-blue-700">Dự kiến: {expectedStock}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
