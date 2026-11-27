@@ -459,11 +459,9 @@ const AdminRefundsPage = () => {
         })
       );
 
-      toast.success(
-        res.data?.message ||
-          `Xác nhận chuyển tiền thành công cho phiếu #${String(returnId).padStart(4, '0')} (Mã GD: ${cleanRef})`,
-        { id: `stage2-ok-${returnId}`, duration: 5500 }
-      );
+      toast.success('Xác nhận đã chuyển tiền thành công', {
+        id: `stage2-ok-${returnId}`,
+      });
 
       setStage2ModalItem(null);
       fetchPassedReturns({ silent: true });
@@ -805,7 +803,7 @@ const AdminRefundsPage = () => {
                     ) : isProcessingRefund ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                        <span>GĐ 2: Đang hoàn tiền (Chờ đối soát)</span>
+                        <span>Đang hoàn tiền (Chờ đối soát)</span>
                       </span>
                     ) : isRefunded ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -1335,7 +1333,6 @@ const AdminRefundsPage = () => {
                     onChange={(e) =>
                       setStage2Form((prev) => ({ ...prev, maGiaoDich: e.target.value }))
                     }
-                    placeholder="Nhập mã giao dịch ngân hàng thực tế (Ví dụ: FT2431980023, MBB9823412...)"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                     autoFocus
                   />
