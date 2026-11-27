@@ -20,9 +20,6 @@ import {
   X,
   PackagePlus,
   Building2,
-  FileText,
-  DollarSign,
-  Tag,
 } from 'lucide-react';
 import api from '../../services/api';
 import Pagination from '../../components/common/Pagination';

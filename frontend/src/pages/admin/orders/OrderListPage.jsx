@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import {
   ShoppingCart, RefreshCw, Search, AlertCircle,
   CheckCircle2, Clock, Settings, Truck, XCircle, Package,
-  Eye, X, User, Phone, MapPin, FileText, CreditCard, Check
+  Eye, X, User, Phone, CreditCard, Check
 } from 'lucide-react';
 import api from '../../../services/api';
 import Pagination from '../../../components/common/Pagination';

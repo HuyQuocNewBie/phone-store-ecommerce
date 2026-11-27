@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
 import {
@@ -8,16 +8,12 @@ import {
   ArrowRight,
   ShoppingBag,
   Truck,
-  Phone,
   MapPin,
   Calendar,
   CreditCard,
-  ShieldCheck,
-  ChevronRight,
   Copy,
   Check,
   Sparkles,
-  ExternalLink,
 } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
@@ -28,7 +24,6 @@ const formatVND = (price) =>
 
 const CheckoutSuccessPage = () => {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [copied, setCopied] = useState(false);
 
@@ -44,7 +39,7 @@ const CheckoutSuccessPage = () => {
   const items = orderSummary?.items || orderData?.items || [];
   const shippingFee = orderSummary?.shippingFee ?? orderData?.PhiShip ?? 0;
   const discountAmount = orderSummary?.discount ?? orderData?.SoTienGiam ?? 0;
-  const paymentMethod = orderSummary?.paymentMethod || 'COD (Thanh toán khi nhận hàng)';
+  const paymentMethod = orderSummary?.paymentMethod || orderData?.PhuongThucThanhToan || 'COD nhận hàng';
 
   // Hàm kích hoạt hiệu ứng pháo hoa Confetti
   const triggerCelebration = () => {
@@ -268,7 +263,9 @@ const CheckoutSuccessPage = () => {
                 </div>
                 <div>
                   <p className="text-[11px] text-slate-400 font-medium">Hình thức</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">COD nhận hàng</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-800 truncate" title={paymentMethod}>
+                    {paymentMethod}
+                  </p>
                 </div>
               </div>
 

@@ -11,7 +11,6 @@ import {
   Smartphone,
   User,
   Phone,
-  Mail,
   Calendar,
   Eye,
   ZoomIn,
@@ -30,11 +29,7 @@ import {
   Wallet,
   Copy,
   Check,
-  ArrowRight,
-  Sparkles,
-  HelpCircle,
   FileCheck,
-  Send,
   Building2,
 } from 'lucide-react';
 import api from '../../services/api';
