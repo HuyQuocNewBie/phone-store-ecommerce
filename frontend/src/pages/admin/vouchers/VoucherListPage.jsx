@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   TicketPercent, Plus, RefreshCw, Search, AlertCircle, Trash2, Edit3,
-  CheckCircle2, PauseCircle, Clock, Sparkles
+  CheckCircle2, PauseCircle, Clock, Truck, Tag
 } from 'lucide-react';
 import api from '../../../services/api';
 import Pagination from '../../../components/common/Pagination';
@@ -33,8 +33,9 @@ const VoucherListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [groupFilter, setGroupFilter] = useState('ALL'); // 'ALL' | 'GiamGiaDon' | 'FreeShip'
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 3;
+  const ITEMS_PER_PAGE = 6;
   const [togglingId, setTogglingId] = useState(null);
 
   // 1. Fetch Vouchers
@@ -60,9 +61,13 @@ const VoucherListPage = () => {
     let activeCount = 0;
     let inactiveCount = 0;
     let expiredCount = 0;
+    let freeShipCount = 0;
     const now = new Date();
 
     vouchers.forEach((v) => {
+      const isFreeShip = v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship';
+      if (isFreeShip) freeShipCount++;
+
       const isExpired = new Date(v.NgayHetHan) <= now;
       if (isExpired) {
         expiredCount++;
@@ -77,7 +82,8 @@ const VoucherListPage = () => {
       total: vouchers.length,
       activeCount,
       inactiveCount,
-      expiredCount
+      expiredCount,
+      freeShipCount
     };
   }, [vouchers]);
 
@@ -86,7 +92,12 @@ const VoucherListPage = () => {
     setTogglingId(voucherId);
     try {
       const res = await api.patch(`/admin/vouchers/${voucherId}/toggle-status`);
-      const newStatus = res.data?.data?.TrangThai !== undefined ? res.data.data.TrangThai : (currentStatus === 1 ? 0 : 1);
+      const newStatus =
+        res.data?.data?.TrangThai !== undefined
+          ? res.data.data.TrangThai
+          : currentStatus === 1
+          ? 0
+          : 1;
 
       const msg = res.data?.message || `Đã ${newStatus === 1 ? 'Bật' : 'Tắt'} voucher #${voucherId}`;
       toast.success(msg, { id: `voucher-toggle-${voucherId}` });
@@ -109,24 +120,36 @@ const VoucherListPage = () => {
 
     try {
       const res = await api.delete(`/admin/vouchers/${voucherId}`);
-      toast.success(res.data?.message || 'Xóa mã giảm giá thành công', { id: `voucher-delete-${voucherId}` });
+      toast.success(res.data?.message || 'Xóa mã giảm giá thành công', {
+        id: `voucher-delete-${voucherId}`
+      });
       fetchVouchers();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Không thể xóa mã giảm giá này', { id: `voucher-delete-err-${voucherId}` });
+      toast.error(err.response?.data?.message || 'Không thể xóa mã giảm giá này', {
+        id: `voucher-delete-err-${voucherId}`
+      });
     }
   };
 
   // Filter Vouchers
   const filteredVouchers = useMemo(() => {
-    return vouchers.filter((v) =>
-      (v.Code || '').toLowerCase().includes(searchTerm.toLowerCase().trim())
-    );
-  }, [vouchers, searchTerm]);
+    return vouchers.filter((v) => {
+      const matchesSearch = (v.Code || '')
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase().trim());
+      if (!matchesSearch) return false;
 
-  // Reset về trang 1 khi đổi từ khóa tìm kiếm
+      const isFreeShip = v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship';
+      if (groupFilter === 'FreeShip') return isFreeShip;
+      if (groupFilter === 'GiamGiaDon') return !isFreeShip;
+      return true;
+    });
+  }, [vouchers, searchTerm, groupFilter]);
+
+  // Reset về trang 1 khi đổi bộ lọc
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, groupFilter]);
 
   const totalPages = Math.ceil(filteredVouchers.length / ITEMS_PER_PAGE) || 1;
   const paginatedVouchers = useMemo(() => {
@@ -134,9 +157,36 @@ const VoucherListPage = () => {
     return filteredVouchers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredVouchers, currentPage]);
 
+  // Format ô Mức giảm theo LoaiGiam & GiamToiDa
+  const renderDiscountCell = (v) => {
+    const loai = (v.LoaiGiam || 'tien').toLowerCase();
+    const isFreeShip = v.NhomVoucher === 'FreeShip' || loai === 'freeship';
+
+    let primaryLabel = '';
+    if (loai === 'phantram') {
+      primaryLabel = `-${Number(v.GiaTriGiam)}%`;
+    } else if (loai === 'freeship') {
+      primaryLabel = Number(v.GiaTriGiam) > 0 ? `-${formatVND(v.GiaTriGiam)}` : 'Freeship 100%';
+    } else {
+      primaryLabel = `-${formatVND(v.GiaTriGiam)}`;
+    }
+
+    return (
+      <div className="flex flex-col items-end">
+        <span className={`font-bold ${isFreeShip ? 'text-teal-600' : 'text-emerald-600'}`}>
+          {primaryLabel}
+        </span>
+        {v.GiamToiDa !== null && v.GiamToiDa !== undefined && Number(v.GiamToiDa) > 0 && (
+          <span className="text-[11px] text-amber-600 font-medium">
+            Tối đa {formatVND(v.GiamToiDa)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
-
       {/* ── Top Header & Action Bar ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -145,7 +195,7 @@ const VoucherListPage = () => {
             Quản lý Mã Giảm Giá
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Thiết lập khuyến mãi, kiểm soát số lượng phát hành và thời hạn hiệu lực voucher
+            Thiết lập mã Giảm giá đơn hàng &amp; Miễn phí vận chuyển, mức giảm tối đa và thời hạn hiệu lực
           </p>
         </div>
 
@@ -175,7 +225,9 @@ const VoucherListPage = () => {
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng voucher</p>
             <h3 className="text-2xl font-bold text-slate-800 mt-1">{stats.total}</h3>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">Tất cả chương trình tạo</span>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              {stats.total - stats.freeShipCount} giảm đơn · {stats.freeShipCount} freeship
+            </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
             <TicketPercent className="w-6 h-6" />
@@ -219,24 +271,47 @@ const VoucherListPage = () => {
         </div>
       </div>
 
-      {/* ── Search Bar (Tông sáng) ── */}
-      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
-        <Search className="w-5 h-5 text-slate-400 ml-1 shrink-0" />
-        <input
-          type="text"
-          placeholder="Tìm kiếm theo Mã giảm giá (mã code, ví dụ: SUMMER, PHONESTORE)..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 bg-transparent border-none text-slate-800 text-sm focus:outline-none placeholder-slate-400"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shrink-0"
-          >
-            Xóa
-          </button>
-        )}
+      {/* ── Search & Group Filter Bar ── */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-center gap-2 flex-1">
+          <Search className="w-5 h-5 text-slate-400 ml-1 shrink-0" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo Mã giảm giá (mã code, ví dụ: SUMMER, FREESHIP)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 bg-transparent border-none text-slate-800 text-sm focus:outline-none placeholder-slate-400"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors shrink-0"
+            >
+              Xóa
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 border-t md:border-t-0 md:border-l border-slate-200 pt-2.5 md:pt-0 md:pl-3">
+          {[
+            { id: 'ALL', label: 'Tất cả' },
+            { id: 'GiamGiaDon', label: 'Giảm giá đơn' },
+            { id: 'FreeShip', label: 'Freeship' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setGroupFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                groupFilter === tab.id
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Table Section (Tông sáng) ── */}
@@ -257,36 +332,40 @@ const VoucherListPage = () => {
             <table className="w-full text-left text-slate-700">
               <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 w-16 text-center">STT</th>
-                  <th className="px-6 py-4 w-44">Mã Voucher</th>
-                  <th className="px-6 py-4 text-right w-44">Giảm giá</th>
-                  <th className="px-6 py-4 text-right w-44">Đơn tối thiểu</th>
-                  <th className="px-6 py-4 text-center w-32">Số lượng</th>
-                  <th className="px-6 py-4 text-center w-48">Ngày hết hạn</th>
-                  <th className="px-6 py-4 text-center w-36">Trạng thái</th>
-                  <th className="px-6 py-4 text-center w-28">Thao tác</th>
+                  <th className="px-5 py-4 w-14 text-center">STT</th>
+                  <th className="px-5 py-4 w-40">Mã Voucher</th>
+                  <th className="px-5 py-4 w-44">Nhóm &amp; Loại</th>
+                  <th className="px-5 py-4 text-right w-40">Mức giảm</th>
+                  <th className="px-5 py-4 text-right w-36">Đơn tối thiểu</th>
+                  <th className="px-5 py-4 text-center w-24">SL</th>
+                  <th className="px-5 py-4 text-center w-44">Ngày hết hạn</th>
+                  <th className="px-5 py-4 text-center w-28">Trạng thái</th>
+                  <th className="px-5 py-4 text-center w-24">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto" /></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24" /></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 bg-slate-200 rounded w-24 ml-auto" /></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 bg-slate-200 rounded w-24 ml-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-12 mx-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-32 mx-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-6 bg-slate-200 rounded-full w-12 mx-auto" /></td>
-                      <td className="px-6 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-12 mx-auto" /></td>
+                      <td className="px-5 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-24" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-28" /></td>
+                      <td className="px-5 py-4 text-right"><div className="h-4 bg-slate-200 rounded w-24 ml-auto" /></td>
+                      <td className="px-5 py-4 text-right"><div className="h-4 bg-slate-200 rounded w-24 ml-auto" /></td>
+                      <td className="px-5 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-10 mx-auto" /></td>
+                      <td className="px-5 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-28 mx-auto" /></td>
+                      <td className="px-5 py-4 text-center"><div className="h-6 bg-slate-200 rounded-full w-11 mx-auto" /></td>
+                      <td className="px-5 py-4 text-center"><div className="h-4 bg-slate-200 rounded w-12 mx-auto" /></td>
                     </tr>
                   ))
                 ) : filteredVouchers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-14 text-center text-slate-400">
+                    <td colSpan={9} className="px-6 py-14 text-center text-slate-400">
                       <TicketPercent className="w-12 h-12 mx-auto mb-2 opacity-30 text-slate-400" />
                       <p className="text-slate-500 font-medium">
-                        {searchTerm ? 'Không tìm thấy mã giảm giá phù hợp' : 'Chưa có mã giảm giá nào trong hệ thống'}
+                        {searchTerm || groupFilter !== 'ALL'
+                          ? 'Không tìm thấy mã giảm giá phù hợp'
+                          : 'Chưa có mã giảm giá nào trong hệ thống'}
                       </p>
                     </td>
                   </tr>
@@ -294,38 +373,78 @@ const VoucherListPage = () => {
                   paginatedVouchers.map((v, index) => {
                     const isToggling = togglingId === v.MaVoucher;
                     const isExpired = new Date(v.NgayHetHan) <= new Date();
+                    const isFreeShip = v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship';
+                    const loaiLabel =
+                      v.LoaiGiam === 'phantram'
+                        ? 'Phần trăm (%)'
+                        : v.LoaiGiam === 'freeship'
+                        ? 'Freeship'
+                        : 'Tiền mặt';
 
                     return (
                       <tr key={v.MaVoucher} className="hover:bg-slate-50/80 transition-colors">
                         {/* STT */}
-                        <td className="px-6 py-4 text-center font-medium text-slate-400 text-xs">
+                        <td className="px-5 py-4 text-center font-medium text-slate-400 text-xs">
                           {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                         </td>
 
                         {/* Mã Code */}
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-sky-700 font-mono tracking-wider bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-200/80 inline-block shadow-2xs">
+                        <td className="px-5 py-4">
+                          <span
+                            className={`font-bold font-mono tracking-wider px-2.5 py-1 rounded-lg border inline-block shadow-2xs ${
+                              isFreeShip
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200/80'
+                                : 'text-sky-700 bg-sky-50 border-sky-200/80'
+                            }`}
+                          >
                             {v.Code}
                           </span>
                         </td>
 
+                        {/* Nhóm & Loại */}
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1 w-fit px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                isFreeShip
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-sky-50 text-sky-700 border-sky-200'
+                              }`}
+                            >
+                              {isFreeShip ? (
+                                <Truck className="w-3 h-3" />
+                              ) : (
+                                <Tag className="w-3 h-3" />
+                              )}
+                              {isFreeShip ? 'Miễn phí vận chuyển' : 'Giảm giá đơn hàng'}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-medium pl-0.5">
+                              Loại: {loaiLabel}
+                            </span>
+                          </div>
+                        </td>
+
                         {/* Mức giảm */}
-                        <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                          {formatVND(v.GiaTriGiam)}
+                        <td className="px-5 py-4 text-right">
+                          {renderDiscountCell(v)}
                         </td>
 
                         {/* Đơn tối thiểu */}
-                        <td className="px-6 py-4 text-right font-medium text-slate-700">
-                          {formatVND(v.GiaTriToiThieu)}
+                        <td className="px-5 py-4 text-right font-medium text-slate-700">
+                          {Number(v.GiaTriToiThieu) > 0 ? (
+                            formatVND(v.GiaTriToiThieu)
+                          ) : (
+                            <span className="text-xs text-slate-400">0 ₫</span>
+                          )}
                         </td>
 
                         {/* Số lượng */}
-                        <td className="px-6 py-4 text-center font-semibold text-slate-800">
+                        <td className="px-5 py-4 text-center font-semibold text-slate-800">
                           {v.SoLuong}
                         </td>
 
                         {/* Ngày hết hạn */}
-                        <td className="px-6 py-4 text-center text-xs font-medium">
+                        <td className="px-5 py-4 text-center text-xs font-medium">
                           <span className={isExpired ? 'text-rose-600 font-semibold' : 'text-slate-600'}>
                             {formatDateDisplay(v.NgayHetHan)}
                           </span>
@@ -337,7 +456,7 @@ const VoucherListPage = () => {
                         </td>
 
                         {/* Công tắc gạt Toggle Switch (Bật/Tắt) */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-5 py-4 text-center">
                           <button
                             type="button"
                             disabled={isToggling}
@@ -356,7 +475,7 @@ const VoucherListPage = () => {
                         </td>
 
                         {/* Thao tác */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-5 py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => navigate(`/admin/vouchers/${v.MaVoucher}/edit`)}

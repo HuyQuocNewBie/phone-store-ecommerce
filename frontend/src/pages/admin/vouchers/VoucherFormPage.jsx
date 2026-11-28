@@ -15,7 +15,10 @@ import {
   Layers,
   Sparkles,
   Clock,
-  Hash
+  Hash,
+  Truck,
+  Percent,
+  ShieldCheck
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -54,6 +57,7 @@ const formatDateDisplay = (dateStr) => {
 /**
  * VoucherFormPage
  * Trang riêng biệt Thêm mới / Chỉnh sửa Mã giảm giá (Voucher) - Light Theme
+ * Hỗ trợ: NhomVoucher ('GiamGiaDon' | 'FreeShip'), LoaiGiam ('tien' | 'phantram' | 'freeship'), GiamToiDa
  */
 const VoucherFormPage = () => {
   const navigate = useNavigate();
@@ -67,8 +71,10 @@ const VoucherFormPage = () => {
 
   // Form Fields State
   const [code, setCode] = useState('');
+  const [nhomVoucher, setNhomVoucher] = useState('GiamGiaDon'); // 'GiamGiaDon' | 'FreeShip'
+  const [loaiGiam, setLoaiGiam] = useState('tien'); // 'tien' | 'phantram' | 'freeship'
   const [giaTriGiam, setGiaTriGiam] = useState('');
-  const [loaiGiam, setLoaiGiam] = useState('tien');
+  const [giamToiDa, setGiamToiDa] = useState('');
   const [giaTriToiThieu, setGiaTriToiThieu] = useState('');
   const [soLuong, setSoLuong] = useState('');
   const [ngayHetHan, setNgayHetHan] = useState('');
@@ -103,7 +109,6 @@ const VoucherFormPage = () => {
   useEffect(() => {
     const fetchVoucherDetail = async () => {
       if (!isEditMode) {
-        // Mặc định ngày hết hạn là 7 ngày sau ở chế độ Thêm mới
         const nextWeek = new Date();
         nextWeek.setDate(nextWeek.getDate() + 7);
         setNgayHetHan(toDatetimeLocalInput(nextWeek));
@@ -121,11 +126,25 @@ const VoucherFormPage = () => {
 
         if (res.data?.success && res.data.data) {
           const v = res.data.data;
+          const resolvedLoaiGiam = (v.LoaiGiam || 'tien').toLowerCase();
+          const resolvedNhom =
+            v.NhomVoucher || (resolvedLoaiGiam === 'freeship' ? 'FreeShip' : 'GiamGiaDon');
+
           setCode(v.Code || '');
-          setGiaTriGiam(v.GiaTriGiam !== undefined ? String(v.GiaTriGiam) : '');
-          setLoaiGiam(v.LoaiGiam || 'tien');
-          setGiaTriToiThieu(v.GiaTriToiThieu !== undefined ? String(v.GiaTriToiThieu) : '');
-          setSoLuong(v.SoLuong !== undefined ? String(v.SoLuong) : '');
+          setNhomVoucher(resolvedNhom);
+          setLoaiGiam(resolvedLoaiGiam);
+          setGiaTriGiam(
+            v.GiaTriGiam !== undefined && v.GiaTriGiam !== null ? String(v.GiaTriGiam) : ''
+          );
+          setGiamToiDa(
+            v.GiamToiDa !== undefined && v.GiamToiDa !== null ? String(v.GiamToiDa) : ''
+          );
+          setGiaTriToiThieu(
+            v.GiaTriToiThieu !== undefined && v.GiaTriToiThieu !== null
+              ? String(v.GiaTriToiThieu)
+              : '0'
+          );
+          setSoLuong(v.SoLuong !== undefined && v.SoLuong !== null ? String(v.SoLuong) : '');
           setNgayHetHan(toDatetimeLocalInput(v.NgayHetHan));
           setTrangThai(v.TrangThai !== undefined ? v.TrangThai : 1);
         } else {
@@ -145,6 +164,28 @@ const VoucherFormPage = () => {
     fetchVoucherDetail();
   }, [id, isEditMode]);
 
+  // Chuyển Nhóm Voucher đồng bộ với Loại Giảm
+  const handleSelectNhomVoucher = (newGroup) => {
+    setNhomVoucher(newGroup);
+    if (newGroup === 'GiamGiaDon' && loaiGiam === 'freeship') {
+      setLoaiGiam('tien');
+    } else if (newGroup === 'FreeShip' && loaiGiam === 'tien' && !giaTriGiam) {
+      setLoaiGiam('freeship');
+    }
+    setErrors((prev) => ({ ...prev, loaiGiam: null, giaTriGiam: null, giaTriToiThieu: null }));
+    markDirty();
+  };
+
+  // Chuyển Loại Giảm đồng bộ với Nhóm Voucher
+  const handleSelectLoaiGiam = (newType) => {
+    setLoaiGiam(newType);
+    if (newType === 'freeship' && nhomVoucher !== 'FreeShip') {
+      setNhomVoucher('FreeShip');
+    }
+    setErrors((prev) => ({ ...prev, loaiGiam: null, giaTriGiam: null, giaTriToiThieu: null }));
+    markDirty();
+  };
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -159,33 +200,66 @@ const VoucherFormPage = () => {
       newErrors.code = 'Mã code chỉ được chứa chữ cái, chữ số, dấu gạch nối (-) hoặc (_)';
     }
 
-    // 2. Validate GiaTriGiam
-    const numGiaTriGiam = Number(giaTriGiam);
-    if (!giaTriGiam || isNaN(numGiaTriGiam)) {
-      newErrors.giaTriGiam = 'Vui lòng nhập giá trị giảm hợp lệ';
-    } else if (numGiaTriGiam <= 0) {
-      newErrors.giaTriGiam = 'Giá trị giảm phải lớn hơn 0 ₫';
+    // 2. Validate NhomVoucher & LoaiGiam
+    if (nhomVoucher === 'GiamGiaDon' && loaiGiam === 'freeship') {
+      newErrors.loaiGiam = 'Voucher nhóm Giảm giá đơn hàng chỉ hỗ trợ Tiền mặt hoặc Phần trăm';
     }
 
-    // 3. Validate GiaTriToiThieu
-    const numGiaTriToiThieu = Number(giaTriToiThieu);
-    if (!giaTriToiThieu || isNaN(numGiaTriToiThieu)) {
-      newErrors.giaTriToiThieu = 'Vui lòng nhập giá trị đơn hàng tối thiểu';
-    } else if (numGiaTriToiThieu <= 0) {
-      newErrors.giaTriToiThieu = 'Đơn tối thiểu phải lớn hơn 0 ₫';
-    } else if (numGiaTriGiam && numGiaTriToiThieu < numGiaTriGiam) {
+    // 3. Validate GiaTriGiam theo LoaiGiam
+    const hasGiaTriGiam = String(giaTriGiam).trim() !== '';
+    const numGiaTriGiam = hasGiaTriGiam ? Number(giaTriGiam) : 0;
+
+    if (loaiGiam === 'freeship') {
+      if (hasGiaTriGiam && (isNaN(numGiaTriGiam) || numGiaTriGiam < 0)) {
+        newErrors.giaTriGiam = 'Giá trị giảm phí ship phải là số lớn hơn hoặc bằng 0';
+      }
+    } else if (loaiGiam === 'phantram') {
+      if (!hasGiaTriGiam || isNaN(numGiaTriGiam) || numGiaTriGiam <= 0) {
+        newErrors.giaTriGiam = 'Vui lòng nhập phần trăm giảm lớn hơn 0%';
+      } else if (numGiaTriGiam > 100) {
+        newErrors.giaTriGiam = 'Phần trăm giảm không được vượt quá 100%';
+      }
+    } else {
+      // tien
+      if (!hasGiaTriGiam || isNaN(numGiaTriGiam) || numGiaTriGiam <= 0) {
+        newErrors.giaTriGiam = 'Giá trị giảm phải lớn hơn 0 ₫';
+      }
+    }
+
+    // 4. Validate GiamToiDa (optional, if provided must be > 0)
+    const hasGiamToiDa = String(giamToiDa).trim() !== '';
+    if (hasGiamToiDa) {
+      const numGiamToiDa = Number(giamToiDa);
+      if (isNaN(numGiamToiDa) || numGiamToiDa <= 0) {
+        newErrors.giamToiDa = 'Mức giảm tối đa phải lớn hơn 0 ₫ hoặc để trống';
+      }
+    }
+
+    // 5. Validate GiaTriToiThieu (cho phép >= 0)
+    const hasMinOrder = String(giaTriToiThieu).trim() !== '';
+    const numGiaTriToiThieu = hasMinOrder ? Number(giaTriToiThieu) : 0;
+    if (hasMinOrder && (isNaN(numGiaTriToiThieu) || numGiaTriToiThieu < 0)) {
+      newErrors.giaTriToiThieu = 'Đơn tối thiểu phải lớn hơn hoặc bằng 0 ₫';
+    } else if (
+      nhomVoucher === 'GiamGiaDon' &&
+      loaiGiam === 'tien' &&
+      numGiaTriToiThieu > 0 &&
+      numGiaTriGiam > numGiaTriToiThieu
+    ) {
       newErrors.giaTriToiThieu = 'Đơn tối thiểu phải lớn hơn hoặc bằng giá trị giảm';
     }
 
-    // 4. Validate SoLuong
+    // 6. Validate SoLuong
     const numSoLuong = Number(soLuong);
     if (!soLuong || isNaN(numSoLuong)) {
       newErrors.soLuong = 'Vui lòng nhập số lượng phát hành';
-    } else if (!Number.isInteger(numSoLuong) || numSoLuong <= 0) {
-      newErrors.soLuong = 'Số lượng phải là số nguyên dương (> 0)';
+    } else if (!Number.isInteger(numSoLuong) || (isEditMode ? numSoLuong < 0 : numSoLuong <= 0)) {
+      newErrors.soLuong = isEditMode
+        ? 'Số lượng phải là số nguyên (>= 0)'
+        : 'Số lượng phải là số nguyên dương (> 0)';
     }
 
-    // 5. Validate NgayHetHan
+    // 7. Validate NgayHetHan
     if (!ngayHetHan) {
       newErrors.ngayHetHan = 'Vui lòng chọn ngày giờ hết hạn';
     } else {
@@ -210,11 +284,22 @@ const VoucherFormPage = () => {
       return;
     }
 
+    const parsedGiamToiDa =
+      String(giamToiDa).trim() === '' ? null : Number(giamToiDa);
+    const parsedGiaTriGiam =
+      loaiGiam === 'freeship' && String(giaTriGiam).trim() === ''
+        ? (parsedGiamToiDa !== null ? parsedGiamToiDa : 0)
+        : Number(giaTriGiam);
+    const parsedGiaTriToiThieu =
+      String(giaTriToiThieu).trim() === '' ? 0 : Number(giaTriToiThieu);
+
     const payload = {
       Code: code.trim().toUpperCase(),
-      GiaTriGiam: Number(giaTriGiam),
+      NhomVoucher: nhomVoucher,
       LoaiGiam: loaiGiam,
-      GiaTriToiThieu: Number(giaTriToiThieu),
+      GiaTriGiam: parsedGiaTriGiam,
+      GiamToiDa: parsedGiamToiDa,
+      GiaTriToiThieu: parsedGiaTriToiThieu,
       SoLuong: Number(soLuong),
       NgayHetHan: ngayHetHan,
       TrangThai: Number(trangThai)
@@ -226,10 +311,14 @@ const VoucherFormPage = () => {
 
       if (isEditMode) {
         const res = await api.put(`/admin/vouchers/${id}`, payload);
-        toast.success(res.data?.message || 'Cập nhật mã giảm giá thành công!', { id: `voucher-update-${id}` });
+        toast.success(res.data?.message || 'Cập nhật mã giảm giá thành công!', {
+          id: `voucher-update-${id}`
+        });
       } else {
         const res = await api.post('/admin/vouchers', payload);
-        toast.success(res.data?.message || 'Thêm mã giảm giá thành công!', { id: 'voucher-create' });
+        toast.success(res.data?.message || 'Thêm mã giảm giá thành công!', {
+          id: 'voucher-create'
+        });
       }
 
       setIsDirty(false);
@@ -253,6 +342,32 @@ const VoucherFormPage = () => {
     }
   };
 
+  // Tóm tắt trực quan quy tắc giảm giá đang cấu hình
+  const rulePreviewText = (() => {
+    const val = Number(giaTriGiam) || 0;
+    const maxCap = Number(giamToiDa) || 0;
+    const minOrder = Number(giaTriToiThieu) || 0;
+    const minText = minOrder > 0 ? ` cho đơn từ ${formatVND(minOrder)}` : ' cho mọi đơn hàng';
+
+    if (nhomVoucher === 'FreeShip') {
+      if (loaiGiam === 'phantram') {
+        return `Giảm ${val}% phí vận chuyển${maxCap > 0 ? ` (tối đa ${formatVND(maxCap)})` : ''}${minText}.`;
+      }
+      if (loaiGiam === 'tien') {
+        return `Giảm ${formatVND(val)} phí vận chuyển${maxCap > 0 ? ` (trần ${formatVND(maxCap)})` : ''}${minText}.`;
+      }
+      if (val > 0) {
+        return `Freeship giảm ${formatVND(val)}${maxCap > 0 ? ` (tối đa ${formatVND(maxCap)})` : ''}${minText}.`;
+      }
+      return `Miễn phí 100% phí vận chuyển${maxCap > 0 ? ` (tối đa ${formatVND(maxCap)})` : ''}${minText}.`;
+    }
+
+    if (loaiGiam === 'phantram') {
+      return `Giảm ${val}% tổng tiền hàng${maxCap > 0 ? ` (tối đa ${formatVND(maxCap)})` : ''}${minText}.`;
+    }
+    return `Giảm trực tiếp ${formatVND(val)}${maxCap > 0 ? ` (tối đa ${formatVND(maxCap)})` : ''}${minText}.`;
+  })();
+
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto flex flex-col items-center justify-center py-24 text-slate-400 space-y-4">
@@ -264,7 +379,6 @@ const VoucherFormPage = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-
       {/* ── Top Header Navigation Bar (Tông sáng) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
@@ -285,8 +399,8 @@ const VoucherFormPage = () => {
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
               {isEditMode
-                ? 'Cập nhật lại giá trị mức giảm, số lượng hoặc gia hạn ngày kết thúc'
-                : 'Tạo mã voucher mới cho khách hàng áp dụng tại trang thanh toán'}
+                ? 'Cập nhật nhóm voucher, loại giảm, mức giảm tối đa và thời hạn áp dụng'
+                : 'Tạo mã Giảm giá đơn hàng hoặc Miễn phí vận chuyển cho khách áp dụng đồng thời'}
             </p>
           </div>
         </div>
@@ -337,19 +451,102 @@ const VoucherFormPage = () => {
         </div>
       )}
 
-      {/* ── Main Form Form (Tông sáng) ── */}
+      {/* ── Main Form (Tông sáng) ── */}
       <form onSubmit={handleSubmit} className="space-y-6">
-
-        {/* ── CARD 1: Thông tin mã ── */}
+        {/* ── CARD 1: Thông tin mã & Nhóm Voucher ── */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Tag className="w-4 h-4 text-sky-600" />
-              Thông tin mã giảm giá
+              Thông tin mã &amp; Phân nhóm Voucher
             </h2>
             <span className="text-xs text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg font-semibold border border-sky-200">
               Cơ bản
             </span>
+          </div>
+
+          {/* Nhóm Voucher: Giảm giá đơn hàng / Miễn phí vận chuyển */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
+              Nhóm Voucher <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                id="group-giamgiadon"
+                onClick={() => handleSelectNhomVoucher('GiamGiaDon')}
+                className={`flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                  nhomVoucher === 'GiamGiaDon'
+                    ? 'bg-sky-50/90 border-sky-400 ring-2 ring-sky-200 shadow-xs'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    nhomVoucher === 'GiamGiaDon'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800">
+                    Giảm giá đơn hàng
+                  </span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    Trừ trực tiếp vào tiền sản phẩm (mã tiền mặt hoặc %)
+                  </span>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    nhomVoucher === 'GiamGiaDon'
+                      ? 'border-sky-600 bg-sky-600 text-white'
+                      : 'border-slate-300'
+                  }`}
+                >
+                  {nhomVoucher === 'GiamGiaDon' && <Check className="w-3 h-3" />}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                id="group-freeship"
+                onClick={() => handleSelectNhomVoucher('FreeShip')}
+                className={`flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                  nhomVoucher === 'FreeShip'
+                    ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-200 shadow-xs'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    nhomVoucher === 'FreeShip'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800">
+                    Miễn phí vận chuyển
+                  </span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    Giảm phí giao hàng, có thể dùng kèm mã giảm giá đơn
+                  </span>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    nhomVoucher === 'FreeShip'
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-slate-300'
+                  }`}
+                >
+                  {nhomVoucher === 'FreeShip' && <Check className="w-3 h-3" />}
+                </div>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -364,7 +561,7 @@ const VoucherFormPage = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="SUMMER50, PHONESTORE2026..."
+                  placeholder={nhomVoucher === 'FreeShip' ? 'FREESHIP30K, SHIP0D...' : 'SUMMER50, SZ500K...'}
                   value={code}
                   onChange={(e) => {
                     setCode(e.target.value.toUpperCase().replace(/\s/g, ''));
@@ -399,7 +596,7 @@ const VoucherFormPage = () => {
                 </div>
                 <input
                   type="number"
-                  min="1"
+                  min={isEditMode ? '0' : '1'}
                   placeholder="100"
                   value={soLuong}
                   onChange={(e) => {
@@ -447,9 +644,13 @@ const VoucherFormPage = () => {
                   onChange={() => {}}
                   className="hidden"
                 />
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  Number(trangThai) === 1 ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300'
-                }`}>
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    Number(trangThai) === 1
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-slate-300'
+                  }`}
+                >
                   {Number(trangThai) === 1 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
@@ -476,9 +677,13 @@ const VoucherFormPage = () => {
                   onChange={() => {}}
                   className="hidden"
                 />
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  Number(trangThai) === 0 ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-300'
-                }`}>
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    Number(trangThai) === 0
+                      ? 'border-amber-500 bg-amber-500 text-white'
+                      : 'border-slate-300'
+                  }`}
+                >
                   {Number(trangThai) === 0 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
@@ -490,33 +695,122 @@ const VoucherFormPage = () => {
           </div>
         </div>
 
-        {/* ── CARD 2: Điều kiện giảm giá ── */}
+        {/* ── CARD 2: Loại giảm, Giá trị giảm & Mức giảm tối đa ── */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-emerald-600" />
-              Điều kiện & Mức giảm giá (VNĐ)
+              Loại giảm giá &amp; Điều kiện áp dụng
             </h2>
             <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200">
-              Giá trị
+              Giá trị &amp; Trần giảm
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Số tiền giảm VND */}
+          {/* Chọn Loại giảm: Tiền mặt / Phần trăm / Freeship */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
+              Loại giảm giá <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  id: 'tien',
+                  label: 'Tiền mặt',
+                  desc: 'Giảm cố định theo VNĐ',
+                  icon: DollarSign,
+                  activeClass: 'bg-sky-50 border-sky-400 text-sky-900 ring-1 ring-sky-300',
+                  iconActiveClass: 'bg-sky-600 text-white'
+                },
+                {
+                  id: 'phantram',
+                  label: 'Phần trăm (%)',
+                  desc: 'Giảm theo % giá trị',
+                  icon: Percent,
+                  activeClass: 'bg-violet-50 border-violet-400 text-violet-900 ring-1 ring-violet-300',
+                  iconActiveClass: 'bg-violet-600 text-white'
+                },
+                {
+                  id: 'freeship',
+                  label: 'Freeship',
+                  desc: 'Miễn/giảm phí vận chuyển',
+                  icon: Truck,
+                  activeClass: 'bg-emerald-50 border-emerald-400 text-emerald-900 ring-1 ring-emerald-300',
+                  iconActiveClass: 'bg-emerald-600 text-white'
+                }
+              ].map((opt) => {
+                const Icon = opt.icon;
+                const isSelected = loaiGiam === opt.id;
+                const isDisabled = opt.id === 'freeship' && nhomVoucher === 'GiamGiaDon';
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    id={`discount-type-${opt.id}`}
+                    onClick={() => handleSelectLoaiGiam(opt.id)}
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? opt.activeClass
+                        : isDisabled
+                        ? 'bg-slate-50 border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-slate-600'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50/70'
+                    }`}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        isSelected ? opt.iconActiveClass : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-bold">{opt.label}</span>
+                      <span className="block text-[11px] text-slate-500 leading-tight mt-0.5">
+                        {isDisabled ? 'Tự chuyển sang nhóm Freeship' : opt.desc}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {errors.loaiGiam && (
+              <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {errors.loaiGiam}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Giá trị giảm */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Giá trị giảm (VNĐ) <span className="text-rose-500">*</span>
+                {loaiGiam === 'phantram'
+                  ? 'Phần trăm giảm (%)'
+                  : loaiGiam === 'freeship'
+                  ? 'Mức giảm phí ship (VNĐ)'
+                  : 'Giá trị giảm (VNĐ)'}{' '}
+                {loaiGiam !== 'freeship' && <span className="text-rose-500">*</span>}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  {loaiGiam === 'phantram' ? (
+                    <Percent className="w-4 h-4 text-violet-600" />
+                  ) : loaiGiam === 'freeship' ? (
+                    <Truck className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  )}
                 </div>
                 <input
                   type="number"
-                  min="1"
-                  step="1000"
-                  placeholder="50000"
+                  min={loaiGiam === 'freeship' ? '0' : '1'}
+                  max={loaiGiam === 'phantram' ? '100' : undefined}
+                  step={loaiGiam === 'phantram' ? '1' : '1000'}
+                  placeholder={
+                    loaiGiam === 'phantram' ? '10' : loaiGiam === 'freeship' ? '0 (Freeship 100%)' : '50000'
+                  }
                   value={giaTriGiam}
                   onChange={(e) => {
                     setGiaTriGiam(e.target.value);
@@ -535,19 +829,76 @@ const VoucherFormPage = () => {
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.giaTriGiam}
                 </p>
+              ) : loaiGiam === 'freeship' ? (
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {Number(giaTriGiam) > 0
+                    ? `Giảm tối đa ${formatVND(Number(giaTriGiam))} phí ship`
+                    : 'Để trống hoặc 0 = miễn phí 100% ship'}
+                </p>
               ) : (
-                giaTriGiam && !isNaN(Number(giaTriGiam)) && Number(giaTriGiam) > 0 && (
+                giaTriGiam &&
+                !isNaN(Number(giaTriGiam)) &&
+                Number(giaTriGiam) > 0 && (
                   <p className="text-[11px] text-emerald-600 font-medium mt-1">
-                    Định dạng: <span className="font-bold">{formatVND(Number(giaTriGiam))}</span>
+                    Định dạng:{' '}
+                    <span className="font-bold">
+                      {loaiGiam === 'phantram'
+                        ? `${Number(giaTriGiam)}%`
+                        : formatVND(Number(giaTriGiam))}
+                    </span>
                   </p>
                 )
+              )}
+            </div>
+
+            {/* Mức giảm tối đa (GiamToiDa) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Mức giảm tối đa (GiamToiDa)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <ShieldCheck className="w-4 h-4 text-amber-500" />
+                </div>
+                <input
+                  id="giam-toi-da-input"
+                  type="number"
+                  min="1"
+                  step="1000"
+                  placeholder={nhomVoucher === 'FreeShip' ? '30000' : '500000'}
+                  value={giamToiDa}
+                  onChange={(e) => {
+                    setGiamToiDa(e.target.value);
+                    if (errors.giamToiDa) setErrors((prev) => ({ ...prev, giamToiDa: null }));
+                    markDirty();
+                  }}
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
+                    errors.giamToiDa
+                      ? 'border-rose-400 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:border-sky-500 focus:ring-sky-500/20'
+                  } rounded-xl text-amber-700 text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-xs`}
+                />
+              </div>
+              {errors.giamToiDa ? (
+                <p className="mt-1.5 text-xs text-rose-500 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {errors.giamToiDa}
+                </p>
+              ) : giamToiDa && !isNaN(Number(giamToiDa)) && Number(giamToiDa) > 0 ? (
+                <p className="text-[11px] text-amber-600 font-medium mt-1">
+                  Trần giảm: <span className="font-bold">{formatVND(Number(giamToiDa))}</span>
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Để trống nếu không giới hạn mức giảm tối đa
+                </p>
               )}
             </div>
 
             {/* Đơn tối thiểu VND */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Đơn hàng tối thiểu (VNĐ) <span className="text-rose-500">*</span>
+                Đơn hàng tối thiểu (VNĐ)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -555,13 +906,15 @@ const VoucherFormPage = () => {
                 </div>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   step="1000"
-                  placeholder="200000"
+                  placeholder="0 (Mọi đơn hàng)"
                   value={giaTriToiThieu}
                   onChange={(e) => {
                     setGiaTriToiThieu(e.target.value);
-                    if (errors.giaTriToiThieu) setErrors((prev) => ({ ...prev, giaTriToiThieu: null }));
+                    if (errors.giaTriToiThieu) {
+                      setErrors((prev) => ({ ...prev, giaTriToiThieu: null }));
+                    }
                     markDirty();
                   }}
                   className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
@@ -576,13 +929,22 @@ const VoucherFormPage = () => {
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   {errors.giaTriToiThieu}
                 </p>
+              ) : giaTriToiThieu && !isNaN(Number(giaTriToiThieu)) && Number(giaTriToiThieu) > 0 ? (
+                <p className="text-[11px] text-slate-500 font-medium mt-1">
+                  Định dạng: <span className="font-bold text-slate-700">{formatVND(Number(giaTriToiThieu))}</span>
+                </p>
               ) : (
-                giaTriToiThieu && !isNaN(Number(giaTriToiThieu)) && Number(giaTriToiThieu) > 0 && (
-                  <p className="text-[11px] text-slate-500 font-medium mt-1">
-                    Định dạng: <span className="font-bold text-slate-700">{formatVND(Number(giaTriToiThieu))}</span>
-                  </p>
-                )
+                <p className="text-[11px] text-slate-400 mt-1">Nhập 0 hoặc để trống cho mọi đơn hàng</p>
               )}
+            </div>
+          </div>
+
+          {/* Preview quy tắc */}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-600 leading-relaxed">
+              <span className="font-bold text-slate-800">Tóm tắt quy tắc: </span>
+              {rulePreviewText}
             </div>
           </div>
         </div>

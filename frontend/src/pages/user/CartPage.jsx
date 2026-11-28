@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import DeleteConfirmModal from '../../components/user/DeleteConfirmModal';
+import MultiVoucherDrawer from '../../components/user/MultiVoucherDrawer';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
 
@@ -12,22 +13,27 @@ const formatVND = (price) =>
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { cartItems, setCartItems, cartLoading, fetchCart, updateQuantity, removeFromCart } = useCart();
+  const location = useLocation();
+  const { cartItems, cartLoading, updateQuantity, removeFromCart } = useCart();
 
   const [availableVouchers, setAvailableVouchers] = useState([]);
-  const [isLoading, setIsLoading]             = useState(true);
-  const [selectedIds, setSelectedIds]         = useState([]);
-  const [voucherCode, setVoucherCode]         = useState('');
-  const [appliedVoucher, setAppliedVoucher]   = useState(null);
-  const [applyingVoucher, setApplyingVoucher] = useState(false);
-  const [modalOpen, setModalOpen]             = useState(false);
-  const [modalTarget, setModalTarget]         = useState(null);
-  const hasInitializedSelection               = useRef(false);
+  const [isLoading, setIsLoading]                 = useState(true);
+  const [selectedIds, setSelectedIds]             = useState([]);
+
+  // ── Multi-voucher state (1 mã Giảm giá đơn + 1 mã Freeship) ──
+  const [appliedGiamGiaDon, setAppliedGiamGiaDon] = useState(null);
+  const [appliedFreeShip, setAppliedFreeShip]     = useState(null);
+  const [soTienGiamDon, setSoTienGiamDon]         = useState(0);
+  const [soTienGiamShip, setSoTienGiamShip]       = useState(0);
+  const [voucherDrawerOpen, setVoucherDrawerOpen] = useState(false);
+
+  const [modalOpen, setModalOpen]                 = useState(false);
+  const [modalTarget, setModalTarget]             = useState(null);
+  const hasInitializedSelection                   = useRef(false);
+  const hasAppliedPrefill                         = useRef(false);
 
   useEffect(() => {
-    // fetchCart() được CartContext tự gọi, chỉ cần fetch vouchers ở đây
     fetchVouchers();
-    // Khi cartLoading hoàn tất (dữ liệu đã sẵn sàng), ẩn spinner
     if (!cartLoading) setIsLoading(false);
   }, [cartLoading]);
 
@@ -48,6 +54,22 @@ const CartPage = () => {
 
   const fetchVouchers = async () => {
     try {
+      const res = await api.get('/vouchers/available');
+      if (res.data?.success && res.data?.data) {
+        const list = Array.isArray(res.data.data.all)
+          ? res.data.data.all
+          : [
+              ...(Array.isArray(res.data.data.giamGiaDon) ? res.data.data.giamGiaDon : []),
+              ...(Array.isArray(res.data.data.freeShip) ? res.data.data.freeShip : []),
+            ];
+        setAvailableVouchers(list);
+        return;
+      }
+    } catch {
+      // Fallback sang /vouchers/active
+    }
+
+    try {
       const res = await api.get('/vouchers/active');
       if (res.data?.success && Array.isArray(res.data.data)) {
         setAvailableVouchers(res.data.data);
@@ -57,7 +79,6 @@ const CartPage = () => {
     }
   };
 
-  const isEmpty = cartItems.length === 0;
   const isAllSelected = cartItems.length > 0 && cartItems.every((item) => selectedIds.includes(item.id));
   const isIndeterminate = selectedIds.length > 0 && !isAllSelected;
 
@@ -69,7 +90,7 @@ const CartPage = () => {
     }
   };
   const handleToggleItem = (id) => {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const handleQtyChange = async (id, delta) => {
@@ -83,7 +104,10 @@ const CartPage = () => {
     }
   };
 
-  const openDeleteModal = (itemId = null) => { setModalTarget(itemId); setModalOpen(true); };
+  const openDeleteModal = (itemId = null) => {
+    setModalTarget(itemId);
+    setModalOpen(true);
+  };
 
   const handleConfirmDelete = async () => {
     try {
@@ -105,102 +129,177 @@ const CartPage = () => {
           toast.error(result.message || 'Xóa sản phẩm thất bại.');
         }
       }
-    } catch { toast.error('Xóa sản phẩm thất bại.'); }
-    finally { setModalTarget(null); setModalOpen(false); }
+    } catch {
+      toast.error('Xóa sản phẩm thất bại.');
+    } finally {
+      setModalTarget(null);
+      setModalOpen(false);
+    }
   };
 
   const selectedItems = cartItems.filter((item) => selectedIds.includes(item.id));
-  const subtotal = selectedItems.reduce((sum, item) => sum + Number(item.Gia) * Number(item.SoLuong), 0);
-  const onlineDiscount = 0; // Trợ giá thanh toán Online (nếu có)
+  const subtotal = selectedItems.reduce(
+    (sum, item) => sum + Number(item.Gia) * Number(item.SoLuong),
+    0
+  );
+  // Phí vận chuyển tạm tính: Freeship đơn >= 10tr, ngược lại tạm tính 35.000đ
+  const estimatedShippingFee =
+    selectedItems.length === 0 ? 0 : subtotal >= 10000000 ? 0 : 35000;
 
-  // Tính tiền giảm dựa trên appliedVoucher và subtotal
-  const discount = appliedVoucher
-    ? (appliedVoucher.LoaiGiam === 'phantram' || appliedVoucher.LoaiGiamGia === 'PhanTram'
-        ? Math.round(subtotal * (Number(appliedVoucher.GiaTriGiam) / 100))
-        : Number(appliedVoucher.GiaTriGiam))
-    : 0;
-  const actualDiscount = Math.min(discount, subtotal);
-  const total = Math.max(0, subtotal - actualDiscount - onlineDiscount);
+  const totalDiscount = soTienGiamDon + soTienGiamShip;
+  const total = Math.max(0, subtotal + estimatedShippingFee - totalDiscount);
 
-  // Tự động kiểm tra giá trị tối thiểu của voucher khi subtotal thay đổi
-  useEffect(() => {
-    if (appliedVoucher) {
-      const minRequired = Number(appliedVoucher.GiaTriToiThieu || appliedVoucher.DonToiThieu || 0);
-      if (subtotal > 0 && subtotal < minRequired) {
-        setAppliedVoucher(null);
-        toast(`Mã ${appliedVoucher.Code || appliedVoucher.MaCode} đã được gỡ vì đơn hàng chưa đạt giá trị tối thiểu ${formatVND(minRequired)}`, {
-          icon: '⚠️'
+  // Áp dụng kết quả từ POST /api/v1/vouchers/apply-multi
+  const handleApplyMultiResult = useCallback((data) => {
+    setSoTienGiamDon(Number(data?.soTienGiamDon) || 0);
+    setSoTienGiamShip(Number(data?.soTienGiamShip) || 0);
+    setAppliedGiamGiaDon(data?.vouchers?.giamGiaDon || null);
+    setAppliedFreeShip(data?.vouchers?.freeShip || null);
+  }, []);
+
+  // Gọi POST /api/v1/vouchers/apply-multi với danh sách mã
+  const evaluateCodesWithApi = useCallback(
+    async (codes, currentSubtotal, currentShipFee, silent = true) => {
+      if (!codes || codes.length === 0 || currentSubtotal <= 0) {
+        setSoTienGiamDon(0);
+        setSoTienGiamShip(0);
+        if (!codes || codes.length === 0) {
+          setAppliedGiamGiaDon(null);
+          setAppliedFreeShip(null);
+        }
+        return;
+      }
+
+      try {
+        const res = await api.post('/vouchers/apply-multi', {
+          codes,
+          tongTienHang: currentSubtotal,
+          phiShip: currentShipFee,
         });
+        if (res.data?.success && res.data.data) {
+          handleApplyMultiResult(res.data.data);
+          if (!silent) {
+            toast.success(res.data.message || 'Áp dụng mã giảm giá thành công!');
+          }
+        }
+      } catch (err) {
+        if (!silent) {
+          toast.error(err.response?.data?.message || 'Không thể áp dụng mã giảm giá');
+        }
       }
-    }
-  }, [subtotal, appliedVoucher]);
+    },
+    [handleApplyMultiResult]
+  );
 
-  const handleApplyVoucher = async (codeToApply = null) => {
-    const rawCode = (typeof codeToApply === 'string' ? codeToApply : voucherCode);
-    const code = rawCode.trim().toUpperCase();
-    if (!code) {
-      toast.error('Vui lòng nhập mã giảm giá');
+  // Tự động áp dụng mã prefill từ trang Kho Voucher (nếu có)
+  useEffect(() => {
+    const prefill = location.state?.prefillVoucherCode;
+    if (prefill && subtotal > 0 && !hasAppliedPrefill.current) {
+      hasAppliedPrefill.current = true;
+      evaluateCodesWithApi([prefill], subtotal, estimatedShippingFee, false);
+    }
+  }, [location.state, subtotal, estimatedShippingFee, evaluateCodesWithApi]);
+
+  // Tự động kiểm tra lại điều kiện & tính lại mức giảm khi subtotal hoặc phí ship thay đổi
+  const orderCodeKey = appliedGiamGiaDon?.Code || '';
+  const shipCodeKey = appliedFreeShip?.Code || '';
+
+  useEffect(() => {
+    if (!orderCodeKey && !shipCodeKey) return;
+
+    if (subtotal <= 0) {
+      setSoTienGiamDon(0);
+      setSoTienGiamShip(0);
       return;
     }
 
-    if (selectedItems.length === 0) {
-      toast.error('Vui lòng chọn sản phẩm trong giỏ hàng trước khi áp dụng mã');
-      return;
-    }
+    const validCodes = [];
+    const removedMessages = [];
 
-    setApplyingVoucher(true);
-    try {
-      const res = await api.post('/vouchers/apply', {
-        code,
-        orderSubtotal: subtotal
-      });
-
-      if (res.data?.success) {
-        const { voucher, discountAmount } = res.data.data;
-        const voucherData = {
-          ...voucher,
-          discountAmount,
-          MaCode: voucher.Code,
-          code: voucher.Code,
-          Code: voucher.Code,
-          GiaTriGiam: Number(voucher.GiaTriGiam),
-          LoaiGiam: voucher.LoaiGiam,
-          LoaiGiamGia: voucher.LoaiGiam === 'phantram' ? 'PhanTram' : 'Tien',
-          DonToiThieu: Number(voucher.GiaTriToiThieu),
-          GiaTriToiThieu: Number(voucher.GiaTriToiThieu)
-        };
-        setAppliedVoucher(voucherData);
-        setVoucherCode(voucher.Code);
-        toast.success(res.data.message || 'Áp dụng mã giảm giá thành công!');
+    if (appliedGiamGiaDon) {
+      const minReq = Number(appliedGiamGiaDon.GiaTriToiThieu || 0);
+      if (subtotal < minReq) {
+        setAppliedGiamGiaDon(null);
+        setSoTienGiamDon(0);
+        removedMessages.push(
+          `Mã ${appliedGiamGiaDon.Code} đã gỡ vì đơn chưa đạt tối thiểu ${formatVND(minReq)}`
+        );
       } else {
-        toast.error(res.data?.message || 'Không thể áp dụng mã giảm giá');
+        validCodes.push(appliedGiamGiaDon.Code);
       }
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Mã giảm giá không hợp lệ hoặc không đủ điều kiện';
-      toast.error(msg);
-    } finally {
-      setApplyingVoucher(false);
+    }
+
+    if (appliedFreeShip) {
+      const minReq = Number(appliedFreeShip.GiaTriToiThieu || 0);
+      if (subtotal < minReq) {
+        setAppliedFreeShip(null);
+        setSoTienGiamShip(0);
+        removedMessages.push(
+          `Mã ${appliedFreeShip.Code} đã gỡ vì đơn chưa đạt tối thiểu ${formatVND(minReq)}`
+        );
+      } else {
+        validCodes.push(appliedFreeShip.Code);
+      }
+    }
+
+    if (removedMessages.length > 0) {
+      removedMessages.forEach((m) => toast(m, { icon: '⚠️' }));
+    }
+
+    if (validCodes.length > 0) {
+      evaluateCodesWithApi(validCodes, subtotal, estimatedShippingFee, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, estimatedShippingFee, orderCodeKey, shipCodeKey]);
+
+  // Gỡ riêng từng mã voucher
+  const handleRemoveSingleVoucher = async (group) => {
+    if (group === 'GiamGiaDon') {
+      const remaining = appliedFreeShip?.Code ? [appliedFreeShip.Code] : [];
+      setAppliedGiamGiaDon(null);
+      setSoTienGiamDon(0);
+      toast.success('Đã gỡ mã giảm giá đơn hàng.');
+      if (remaining.length > 0) {
+        await evaluateCodesWithApi(remaining, subtotal, estimatedShippingFee, true);
+      }
+    } else {
+      const remaining = appliedGiamGiaDon?.Code ? [appliedGiamGiaDon.Code] : [];
+      setAppliedFreeShip(null);
+      setSoTienGiamShip(0);
+      toast.success('Đã gỡ mã miễn phí vận chuyển.');
+      if (remaining.length > 0) {
+        await evaluateCodesWithApi(remaining, subtotal, estimatedShippingFee, true);
+      }
     }
   };
 
-  const handleSelectAndApplyVoucher = (voucher) => {
-    setVoucherCode(voucher.Code);
-    handleApplyVoucher(voucher.Code);
-  };
-
-  const handleRemoveVoucher = () => {
-    setAppliedVoucher(null);
-    setVoucherCode('');
-    toast.success('Đã gỡ mã giảm giá.');
+  const handleOpenVoucherDrawer = () => {
+    if (selectedItems.length === 0) {
+      toast.error('Vui lòng chọn ít nhất 1 sản phẩm trước khi chọn mã giảm giá');
+      return;
+    }
+    setVoucherDrawerOpen(true);
   };
 
   const handleCheckout = () => {
     if (selectedItems.length === 0) return;
-    navigate('/checkout', { state: { items: selectedItems, voucher: appliedVoucher } });
+    navigate('/checkout', {
+      state: {
+        items: selectedItems,
+        voucher: appliedGiamGiaDon || appliedFreeShip || null,
+        vouchers: {
+          giamGiaDon: appliedGiamGiaDon,
+          freeShip: appliedFreeShip,
+        },
+        voucherResult: {
+          soTienGiamDon,
+          soTienGiamShip,
+        },
+      },
+    });
   };
 
-  const bulkDeleteEnabled = selectedIds.length >= 2;
-  const isItemTrashEnabled = (id) => selectedIds.includes(id);
+  const appliedCount = (appliedGiamGiaDon ? 1 : 0) + (appliedFreeShip ? 1 : 0);
 
   if (isLoading) {
     return (
@@ -216,7 +315,6 @@ const CartPage = () => {
         <Navbar />
         <main className="flex-1 w-full bg-surface py-unit-xl md:py-unit-2xl">
           <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col gap-unit-2xl">
-
             {/* ── Breadcrumb: Trang chủ > Giỏ hàng ── */}
             <div className="pb-unit-sm">
               <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
@@ -232,11 +330,9 @@ const CartPage = () => {
             {/* 1. Thanh Tiến Trình / Stepper */}
             <div className="w-full max-w-3xl mx-auto">
               <div className="relative flex items-center justify-between">
-                {/* Connecting Progress Bar */}
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 w-full bg-surface-container-high rounded-full -z-0">
                   <div className="h-full w-0 bg-primary rounded-full transition-all duration-500" />
                 </div>
-                {/* Step 1: Active */}
                 <div className="relative z-10 flex flex-col items-center">
                   <div className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md ring-4 ring-primary-fixed/40">
                     <span className="material-symbols-outlined text-xl">shopping_cart</span>
@@ -246,7 +342,6 @@ const CartPage = () => {
                     <span className="font-label-spec text-label-spec uppercase tracking-wider text-outline block">(0 sản phẩm)</span>
                   </div>
                 </div>
-                {/* Step 2: Pending */}
                 <div className="relative z-10 flex flex-col items-center opacity-65">
                   <div className="w-12 h-12 rounded-full bg-surface-container-lowest text-outline flex items-center justify-center shadow-sm">
                     <span className="material-symbols-outlined text-xl">payment</span>
@@ -256,7 +351,6 @@ const CartPage = () => {
                     <span className="font-label-spec text-label-spec uppercase tracking-wider text-outline block">Địa chỉ &amp; Phương thức</span>
                   </div>
                 </div>
-                {/* Step 3: Pending */}
                 <div className="relative z-10 flex flex-col items-center opacity-65">
                   <div className="w-12 h-12 rounded-full bg-surface-container-lowest text-outline flex items-center justify-center shadow-sm">
                     <span className="material-symbols-outlined text-xl">verified</span>
@@ -271,40 +365,30 @@ const CartPage = () => {
 
             {/* 2. Empty State Hero Card */}
             <div className="relative w-full rounded-2xl bg-surface-container-lowest p-unit-xl md:p-unit-3xl shadow-sm flex flex-col items-center text-center overflow-hidden">
-              {/* Decorative Ambient Gradient Glow behind graphic */}
               <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary-fixed/30 rounded-full blur-3xl pointer-events-none -z-0" />
               <div className="absolute -bottom-24 right-1/4 w-72 h-72 bg-secondary-fixed/30 rounded-full blur-2xl pointer-events-none -z-0" />
 
-              {/* Sophisticated Vector Empty Cart Illustration */}
               <div className="relative z-10 w-44 h-44 mb-unit-lg flex items-center justify-center">
                 <svg className="w-full h-full" fill="none" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
-                  {/* Subtle Glow Floor */}
                   <ellipse className="text-surface-container-high" cx="80" cy="140" fill="currentColor" rx="55" ry="10" />
-                  {/* Outer Floating Particle Rings */}
                   <circle className="text-secondary" cx="34" cy="45" fill="currentColor" opacity="0.6" r="4" />
                   <circle className="text-primary-container" cx="128" cy="48" fill="currentColor" opacity="0.5" r="3" />
                   <circle className="text-tertiary-container" cx="138" cy="100" fill="currentColor" opacity="0.4" r="5" />
                   <path className="text-primary-fixed-dim" d="M42 98L44 94L48 96L46 100Z" fill="currentColor" />
-                  {/* Tech Floating Sparkle Icon */}
                   <path className="text-secondary-container animate-pulse" d="M118 30L121 38L129 41L121 44L118 52L115 44L107 41L115 38L118 30Z" fill="currentColor" />
-                  {/* Main Shopping Bag/Basket Body */}
                   <rect className="text-surface-container-low" fill="currentColor" height="66" rx="16" width="88" x="36" y="58" />
                   <path className="text-surface-container" d="M46 64C46 59.5817 49.5817 56 54 56H106C110.418 56 114 59.5817 114 64V76H46V64Z" fill="currentColor" />
-                  {/* Inner Precision Grid Lines */}
                   <line className="text-outline-variant" stroke="currentColor" strokeDasharray="4 4" strokeLinecap="round" strokeWidth="2" x1="56" x2="104" y1="84" y2="84" />
                   <line className="text-outline-variant" stroke="currentColor" strokeDasharray="4 4" strokeLinecap="round" strokeWidth="2" x1="56" x2="88" y1="98" y2="98" />
-                  {/* Bag Handles with Modern Arch */}
                   <path className="text-primary" d="M58 60V42C58 29.8497 67.8497 20 80 20C92.1503 20 102 29.8497 102 42V60" stroke="currentColor" strokeLinecap="round" strokeWidth="6" />
                   <circle className="text-on-primary-container" cx="58" cy="60" fill="currentColor" r="4" />
                   <circle className="text-on-primary-container" cx="102" cy="60" fill="currentColor" r="4" />
-                  {/* Modern Sleek Badge: Question Mark / Empty Notification */}
                   <circle className="text-primary" cx="98" cy="106" fill="currentColor" r="18" />
                   <circle className="text-surface-container-lowest" cx="98" cy="106" fill="currentColor" r="14" />
                   <text className="text-primary" fill="currentColor" fontFamily="'Plus Jakarta Sans', sans-serif" fontSize="16" fontWeight="800" textAnchor="middle" x="98" y="112">?</text>
                 </svg>
               </div>
 
-              {/* 3. Core Informational Text */}
               <h1 className="relative z-10 font-headline-md md:font-headline-lg text-headline-md md:text-headline-lg text-on-surface font-extrabold tracking-tight mb-unit-xs">
                 Giỏ hàng của bạn đang trống
               </h1>
@@ -312,7 +396,6 @@ const CartPage = () => {
                 Chưa có thiết bị nào được lưu vào danh sách. Hàng ngàn mẫu smartphone chính hãng, flagship đỉnh cao và phụ kiện cao cấp đang sẵn sàng trao tay bạn!
               </p>
 
-              {/* 4. Action CTA */}
               <div className="relative z-10 flex items-center justify-center w-full max-w-md">
                 <button
                   id="empty-cart-cta-btn"
@@ -338,7 +421,10 @@ const CartPage = () => {
 
       <DeleteConfirmModal
         isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setModalTarget(null); }}
+        onClose={() => {
+          setModalOpen(false);
+          setModalTarget(null);
+        }}
         onConfirm={handleConfirmDelete}
         title="Xác nhận xóa"
         itemCount={modalTarget ? 1 : selectedIds.length}
@@ -349,9 +435,20 @@ const CartPage = () => {
         }
       />
 
+      {/* ── Ngăn kéo chọn Đa Voucher phủ kín màn hình ── */}
+      <MultiVoucherDrawer
+        isOpen={voucherDrawerOpen}
+        onClose={() => setVoucherDrawerOpen(false)}
+        availableVouchers={availableVouchers}
+        orderSubtotal={subtotal}
+        shippingFee={estimatedShippingFee}
+        initialGiamGiaDon={appliedGiamGiaDon}
+        initialFreeShip={appliedFreeShip}
+        onApplySuccess={handleApplyMultiResult}
+      />
+
       <main className="flex-1 w-full bg-surface py-unit-lg md:py-unit-xl pb-unit-4xl">
         <div className="max-w-container-max mx-auto px-gutter-desktop w-full flex flex-col">
-
           {/* ── Breadcrumb: Trang chủ > Giỏ hàng ── */}
           <div className="pb-unit-sm">
             <nav aria-label="Breadcrumb" className="flex items-center gap-unit-2xs text-on-surface-variant font-body-sm text-body-sm">
@@ -367,11 +464,9 @@ const CartPage = () => {
           {/* 1. Thanh Tiến Trình / Stepper Tiến trình mua sắm */}
           <div className="bg-surface-container-lowest rounded-xl shadow-sm p-unit-md mb-unit-lg">
             <div className="max-w-3xl mx-auto flex items-center justify-between relative">
-              {/* Connecting Lines */}
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-surface-container-high z-0" />
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1/3 h-[2px] bg-primary z-0 transition-all duration-500" />
 
-              {/* Step 1: Active */}
               <div className="relative z-10 flex flex-col items-center gap-1">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md shadow-primary/25">
                   <span className="material-symbols-outlined text-base sm:text-lg">shopping_cart</span>
@@ -382,7 +477,6 @@ const CartPage = () => {
                 </div>
               </div>
 
-              {/* Step 2: Next */}
               <div className="relative z-10 flex flex-col items-center gap-1">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-surface-container-lowest text-outline border border-outline-variant flex items-center justify-center text-xs sm:text-sm font-semibold">
                   2
@@ -393,7 +487,6 @@ const CartPage = () => {
                 </div>
               </div>
 
-              {/* Step 3: Complete */}
               <div className="relative z-10 flex flex-col items-center gap-1">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-surface-container-lowest text-outline border border-outline-variant flex items-center justify-center text-xs sm:text-sm font-semibold">
                   3
@@ -406,9 +499,9 @@ const CartPage = () => {
             </div>
           </div>
 
-          {/* 2. Main Grid: 65% Left (Products + Coupons) / 35% Right (Order Summary) */}
+          {/* 2. Main Grid: 65% Left (Products + Multi-Voucher Trigger) / 35% Right (Order Summary) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-unit-lg items-start">
-            {/* ── Left Column (65% ~ span-8) ── */}
+            {/* ── Left Column (span-8) ── */}
             <div className="lg:col-span-8 flex flex-col gap-unit-lg">
               {/* Table Toolbar */}
               <div className="bg-surface-container-lowest rounded-xl shadow-sm p-3 sm:p-4 flex items-center justify-between flex-wrap gap-2">
@@ -417,7 +510,9 @@ const CartPage = () => {
                     id="check-all"
                     type="checkbox"
                     checked={isAllSelected}
-                    ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isIndeterminate;
+                    }}
                     onChange={handleToggleAll}
                     className="w-4 h-4 sm:w-5 sm:h-5 rounded text-primary focus:ring-primary accent-primary cursor-pointer"
                   />
@@ -445,9 +540,10 @@ const CartPage = () => {
               <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col divide-y divide-surface-container">
                 {cartItems.map((item) => {
                   const isSelected = selectedIds.includes(item.id);
-                  const discountPercent = item.GiaGoc && Number(item.GiaGoc) > Number(item.Gia)
-                    ? Math.round((1 - Number(item.Gia) / Number(item.GiaGoc)) * 100)
-                    : null;
+                  const discountPercent =
+                    item.GiaGoc && Number(item.GiaGoc) > Number(item.Gia)
+                      ? Math.round((1 - Number(item.Gia) / Number(item.GiaGoc)) * 100)
+                      : null;
 
                   return (
                     <div
@@ -456,7 +552,6 @@ const CartPage = () => {
                         isSelected ? 'bg-primary-fixed/10' : 'hover:bg-surface-container-low/50'
                       }`}
                     >
-                      {/* Selector & Visual & Details */}
                       <div className="flex items-center gap-unit-md w-full md:w-auto flex-1 min-w-0">
                         <input
                           type="checkbox"
@@ -473,7 +568,10 @@ const CartPage = () => {
                               src={item.Anh}
                               alt={item.TenSanPham}
                               className="w-full h-full object-contain"
-                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <span className="material-symbols-outlined text-3xl text-outline">devices</span>
@@ -485,7 +583,6 @@ const CartPage = () => {
                           )}
                         </div>
 
-                        {/* Details */}
                         <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                           <h3
                             onClick={() => navigate(`/products/${item.MaSanPham}`)}
@@ -495,9 +592,11 @@ const CartPage = () => {
                           </h3>
 
                           <p className="text-xs text-on-surface-variant">
-                            <span className="text-outline">Màu:</span> <span className="font-medium text-on-surface">{item.MauSac || 'N/A'}</span>
+                            <span className="text-outline">Màu:</span>{' '}
+                            <span className="font-medium text-on-surface">{item.MauSac || 'N/A'}</span>
                             <span className="mx-1 text-outline">·</span>
-                            <span className="text-outline">Dung lượng:</span> <span className="font-medium text-on-surface">{item.DungLuong || 'N/A'}</span>
+                            <span className="text-outline">Dung lượng:</span>{' '}
+                            <span className="font-medium text-on-surface">{item.DungLuong || 'N/A'}</span>
                           </p>
 
                           {item.TonKho <= 3 && (
@@ -509,9 +608,7 @@ const CartPage = () => {
                         </div>
                       </div>
 
-                      {/* Price & Quantity Controls */}
                       <div className="flex items-center justify-between md:justify-end gap-unit-md sm:gap-unit-lg w-full md:w-auto pt-unit-xs md:pt-0 border-t md:border-t-0 border-surface-container">
-                        {/* Price per item */}
                         <div className="flex flex-col md:text-right">
                           <span className="text-sm sm:text-base text-primary font-bold">
                             {formatVND(item.Gia)}
@@ -523,7 +620,6 @@ const CartPage = () => {
                           )}
                         </div>
 
-                        {/* Quantity Selector */}
                         <div className="flex items-center bg-surface-container-low rounded-lg p-1">
                           <button
                             type="button"
@@ -546,7 +642,6 @@ const CartPage = () => {
                           </button>
                         </div>
 
-                        {/* Subtotal Desktop & Delete Action */}
                         <div className="flex items-center gap-unit-sm">
                           <span className="hidden xl:block text-sm sm:text-base text-on-surface font-bold w-24 sm:w-28 text-right">
                             {formatVND(Number(item.Gia) * Number(item.SoLuong))}
@@ -566,192 +661,108 @@ const CartPage = () => {
                 })}
               </div>
 
-              {/* Ưu Đãi & Voucher Code Block */}
-              <div className="bg-surface-container-lowest rounded-xl shadow-sm p-4 sm:p-5 flex flex-col gap-3 sm:gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-primary text-lg sm:text-xl">confirmation_number</span>
-                    <h3 className="text-sm sm:text-base text-on-surface font-bold">Ưu đãi &amp; Mã giảm giá</h3>
+              {/* ── Khối SmartZone Đa Voucher (Trigger mở Ngăn kéo phủ kín màn hình) ── */}
+              <div className="bg-surface-container-lowest rounded-xl shadow-sm p-4 sm:p-5 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-xl">confirmation_number</span>
+                    <h3 className="text-sm sm:text-base text-on-surface font-bold">
+                      SmartZone Voucher
+                    </h3>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-fixed text-primary">
+                      Áp dụng đồng thời 2 mã
+                    </span>
                   </div>
-                  <span className="text-xs text-on-surface-variant">Chọn hoặc nhập mã khuyến mãi</span>
+                  <span className="text-xs text-on-surface-variant">
+                    1 mã Giảm giá đơn + 1 mã Freeship
+                  </span>
                 </div>
 
-                {/* Input Voucher Field */}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-lg">sell</span>
-                    <input
-                      id="voucher-input"
-                      type="text"
-                      value={voucherCode}
-                      onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
-                      placeholder="Nhập mã voucher (VD: SZ500K)..."
-                      className="w-full pl-9 pr-3 py-2 bg-surface-container-low rounded-xl text-xs sm:text-sm text-on-surface placeholder:text-outline uppercase font-semibold tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  {appliedVoucher && voucherCode === (appliedVoucher.Code || appliedVoucher.MaCode) ? (
-                    <button
-                      id="remove-voucher-btn"
-                      type="button"
-                      onClick={handleRemoveVoucher}
-                      className="px-4 py-2 bg-surface-container-high text-error text-xs sm:text-sm font-bold rounded-xl hover:bg-error hover:text-on-error transition-colors shrink-0 shadow-sm flex items-center gap-1 cursor-pointer"
-                    >
-                      Bỏ chọn
-                    </button>
-                  ) : (
-                    <button
-                      id="apply-voucher-btn"
-                      type="button"
-                      onClick={() => handleApplyVoucher()}
-                      disabled={!voucherCode.trim() || applyingVoucher}
-                      className="px-4 py-2 bg-primary text-on-primary text-xs sm:text-sm font-bold rounded-xl hover:bg-primary-container transition-colors shrink-0 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
-                    >
-                      {applyingVoucher ? (
-                        <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        'Áp dụng'
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                {/* Applied Voucher Card (if custom voucher not in list) */}
-                {appliedVoucher && !availableVouchers.some((v) => v.Code === (appliedVoucher.Code || appliedVoucher.MaCode)) && (
-                  <div className="p-3 rounded-xl bg-primary-fixed/40 border border-primary/30 flex items-center justify-between gap-2 relative overflow-hidden">
-                    <div className="flex items-start gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-lg">local_offer</span>
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs sm:text-sm text-primary font-bold">
-                            {appliedVoucher.Code || appliedVoucher.MaCode}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded bg-primary text-on-primary text-[10px] uppercase font-bold">
-                            Áp dụng thành công
-                          </span>
-                        </div>
-                        <span className="text-xs text-on-surface-variant truncate">
-                          Giảm {appliedVoucher.LoaiGiam === 'phantram' || appliedVoucher.LoaiGiamGia === 'PhanTram' ? `${appliedVoucher.GiaTriGiam}%` : formatVND(appliedVoucher.GiaTriGiam)}
-                        </span>
-                      </div>
+                {/* Nút bấm mở Modal/Drawer Đa Voucher */}
+                <button
+                  id="open-voucher-drawer-btn"
+                  type="button"
+                  onClick={handleOpenVoucherDrawer}
+                  className="w-full p-3.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary bg-primary-fixed/15 hover:bg-primary-fixed/25 transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-lg">local_offer</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveVoucher}
-                      className="px-2.5 py-1 rounded-lg bg-surface-container-lowest text-primary hover:bg-error hover:text-on-error text-xs font-bold transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-sm">check</span>
-                      Bỏ chọn
-                    </button>
+                    <div className="text-left min-w-0">
+                      <span className="block text-sm font-bold text-primary group-hover:underline">
+                        Chọn hoặc nhập mã giảm giá
+                      </span>
+                      <span className="block text-xs text-on-surface-variant truncate">
+                        {appliedCount > 0
+                          ? `Đang áp dụng ${appliedCount} mã ưu đãi (${[appliedGiamGiaDon?.Code, appliedFreeShip?.Code].filter(Boolean).join(' + ')})`
+                          : `Có ${availableVouchers.length} mã giảm giá & Freeship đang sẵn sàng`}
+                      </span>
+                    </div>
                   </div>
-                )}
+                  <div className="flex items-center gap-1 text-primary font-bold text-xs shrink-0">
+                    <span>{appliedCount > 0 ? 'Thay đổi' : 'Chọn mã'}</span>
+                    <span className="material-symbols-outlined text-lg">chevron_right</span>
+                  </div>
+                </button>
 
-                {/* Suggested Vouchers Quick Picks */}
-                {availableVouchers.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                    {availableVouchers.map((v) => {
-                      const isCurrentlyApplied = appliedVoucher && (appliedVoucher.Code === v.Code || appliedVoucher.MaCode === v.Code);
-                      const minReq = Number(v.GiaTriToiThieu || 0);
-                      const isEligible = subtotal >= minReq;
-
-                      if (isCurrentlyApplied) {
-                        return (
-                          <div
-                            key={v.MaVoucher || v.Code}
-                            className="p-3 rounded-xl bg-primary-fixed/40 border border-primary/30 flex items-center justify-between gap-2 relative overflow-hidden"
-                          >
-                            <div className="flex items-start gap-2 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-lg">local_offer</span>
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs sm:text-sm text-primary font-bold">{v.Code}</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-primary text-on-primary text-[10px] uppercase font-bold">
-                                    Áp dụng thành công
-                                  </span>
-                                </div>
-                                <span className="text-xs text-on-surface-variant truncate">
-                                  Giảm {v.LoaiGiam === 'phantram' ? `${v.GiaTriGiam}%` : formatVND(v.GiaTriGiam)} cho đơn từ {formatVND(minReq)}
-                                </span>
-                                {v.NgayHetHan && (
-                                  <span className="text-[10px] text-outline">
-                                    HSD: {new Date(v.NgayHetHan).toLocaleDateString('vi-VN')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleRemoveVoucher}
-                              className="px-2.5 py-1 rounded-lg bg-surface-container-lowest text-primary hover:bg-error hover:text-on-error text-xs font-bold transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-sm">check</span>
-                              Bỏ chọn
-                            </button>
+                {/* Hiển thị tách bạch các mã đã áp dụng */}
+                {appliedCount > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    {appliedGiamGiaDon && (
+                      <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-base">sell</span>
+                          </span>
+                          <div className="min-w-0">
+                            <span className="block text-xs font-extrabold text-blue-700 font-mono truncate">
+                              {appliedGiamGiaDon.Code}
+                            </span>
+                            <span className="block text-[11px] text-slate-600 font-semibold">
+                              Giảm sản phẩm: -{formatVND(soTienGiamDon)}
+                            </span>
                           </div>
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={v.MaVoucher || v.Code}
-                          onClick={() => handleSelectAndApplyVoucher(v)}
-                          className={`p-3 rounded-xl transition-colors flex items-center justify-between gap-2 cursor-pointer ${
-                            isEligible
-                              ? 'bg-surface-container-low hover:bg-surface-container'
-                              : 'bg-surface-container-low/60 opacity-70'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-secondary text-on-secondary flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-lg">local_offer</span>
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs sm:text-sm text-secondary font-bold">{v.Code}</span>
-                                <span className="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed text-[10px] uppercase font-bold">
-                                  Giảm {v.LoaiGiam === 'phantram' ? `${v.GiaTriGiam}%` : formatVND(v.GiaTriGiam)}
-                                </span>
-                              </div>
-                              <span className="text-xs text-on-surface-variant truncate">
-                                Đơn tối thiểu {formatVND(minReq)}
-                              </span>
-                              {!isEligible && (
-                                <span className="text-[11px] text-tertiary">
-                                  Mua thêm {formatVND(minReq - subtotal)}
-                                </span>
-                              )}
-                              {v.NgayHetHan && (
-                                <span className="text-[10px] text-outline">
-                                  HSD: {new Date(v.NgayHetHan).toLocaleDateString('vi-VN')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectAndApplyVoucher(v);
-                            }}
-                            disabled={applyingVoucher}
-                            className="px-2.5 py-1 rounded-lg bg-surface-container-lowest hover:bg-secondary hover:text-on-secondary text-secondary text-xs font-bold shadow-sm transition-colors shrink-0 cursor-pointer"
-                          >
-                            Áp dụng
-                          </button>
                         </div>
-                      );
-                    })}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSingleVoucher('GiamGiaDon')}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                          title="Gỡ mã giảm giá đơn hàng"
+                        >
+                          <span className="material-symbols-outlined text-base">close</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {appliedFreeShip && (
+                      <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-base">local_shipping</span>
+                          </span>
+                          <div className="min-w-0">
+                            <span className="block text-xs font-extrabold text-emerald-700 font-mono truncate">
+                              {appliedFreeShip.Code}
+                            </span>
+                            <span className="block text-[11px] text-slate-600 font-semibold">
+                              {estimatedShippingFee === 0
+                                ? 'Đơn từ 10tr đã freeship'
+                                : `Giảm phí ship: -${formatVND(soTienGiamShip)}`}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSingleVoucher('FreeShip')}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                          title="Gỡ mã miễn phí vận chuyển"
+                        >
+                          <span className="material-symbols-outlined text-base">close</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  !appliedVoucher && (
-                    <p className="text-xs text-outline italic text-center py-2">
-                      Hiện chưa có voucher nào khả dụng
-                    </p>
-                  )
                 )}
               </div>
 
@@ -777,7 +788,7 @@ const CartPage = () => {
               </div>
             </div>
 
-            {/* ── Right Column: Order Summary (35% Sticky Box) ── */}
+            {/* ── Right Column: Order Summary (Sticky Box) ── */}
             <div className="lg:col-span-4 flex flex-col gap-3 sticky top-28">
               <div className="bg-surface-container-lowest rounded-xl shadow-md p-4 sm:p-5 flex flex-col gap-3 sm:gap-4">
                 <div className="flex items-center justify-between pb-2 border-b border-surface-container">
@@ -787,7 +798,7 @@ const CartPage = () => {
                   </span>
                 </div>
 
-                {/* Summary Math Calculations */}
+                {/* Summary Math Calculations — Tách bạch 2 dòng giảm giá */}
                 <div className="flex flex-col gap-2.5 text-xs sm:text-sm text-on-surface-variant">
                   <div className="flex items-center justify-between">
                     <span>Tạm tính ({selectedItems.length} sản phẩm):</span>
@@ -796,26 +807,47 @@ const CartPage = () => {
                     </span>
                   </div>
 
-                  {appliedVoucher && (
-                    <div className="flex items-center justify-between text-tertiary">
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-base">sell</span>
-                        Mã voucher ({appliedVoucher.Code || appliedVoucher.MaCode}):
-                      </span>
-                      <span className="font-bold">
-                        -{formatVND(actualDiscount)}
+                  {selectedItems.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span>Phí vận chuyển (tạm tính):</span>
+                      <span
+                        className={`font-semibold ${
+                          estimatedShippingFee === 0 ? 'text-secondary' : 'text-on-surface'
+                        }`}
+                      >
+                        {estimatedShippingFee === 0 ? 'Miễn phí' : formatVND(estimatedShippingFee)}
                       </span>
                     </div>
                   )}
 
-                  {onlineDiscount > 0 && (
-                    <div className="flex items-center justify-between text-secondary">
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-base">account_balance_wallet</span>
-                        Trợ giá thanh toán Online:
+                  {/* Dòng 1: Giảm giá sản phẩm */}
+                  {(appliedGiamGiaDon || soTienGiamDon > 0) && (
+                    <div className="flex items-center justify-between text-tertiary">
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span className="material-symbols-outlined text-base shrink-0">sell</span>
+                        <span className="truncate">
+                          Giảm giá sản phẩm
+                          {appliedGiamGiaDon?.Code ? ` (${appliedGiamGiaDon.Code})` : ''}:
+                        </span>
                       </span>
-                      <span className="font-bold">
-                        -{formatVND(onlineDiscount)}
+                      <span className="font-bold shrink-0 ml-2">
+                        -{formatVND(soTienGiamDon)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Dòng 2: Giảm phí vận chuyển */}
+                  {(appliedFreeShip || soTienGiamShip > 0) && (
+                    <div className="flex items-center justify-between text-secondary">
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span className="material-symbols-outlined text-base shrink-0">local_shipping</span>
+                        <span className="truncate">
+                          Giảm phí vận chuyển
+                          {appliedFreeShip?.Code ? ` (${appliedFreeShip.Code})` : ''}:
+                        </span>
+                      </span>
+                      <span className="font-bold shrink-0 ml-2">
+                        -{formatVND(soTienGiamShip)}
                       </span>
                     </div>
                   )}
@@ -833,11 +865,15 @@ const CartPage = () => {
                       </div>
                     </div>
 
-                    {(actualDiscount + onlineDiscount) > 0 && (
+                    {totalDiscount > 0 && (
                       <div className="p-2 rounded-lg bg-surface-container-low text-on-surface-variant text-xs flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-secondary text-base">savings</span>
                         <span>
-                          Tiết kiệm được <strong className="text-secondary font-bold">{formatVND(actualDiscount + onlineDiscount)}</strong> trong đơn hàng này
+                          Tiết kiệm được{' '}
+                          <strong className="text-secondary font-bold">
+                            {formatVND(totalDiscount)}
+                          </strong>{' '}
+                          trong đơn hàng này
                         </span>
                       </div>
                     )}
