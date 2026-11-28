@@ -36,7 +36,8 @@ const userRoutes = require('./src/routes/user/userRoutes');
 const warehouseOrderRoutes = require('./src/routes/warehouse/warehouseOrderRoutes');
 const warehouseInventoryRoutes = require('./src/routes/warehouse/warehouseInventoryRoutes');
 const warehouseRoutes = require('./src/routes/warehouse/warehouseRoutes');
-const { verifyToken } = require('./src/middlewares/authMiddleware');
+const notificationRoutes = require('./src/routes/common/notificationRoutes');
+const { verifyToken, verifyRole } = require('./src/middlewares/authMiddleware');
 const { uploadAvatar } = require('./src/controllers/user/profileController');
 
 // Basic status route
@@ -68,6 +69,7 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/warehouse/orders', warehouseOrderRoutes);
 app.use('/api/v1/warehouse/inventory', warehouseInventoryRoutes);
 app.use('/api/v1/warehouse', warehouseRoutes);
+app.use('/api/v1/notifications', verifyToken, verifyRole([1, 3]), notificationRoutes);
 // POST /api/v1/upload/avatar – upload ảnh đại diện (yêu cầu JWT)
 app.post('/api/v1/upload/avatar', verifyToken, ...uploadAvatar);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
