@@ -6,7 +6,10 @@ const { verifyToken, verifyRole } = require('../../middlewares/authMiddleware');
 // Chỉ cho phép Admin (Role 1) và Nhân viên Kho (Role 3) truy cập
 router.use(verifyToken, verifyRole([1, 3]));
 
-// GET /api/v1/warehouse/inventory/stock-list - Lấy danh sách sản phẩm và TonKho thực tế
+// GET /api/v1/warehouse/inventory/variants - Alias lấy danh sách tất cả biến thể SKU
+router.get('/variants', warehouseInventoryController.getWarehouseVariants);
+
+// GET /api/v1/warehouse/inventory/stock-list - Lấy danh sách biến thể và TonKho thực tế
 router.get('/stock-list', warehouseInventoryController.getWarehouseStockList);
 
 // GET /api/v1/warehouse/inventory/adjust-requests - Lấy danh sách phiếu báo lệch kho
@@ -15,11 +18,10 @@ router.get('/adjust-requests', warehouseInventoryController.getAdjustRequests);
 // GET /api/v1/warehouse/inventory/import-receipts - Lấy danh sách phiếu nhập kho
 router.get('/import-receipts', warehouseInventoryController.getImportReceipts);
 
-// POST /api/v1/warehouse/inventory/import - Nhập kho thực tế (tạo phiếu chờ duyệt)
+// POST /api/v1/warehouse/inventory/import - Nhập kho theo biến thể (tạo phiếu chờ duyệt)
 router.post('/import', warehouseInventoryController.importInventory);
 
-// POST /api/v1/warehouse/inventory/adjust-request - Lập phiếu đề nghị điều chỉnh lệch kho
+// POST /api/v1/warehouse/inventory/adjust-request - Lập phiếu đề nghị điều chỉnh lệch kho theo biến thể
 router.post('/adjust-request', warehouseInventoryController.createAdjustRequest);
 
 module.exports = router;
-

@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const warehouseReturnController = require('../../controllers/warehouse/warehouseReturnController');
+const warehouseInventoryController = require('../../controllers/warehouse/warehouseInventoryController');
 const { verifyToken, verifyRole } = require('../../middlewares/authMiddleware');
 
 // Chỉ cho phép Admin (Role 1) và Nhân viên Kho (Role 3) truy cập
 router.use(verifyToken, verifyRole([1, 3]));
+
+// GET /api/v1/warehouse/variants - Lấy danh sách tất cả biến thể SKU JOIN sanpham & nhasanxuat
+router.get('/variants', warehouseInventoryController.getWarehouseVariants);
 
 // GET /api/v1/warehouse/returns - Lấy danh sách phiếu đổi trả (JOIN donhang, sanpham, nguoidung)
 router.get('/returns', warehouseReturnController.getReturns);
@@ -13,4 +17,3 @@ router.get('/returns', warehouseReturnController.getReturns);
 router.put('/returns/:id/inspect', warehouseReturnController.inspectReturn);
 
 module.exports = router;
-

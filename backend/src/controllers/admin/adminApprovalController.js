@@ -1,16 +1,124 @@
 const { pool } = require('../../../config/db');
 const { formatOrderCode } = require('../../utils/formatters');
+const { pushNotification } = require('../../utils/notificationHelper');
 
 const VALID_APPROVAL_ACTIONS = ['Approve', 'Reject'];
 
 /**
- * Helper: format 1 bản ghi phiếu điều chỉnh kho kèm thông tin sản phẩm & nhân viên
+ * Helper tạo nhãn hiển thị biến thể SKU cho log lịch sử kho & thông báo
+ */
+const formatVariantLabel = (tenSanPham, mauSac, dungLuong, maSKU) => {
+  const attrs = [mauSac, dungLuong]
+    .map((v) => (v !== undefined && v !== null ? String(v).trim() : ''))
+    .filter(Boolean)
+    .join(' - ');
+  const base = tenSanPham || 'Sản phẩm';
+  if (attrs) {
+    return `${base} (${attrs})`;
+  }
+  return maSKU ? `${base} [${maSKU}]` : base;
+};
+
+/**
+ * Helper đồng bộ cột tổng `TonKho` và `TrangThai` trên bảng `sanpham`
+ * dựa trên tổng `TonKho` thực tế của các biến thể thuộc `MaSanPham`
+ */
+const syncParentProductStock = async (connection, maSanPham) => {
+  const [[sumRow]] = await connection.query(
+    `SELECT COALESCE(SUM(TonKho), 0) AS totalTonKho
+     FROM sanpham_bienthe
+     WHERE MaSanPham = ? AND TrangThai != 'NgungBan'`,
+    [maSanPham]
+  );
+
+  const [spRows] = await connection.query(
+    `SELECT MaSanPham, TrangThai FROM sanpham WHERE MaSanPham = ? FOR UPDATE`,
+    [maSanPham]
+  );
+
+  if (spRows.length > 0) {
+    const totalTonKho = Number(sumRow?.totalTonKho) || 0;
+    let nextParentStatus = spRows[0].TrangThai;
+    if (totalTonKho <= 0 && nextParentStatus === 'DangBan') {
+      nextParentStatus = 'HetHang';
+    } else if (totalTonKho > 0 && nextParentStatus === 'HetHang') {
+      nextParentStatus = 'DangBan';
+    }
+
+    await connection.query(
+      `UPDATE sanpham SET TonKho = ?, TrangThai = ? WHERE MaSanPham = ?`,
+      [totalTonKho, nextParentStatus, maSanPham]
+    );
+  }
+};
+
+/**
+ * Helper khóa và lấy dòng biến thể SKU trong transaction (có fallback an toàn về biến thể mặc định của MaSanPham nếu dữ liệu cũ thiếu MaBienThe)
+ */
+const lockVariantForApproval = async (connection, maBienThe, maSanPham) => {
+  if (maBienThe !== undefined && maBienThe !== null && Number(maBienThe) > 0) {
+    const [rows] = await connection.query(
+      `SELECT
+         bt.MaBienThe,
+         bt.MaSanPham,
+         bt.MaSKU,
+         bt.MauSac,
+         bt.DungLuong,
+         bt.GiaBan,
+         bt.GiaNhapGanNhat,
+         bt.TonKho,
+         bt.TrangThai,
+         sp.TenSanPham
+       FROM sanpham_bienthe bt
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
+       WHERE bt.MaBienThe = ?
+       FOR UPDATE`,
+      [Number(maBienThe)]
+    );
+    return rows[0] || null;
+  }
+
+  if (maSanPham !== undefined && maSanPham !== null && Number(maSanPham) > 0) {
+    const [rows] = await connection.query(
+      `SELECT
+         bt.MaBienThe,
+         bt.MaSanPham,
+         bt.MaSKU,
+         bt.MauSac,
+         bt.DungLuong,
+         bt.GiaBan,
+         bt.GiaNhapGanNhat,
+         bt.TonKho,
+         bt.TrangThai,
+         sp.TenSanPham
+       FROM sanpham_bienthe bt
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
+       WHERE bt.MaSanPham = ?
+       ORDER BY bt.MaBienThe ASC
+       LIMIT 1
+       FOR UPDATE`,
+      [Number(maSanPham)]
+    );
+    return rows[0] || null;
+  }
+
+  return null;
+};
+
+/**
+ * Helper: format 1 bản ghi phiếu điều chỉnh kho kèm thông tin biến thể, sản phẩm & nhân viên
  */
 const formatAdjustmentRecord = (row) => ({
   MaPhieuAdjust: row.MaPhieuAdjust,
   MaSanPham: row.MaSanPham,
+  MaBienThe: row.MaBienThe || null,
+  MaSKU: row.MaSKU || null,
+  MauSac: row.MauSac || null,
+  DungLuong: row.DungLuong || null,
+  GiaBan: row.GiaBan !== null && row.GiaBan !== undefined ? Number(row.GiaBan) : null,
   TenSanPham: row.TenSanPham || null,
   TonKhoHienTai: row.TonKho !== null && row.TonKho !== undefined ? Number(row.TonKho) : null,
+  TrangThaiBienThe: row.TrangThaiBienThe || null,
   TrangThaiSanPham: row.TrangThaiSanPham || null,
   MaNguoiDung_Kho: row.MaNguoiDung_Kho,
   NguoiTaoKho: row.TaiKhoanKho || null,
@@ -46,10 +154,6 @@ const parseProofImages = (rawProof) => {
 
 /**
  * Helper: Xác định kênh hoàn tiền & loại kênh dựa trên phương thức thanh toán của đơn
- * Nghiệp vụ thanh toán thực tế:
- * - Đơn VNPay -> "Hoàn tự động về cổng VNPay"
- * - Đơn ZaloPay -> "Hoàn tự động về cổng ZaloPay"
- * - Đơn COD -> "Chuyển khoản ngân hàng cho đơn COD"
  */
 const resolveRefundChannel = (paymentMethodName) => {
   const norm = String(paymentMethodName || '').toUpperCase().trim();
@@ -162,14 +266,15 @@ const formatReturnRecord = (row) => {
 
 /**
  * 1. PUT /api/v1/admin/inventory/adjustments/:id/approve
- * Admin phê duyệt hoặc từ chối phiếu báo lệch kho:
- * - Nhận Body: { hanhDong: 'Approve' | 'Reject' }.
+ * Admin phê duyệt hoặc từ chối phiếu báo lệch kho theo từng biến thể SKU (`MaBienThe`):
+ * - Nhận Body: { hanhDong: 'Approve' | 'Reject', lyDoTuChoi }.
  * - NẾU Approve:
- *   + UPDATE phieudieuchinhkho SET TrangThai = 'DaDuyet', MaNguoiDung_Admin = req.user.MaNguoiDung, NgayDuyet = NOW().
- *   + UPDATE sanpham SET TonKho = SoLuongThucTe WHERE MaSanPham = ...
- *   + Ghi log vào lichsutonkho với LoaiBienDong = 'CapNhatThuCong'.
+ *   + Cập nhật `TonKho = SoLuongThucTe` cho đúng `MaBienThe` trong `sanpham_bienthe` (đồng bộ tổng `sanpham.TonKho`).
+ *   + Cập nhật `phieudieuchinhkho` SET `TrangThai = 'DaDuyet'`.
+ *   + Ghi `lichsutonkho` theo `MaBienThe` với `LoaiBienDong = 'CapNhatThuCong'`.
+ *   + Gọi `pushNotification` báo cho Kho (`VaiTroNhan = 3`).
  * - NẾU Reject:
- *   + UPDATE phieudieuchinhkho SET TrangThai = 'TuChoi', MaNguoiDung_Admin = req.user.MaNguoiDung, NgayDuyet = NOW().
+ *   + Cập nhật `phieudieuchinhkho` SET `TrangThai = 'TuChoi'` và gọi `pushNotification` báo cho Kho (`VaiTroNhan = 3`).
  */
 const approveInventoryAdjustment = async (req, res, next) => {
   let connection;
@@ -193,7 +298,7 @@ const approveInventoryAdjustment = async (req, res, next) => {
     }
 
     const body = req.body || {};
-    const rawHanhDong = body.hanhDong ?? body.HanhDong;
+    const rawHanhDong = body.hanhDong ?? body.HanhDong ?? body.action ?? body.Action;
     const hanhDong =
       rawHanhDong !== undefined && rawHanhDong !== null ? String(rawHanhDong).trim() : '';
 
@@ -217,6 +322,7 @@ const approveInventoryAdjustment = async (req, res, next) => {
       `SELECT
          MaPhieuAdjust,
          MaSanPham,
+         MaBienThe,
          MaNguoiDung_Kho,
          SoLuongThucTe,
          SoLuongChechLech,
@@ -252,27 +358,24 @@ const approveInventoryAdjustment = async (req, res, next) => {
     let tonKhoTruoc = null;
     let tonKhoMoi = null;
     let soLuongThayDoi = null;
+    let resolvedVariant = null;
 
     if (hanhDong === 'Approve') {
-      // Khóa dòng sản phẩm để cập nhật tồn kho an toàn
-      const [productRows] = await connection.query(
-        `SELECT MaSanPham, TenSanPham, TonKho, TrangThai
-         FROM sanpham
-         WHERE MaSanPham = ?
-         FOR UPDATE`,
-        [adjustment.MaSanPham]
+      resolvedVariant = await lockVariantForApproval(
+        connection,
+        adjustment.MaBienThe,
+        adjustment.MaSanPham
       );
 
-      if (productRows.length === 0) {
+      if (!resolvedVariant) {
         await connection.rollback();
         return res.status(404).json({
           success: false,
-          message: `Sản phẩm có mã ${adjustment.MaSanPham} không tồn tại`
+          message: `Biến thể sản phẩm gắn với phiếu điều chỉnh #${adjustmentId} không tồn tại`
         });
       }
 
-      const product = productRows[0];
-      tonKhoTruoc = Number(product.TonKho) || 0;
+      tonKhoTruoc = Number(resolvedVariant.TonKho) || 0;
       tonKhoMoi = Number(adjustment.SoLuongThucTe);
 
       if (!Number.isInteger(tonKhoMoi) || tonKhoMoi < 0) {
@@ -285,41 +388,58 @@ const approveInventoryAdjustment = async (req, res, next) => {
 
       soLuongThayDoi = tonKhoMoi - tonKhoTruoc;
 
-      // 1. UPDATE phieudieuchinhkho SET TrangThai = 'DaDuyet', MaNguoiDung_Admin, NgayDuyet = NOW()
+      // 1. Cập nhật phieudieuchinhkho SET TrangThai = 'DaDuyet'
       await connection.query(
         `UPDATE phieudieuchinhkho
          SET TrangThai = 'DaDuyet',
+             MaBienThe = ?,
              MaNguoiDung_Admin = ?,
              NgayDuyet = NOW()
          WHERE MaPhieuAdjust = ?`,
-        [adminId, adjustmentId]
+        [resolvedVariant.MaBienThe, adminId, adjustmentId]
       );
 
-      // 2. UPDATE sanpham SET TonKho = SoLuongThucTe WHERE MaSanPham = ...
-      let nextProductStatus = product.TrangThai;
-      if (tonKhoMoi <= 0 && product.TrangThai === 'DangBan') {
-        nextProductStatus = 'HetHang';
-      } else if (tonKhoMoi > 0 && product.TrangThai === 'HetHang') {
-        nextProductStatus = 'DangBan';
+      // 2. Cập nhật TonKho = SoLuongThucTe cho đúng MaBienThe trong sanpham_bienthe
+      let nextVariantStatus = resolvedVariant.TrangThai;
+      if (tonKhoMoi <= 0 && nextVariantStatus === 'DangBan') {
+        nextVariantStatus = 'HetHang';
+      } else if (tonKhoMoi > 0 && nextVariantStatus === 'HetHang') {
+        nextVariantStatus = 'DangBan';
       }
 
       await connection.query(
-        `UPDATE sanpham
+        `UPDATE sanpham_bienthe
          SET TonKho = ?, TrangThai = ?
-         WHERE MaSanPham = ?`,
-        [tonKhoMoi, nextProductStatus, adjustment.MaSanPham]
+         WHERE MaBienThe = ?`,
+        [tonKhoMoi, nextVariantStatus, resolvedVariant.MaBienThe]
       );
 
-      // 3. Ghi log vào lichsutonkho với LoaiBienDong = 'CapNhatThuCong'
-      const logNote = `Admin duyệt phiếu điều chỉnh kho #${adjustmentId}: ${adjustment.LyDoGiaiTrinh}`;
+      // Đồng bộ tổng TonKho lên bảng sanpham cha
+      await syncParentProductStock(connection, resolvedVariant.MaSanPham);
+
+      // 3. Ghi log vào lichsutonkho gắn với MaBienThe
+      const variantLabel = formatVariantLabel(
+        resolvedVariant.TenSanPham,
+        resolvedVariant.MauSac,
+        resolvedVariant.DungLuong,
+        resolvedVariant.MaSKU
+      );
+      const logNote = `Admin duyệt phiếu điều chỉnh kho #${adjustmentId} (${variantLabel}): ${adjustment.LyDoGiaiTrinh}`;
+
       await connection.query(
         `INSERT INTO lichsutonkho
-           (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
-         VALUES (?, 'CapNhatThuCong', ?, ?, ?, NOW(), ?)`,
-        [adjustment.MaSanPham, soLuongThayDoi, tonKhoMoi, adjustmentId, logNote]
+           (MaSanPham, MaBienThe, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
+         VALUES (?, ?, 'CapNhatThuCong', ?, ?, ?, NOW(), ?)`,
+        [
+          resolvedVariant.MaSanPham,
+          resolvedVariant.MaBienThe,
+          soLuongThayDoi,
+          tonKhoMoi,
+          adjustmentId,
+          logNote
+        ]
       );
     } else {
-      // Trường hợp Reject: cập nhật TrangThai = 'TuChoi', ghi nhận LyDoTuChoi, giữ nguyên TonKho của sanpham
       await connection.query(
         `UPDATE phieudieuchinhkho
          SET TrangThai = 'TuChoi',
@@ -337,8 +457,14 @@ const approveInventoryAdjustment = async (req, res, next) => {
       `SELECT
          p.MaPhieuAdjust,
          p.MaSanPham,
+         p.MaBienThe,
+         bt.MaSKU,
+         COALESCE(bt.MauSac, sp.MauSac) AS MauSac,
+         COALESCE(bt.DungLuong, sp.DungLuong) AS DungLuong,
+         COALESCE(bt.GiaBan, sp.Gia) AS GiaBan,
          sp.TenSanPham,
-         sp.TonKho,
+         COALESCE(bt.TonKho, sp.TonKho) AS TonKho,
+         bt.TrangThai AS TrangThaiBienThe,
          sp.TrangThai AS TrangThaiSanPham,
          p.MaNguoiDung_Kho,
          uk.TaiKhoan AS TaiKhoanKho,
@@ -352,14 +478,42 @@ const approveInventoryAdjustment = async (req, res, next) => {
          p.NgayTao,
          p.NgayDuyet
        FROM phieudieuchinhkho p
-       LEFT JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+       LEFT JOIN sanpham_bienthe bt ON p.MaBienThe = bt.MaBienThe
+       LEFT JOIN sanpham sp ON COALESCE(bt.MaSanPham, p.MaSanPham) = sp.MaSanPham
        LEFT JOIN nguoidung uk ON p.MaNguoiDung_Kho = uk.MaNguoiDung
        LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
        WHERE p.MaPhieuAdjust = ?`,
       [adjustmentId]
     );
 
-    const responseData = formatAdjustmentRecord(updatedRows[0]);
+    const updatedRow = updatedRows[0] || {};
+    const notifyLabel = formatVariantLabel(
+      updatedRow.TenSanPham,
+      updatedRow.MauSac,
+      updatedRow.DungLuong,
+      updatedRow.MaSKU
+    );
+
+    // Gửi thông báo nội bộ cho Nhân viên Kho (VaiTroNhan = 3)
+    if (hanhDong === 'Approve') {
+      await pushNotification({
+        vaiTroNhan: 3,
+        tieuDe: `Phiếu điều chỉnh lệch kho #${adjustmentId} đã được phê duyệt`,
+        noiDung: `Admin đã phê duyệt phiếu báo lệch kho #${adjustmentId} cho biến thể ${notifyLabel}. Tồn kho mới: ${tonKhoMoi}.`,
+        loaiThongBao: 'KhoVan',
+        lienKet: '/warehouse/inventory'
+      });
+    } else {
+      await pushNotification({
+        vaiTroNhan: 3,
+        tieuDe: `Phiếu điều chỉnh lệch kho #${adjustmentId} bị từ chối`,
+        noiDung: `Admin đã từ chối phiếu báo lệch kho #${adjustmentId} cho biến thể ${notifyLabel}.${lyDoTuChoi ? ` Lý do: ${lyDoTuChoi}` : ''}`,
+        loaiThongBao: 'KhoVan',
+        lienKet: '/warehouse/inventory'
+      });
+    }
+
+    const responseData = formatAdjustmentRecord(updatedRow);
     if (hanhDong === 'Approve') {
       responseData.TonKhoTruoc = tonKhoTruoc;
       responseData.TonKhoMoi = tonKhoMoi;
@@ -370,7 +524,7 @@ const approveInventoryAdjustment = async (req, res, next) => {
       success: true,
       message:
         hanhDong === 'Approve'
-          ? 'Phê duyệt phiếu điều chỉnh kho và cập nhật tồn kho thành công'
+          ? 'Phê duyệt phiếu điều chỉnh kho và cập nhật tồn kho biến thể thành công'
           : 'Từ chối phiếu điều chỉnh kho thành công',
       data: responseData
     });
@@ -388,22 +542,7 @@ const approveInventoryAdjustment = async (req, res, next) => {
 
 /**
  * 2. POST /api/v1/admin/returns/:id/refund
- * Quy trình Hoàn tiền đổi trả chuẩn nghiệp vụ thanh toán thực tế (2 Giai đoạn):
- * 
- * - Giai đoạn 1 (Từ ChoDuyet -> DangHoanTien):
- *   Admin bấm "Duyệt yêu cầu hoàn tiền" -> Hệ thống tạo lệnh hoàn tiền:
- *   Xác định rõ kênh hoàn tiền dựa theo phương thức thanh toán của đơn:
- *   * "Hoàn tự động về cổng VNPay" (với đơn thanh toán VNPay)
- *   * "Hoàn tự động về cổng ZaloPay" (với đơn thanh toán ZaloPay)
- *   * "Chuyển khoản ngân hàng cho đơn COD" (với đơn thanh toán COD/tiền mặt)
- *   Cập nhật phieudoitra SET TrangThaiHoanTien = 'DangHoanTien', PhuongThucHoanTien = ...
- * 
- * - Giai đoạn 2 (Từ DangHoanTien -> DaHoanTien):
- *   Admin nhập Mã giao dịch hoàn tiền / Mã tham chiếu ngân hàng (VD: REF2026...) và bấm "Xác nhận đã chuyển tiền":
- *   Kiểm tra bắt buộc có mã giao dịch đối soát thực tế.
- *   Cập nhật phieudoitra SET TrangThaiHoanTien = 'DaHoanTien', MaGiaoDichHoanTien = ..., GhiChuHoanTien = ..., NgayHoanTien = NOW().
- *   Cập nhật donhang SET TrangThaiDonHang = 'DaHoanTien'.
- *   Đồng bộ lichsumuahang SET TrangThai = 'DaHoanTien'.
+ * Quy trình Hoàn tiền đổi trả chuẩn nghiệp vụ thanh toán thực tế (2 Giai đoạn)
  */
 const confirmReturnRefund = async (req, res, next) => {
   let connection;
@@ -437,7 +576,6 @@ const confirmReturnRefund = async (req, res, next) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Khóa bản ghi phieudoitra để chống xử lý trùng lặp đồng thời
     const [returnRows] = await connection.query(
       `SELECT
          p.MaPhieuDoiTra,
@@ -472,7 +610,6 @@ const confirmReturnRefund = async (req, res, next) => {
 
     const returnRecord = returnRows[0];
 
-    // Kiểm tra kết quả kiểm định của Kho
     if (returnRecord.KetQuaKiemDinh !== 'Dat') {
       await connection.rollback();
       return res.status(400).json({
@@ -481,7 +618,6 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // Tra cứu phương thức thanh toán ban đầu của đơn hàng
     const [paymentRows] = await connection.query(
       `SELECT COALESCE(
          (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = ? ORDER BY tt.MaThanhToan DESC LIMIT 1),
@@ -496,9 +632,6 @@ const confirmReturnRefund = async (req, res, next) => {
     const selectedChannel =
       body.kenhHoanTien || returnRecord.PhuongThucHoanTien || channelInfo.tenKenh;
 
-    // Phân loại giai đoạn xử lý:
-    // Nếu action = 'confirm' / 'DaHoanTien' HOẶC có maGiaoDich -> Xử lý Giai đoạn 2 (Xác nhận đã chuyển tiền)
-    // Ngược lại -> Xử lý Giai đoạn 1 (Duyệt yêu cầu hoàn tiền)
     const actionLower = action.toLowerCase();
     const isStage2 =
       actionLower === 'confirm' ||
@@ -507,9 +640,6 @@ const confirmReturnRefund = async (req, res, next) => {
       Boolean(maGiaoDich);
 
     if (!isStage2) {
-      // =========================================================================
-      // GIAI ĐOẠN 1: DUYỆT YÊU CẦU HOÀN TIỀN (ChoDuyet -> DangHoanTien)
-      // =========================================================================
       if (returnRecord.TrangThaiHoanTien === 'DangHoanTien') {
         await connection.rollback();
         return res.status(400).json({
@@ -535,7 +665,6 @@ const confirmReturnRefund = async (req, res, next) => {
         });
       }
 
-      // Cập nhật phieudoitra sang trạng thái 'DangHoanTien' và lưu kênh hoàn tiền
       await connection.query(
         `UPDATE phieudoitra
          SET TrangThaiHoanTien = 'DangHoanTien',
@@ -614,9 +743,6 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // =========================================================================
-    // GIAI ĐOẠN 2: XÁC NHẬN ĐÃ CHUYỂN TIỀN (DangHoanTien -> DaHoanTien)
-    // =========================================================================
     if (returnRecord.TrangThaiHoanTien === 'DaHoanTien') {
       await connection.rollback();
       return res.status(400).json({
@@ -626,7 +752,6 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // Bắt buộc phải có mã giao dịch đối soát thực tế
     if (!maGiaoDich) {
       await connection.rollback();
       return res.status(400).json({
@@ -636,7 +761,6 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // Khóa đơn hàng liên kết
     const [orderRows] = await connection.query(
       `SELECT MaDonHang, NgayMuaHang, TrangThaiDonHang, TongTien
        FROM donhang
@@ -653,7 +777,6 @@ const confirmReturnRefund = async (req, res, next) => {
       });
     }
 
-    // 1. UPDATE phieudoitra SET TrangThaiHoanTien = 'DaHoanTien', MaGiaoDichHoanTien, NgayHoanTien = NOW()
     await connection.query(
       `UPDATE phieudoitra
        SET TrangThaiHoanTien = 'DaHoanTien',
@@ -667,7 +790,6 @@ const confirmReturnRefund = async (req, res, next) => {
       [selectedChannel, maGiaoDich, ghiChuHoanTien || null, adminId, returnId]
     );
 
-    // 2. UPDATE donhang SET TrangThaiDonHang = 'DaHoanTien' WHERE MaDonHang = ...
     await connection.query(
       `UPDATE donhang
        SET TrangThaiDonHang = 'DaHoanTien'
@@ -675,7 +797,6 @@ const confirmReturnRefund = async (req, res, next) => {
       [returnRecord.MaDonHang]
     );
 
-    // 3. Đồng bộ trạng thái trên bảng lịch sử mua hàng (nếu có)
     await connection.query(
       `UPDATE lichsumuahang
        SET TrangThai = 'DaHoanTien'
@@ -863,16 +984,18 @@ const getReturnRefunds = async (req, res, next) => {
 
 /**
  * 3. PUT /api/v1/admin/inventory/imports/:id/approve
- * Admin phê duyệt hoặc từ chối phiếu nhập kho:
+ * Admin phê duyệt hoặc từ chối phiếu nhập kho theo từng biến thể SKU (`MaBienThe`):
  * - Nhận Body: { hanhDong: 'Approve' | 'Reject' } hoặc { action: 'Approve' | 'Reject' }.
  * - NẾU Approve:
- *   + UPDATE phieunhapkho SET TrangThai = 'DaDuyet', MaNguoiDung_Admin = req.user.MaNguoiDung, NgayDuyet = NOW().
- *   + Duyệt từng sản phẩm trong chitietphieunhap:
- *     * UPDATE sanpham SET TonKho = TonKho + SoLuongNhap WHERE MaSanPham = ...
- *     * Ghi log vào lichsutonkho với LoaiBienDong = 'NhapKho'.
+ *   + Duyệt từng dòng trong `chitietphieunhap`:
+ *     * Cộng `TonKho` của đúng `MaBienThe` trong `sanpham_bienthe`.
+ *     * Cập nhật `GiaNhapGanNhat = DonGiaNhap` cho đúng `MaBienThe`.
+ *     * Đồng bộ tổng `TonKho` lên bảng `sanpham`.
+ *     * Ghi `lichsutonkho` theo `MaBienThe` với `LoaiBienDong = 'NhapKho'`.
+ *   + Cập nhật `phieunhapkho` SET `TrangThai = 'DaDuyet'`.
+ *   + Gọi `pushNotification` báo cho Kho (`VaiTroNhan = 3`).
  * - NẾU Reject:
- *   + UPDATE phieunhapkho SET TrangThai = 'TuChoi', MaNguoiDung_Admin = req.user.MaNguoiDung, NgayDuyet = NOW().
- *   + Giữ nguyên TonKho của sản phẩm, không ghi log biến động kho.
+ *   + Cập nhật `phieunhapkho` SET `TrangThai = 'TuChoi'` và gọi `pushNotification` báo cho Kho (`VaiTroNhan = 3`).
  */
 const approveInventoryImport = async (req, res, next) => {
   let connection;
@@ -946,12 +1069,13 @@ const approveInventoryImport = async (req, res, next) => {
       });
     }
 
-    // Lấy chi tiết các sản phẩm trong phiếu nhập kho
+    // Lấy chi tiết các biến thể trong phiếu nhập kho
     const [detailRows] = await connection.query(
       `SELECT
          MaChiTietNhap,
          MaPhieuNhap,
          MaSanPham,
+         MaBienThe,
          SoLuongNhap,
          DonGiaNhap
        FROM chitietphieunhap
@@ -963,71 +1087,103 @@ const approveInventoryImport = async (req, res, next) => {
       await connection.rollback();
       return res.status(400).json({
         success: false,
-        message: 'Phiếu nhập kho không có chi tiết sản phẩm hợp lệ'
+        message: 'Phiếu nhập kho không có chi tiết biến thể hợp lệ'
       });
     }
 
     const updatedProductDetails = [];
+    const affectedParentProductIds = new Set();
 
     if (hanhDong === 'Approve') {
       for (const item of detailRows) {
-        const maSanPham = Number(item.MaSanPham);
         const soLuongNhap = Number(item.SoLuongNhap);
+        const donGiaNhap = Number(item.DonGiaNhap);
 
-        // Khóa dòng sản phẩm để cập nhật tồn kho an toàn
-        const [spRows] = await connection.query(
-          `SELECT MaSanPham, TenSanPham, TonKho, TrangThai
-           FROM sanpham
-           WHERE MaSanPham = ?
-           FOR UPDATE`,
-          [maSanPham]
+        const variant = await lockVariantForApproval(
+          connection,
+          item.MaBienThe,
+          item.MaSanPham
         );
 
-        if (spRows.length === 0) {
+        if (!variant) {
           await connection.rollback();
           return res.status(404).json({
             success: false,
-            message: `Sản phẩm có mã ${maSanPham} không tồn tại`
+            message: `Biến thể sản phẩm (MaBienThe: ${item.MaBienThe || 'N/A'}) trong phiếu nhập #${importId} không tồn tại`
           });
         }
 
-        const product = spRows[0];
-        const tonKhoTruoc = Number(product.TonKho) || 0;
+        const tonKhoTruoc = Number(variant.TonKho) || 0;
         const tonKhoMoi = tonKhoTruoc + soLuongNhap;
 
-        let nextStatus = product.TrangThai;
-        if (product.TrangThai === 'HetHang' && tonKhoMoi > 0) {
-          nextStatus = 'DangBan';
+        let nextVariantStatus = variant.TrangThai;
+        if (nextVariantStatus === 'HetHang' && tonKhoMoi > 0) {
+          nextVariantStatus = 'DangBan';
         }
 
-        // 1. UPDATE sanpham SET TonKho = TonKho + SoLuongNhap WHERE MaSanPham = ...
+        // 1. Cộng TonKho của đúng MaBienThe và cập nhật GiaNhapGanNhat = DonGiaNhap
         await connection.query(
-          `UPDATE sanpham
-           SET TonKho = ?, TrangThai = ?
-           WHERE MaSanPham = ?`,
-          [tonKhoMoi, nextStatus, maSanPham]
+          `UPDATE sanpham_bienthe
+           SET TonKho = ?,
+               GiaNhapGanNhat = ?,
+               TrangThai = ?
+           WHERE MaBienThe = ?`,
+          [tonKhoMoi, donGiaNhap, nextVariantStatus, variant.MaBienThe]
         );
 
-        // 2. Ghi nhật ký vào bảng lichsutonkho với LoaiBienDong = 'NhapKho'
+        // Đảm bảo dòng chi tiết cũ (nếu thiếu MaBienThe) được ánh xạ chuẩn
+        if (!item.MaBienThe) {
+          await connection.query(
+            `UPDATE chitietphieunhap SET MaBienThe = ? WHERE MaChiTietNhap = ?`,
+            [variant.MaBienThe, item.MaChiTietNhap]
+          );
+        }
+
+        affectedParentProductIds.add(Number(variant.MaSanPham));
+
+        // 2. Ghi nhật ký vào bảng lichsutonkho theo MaBienThe với LoaiBienDong = 'NhapKho'
+        const variantLabel = formatVariantLabel(
+          variant.TenSanPham,
+          variant.MauSac,
+          variant.DungLuong,
+          variant.MaSKU
+        );
         const logNote = receipt.GhiChu
-          ? `Admin duyệt phiếu nhập kho #${importId}: ${receipt.GhiChu}`
-          : `Admin duyệt phiếu nhập kho #${importId}`;
+          ? `Admin duyệt phiếu nhập kho #${importId} (${variantLabel}): ${receipt.GhiChu}`
+          : `Admin duyệt phiếu nhập kho #${importId} (${variantLabel})`;
 
         await connection.query(
           `INSERT INTO lichsutonkho
-             (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
-           VALUES (?, 'NhapKho', ?, ?, ?, NOW(), ?)`,
-          [maSanPham, soLuongNhap, tonKhoMoi, importId, logNote]
+             (MaSanPham, MaBienThe, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
+           VALUES (?, ?, 'NhapKho', ?, ?, ?, NOW(), ?)`,
+          [
+            variant.MaSanPham,
+            variant.MaBienThe,
+            soLuongNhap,
+            tonKhoMoi,
+            importId,
+            logNote
+          ]
         );
 
         updatedProductDetails.push({
-          MaSanPham: maSanPham,
-          TenSanPham: product.TenSanPham,
+          MaBienThe: variant.MaBienThe,
+          MaSKU: variant.MaSKU,
+          MaSanPham: variant.MaSanPham,
+          TenSanPham: variant.TenSanPham,
+          MauSac: variant.MauSac || null,
+          DungLuong: variant.DungLuong || null,
           SoLuongNhap: soLuongNhap,
-          DonGiaNhap: Number(item.DonGiaNhap),
+          DonGiaNhap: donGiaNhap,
+          GiaNhapGanNhat: donGiaNhap,
           TonKhoTruoc: tonKhoTruoc,
           TonKhoMoi: tonKhoMoi
         });
+      }
+
+      // Đồng bộ tổng TonKho lên bảng sanpham cha cho tất cả sản phẩm liên quan
+      for (const parentId of affectedParentProductIds) {
+        await syncParentProductStock(connection, parentId);
       }
 
       // 3. UPDATE phieunhapkho SET TrangThai = 'DaDuyet', MaNguoiDung_Admin, NgayDuyet = NOW()
@@ -1040,7 +1196,6 @@ const approveInventoryImport = async (req, res, next) => {
         [adminId, importId]
       );
     } else {
-      // Trường hợp Reject: Cập nhật TrangThai = 'TuChoi', giữ nguyên tồn kho sanpham
       await connection.query(
         `UPDATE phieunhapkho
          SET TrangThai = 'TuChoi',
@@ -1052,6 +1207,35 @@ const approveInventoryImport = async (req, res, next) => {
     }
 
     await connection.commit();
+
+    // Gửi thông báo nội bộ cho Nhân viên Kho (VaiTroNhan = 3)
+    if (hanhDong === 'Approve') {
+      const summaryText =
+        updatedProductDetails.length === 1
+          ? `${formatVariantLabel(
+              updatedProductDetails[0].TenSanPham,
+              updatedProductDetails[0].MauSac,
+              updatedProductDetails[0].DungLuong,
+              updatedProductDetails[0].MaSKU
+            )} (+${updatedProductDetails[0].SoLuongNhap})`
+          : `${updatedProductDetails.length} biến thể SKU`;
+
+      await pushNotification({
+        vaiTroNhan: 3,
+        tieuDe: `Phiếu nhập kho #${importId} đã được phê duyệt`,
+        noiDung: `Admin đã phê duyệt phiếu nhập kho #${importId} (${summaryText}). Tồn kho và giá nhập gần nhất của biến thể đã được cập nhật.`,
+        loaiThongBao: 'KhoVan',
+        lienKet: '/warehouse/inventory'
+      });
+    } else {
+      await pushNotification({
+        vaiTroNhan: 3,
+        tieuDe: `Phiếu nhập kho #${importId} bị từ chối`,
+        noiDung: `Admin đã từ chối phiếu nhập kho #${importId}. Vui lòng kiểm tra lại thông tin phiếu nhập.`,
+        loaiThongBao: 'KhoVan',
+        lienKet: '/warehouse/inventory'
+      });
+    }
 
     // Lấy thông tin phiếu sau khi cập nhật
     const [resultRows] = await pool.query(
@@ -1088,7 +1272,7 @@ const approveInventoryImport = async (req, res, next) => {
       success: true,
       message:
         hanhDong === 'Approve'
-          ? 'Phê duyệt phiếu nhập kho và cập nhật tồn kho thành công'
+          ? 'Phê duyệt phiếu nhập kho, cập nhật tồn kho và giá nhập gần nhất theo biến thể thành công'
           : 'Từ chối phiếu nhập kho thành công',
       data: updatedRecord
     });
@@ -1106,7 +1290,7 @@ const approveInventoryImport = async (req, res, next) => {
 
 /**
  * 4. GET /api/v1/admin/inventory/imports
- * Admin lấy danh sách phiếu nhập kho
+ * Admin lấy danh sách phiếu nhập kho kèm chi tiết biến thể SKU
  */
 const getImportReceipts = async (req, res, next) => {
   try {
@@ -1147,17 +1331,21 @@ const getImportReceipts = async (req, res, next) => {
          ct.MaChiTietNhap,
          ct.MaPhieuNhap,
          ct.MaSanPham,
+         ct.MaBienThe,
+         bt.MaSKU,
          sp.TenSanPham,
          sp.Anh,
-         sp.DungLuong,
-         sp.MauSac,
-         sp.Gia,
-         COALESCE(sp.TonKho, 0) AS TonKhoHienTai,
+         COALESCE(bt.DungLuong, sp.DungLuong) AS DungLuong,
+         COALESCE(bt.MauSac, sp.MauSac) AS MauSac,
+         COALESCE(bt.GiaBan, sp.Gia, 0) AS GiaBan,
+         COALESCE(bt.GiaNhapGanNhat, 0) AS GiaNhapGanNhat,
+         COALESCE(bt.TonKho, sp.TonKho, 0) AS TonKhoHienTai,
          ct.SoLuongNhap,
          ct.DonGiaNhap,
          (ct.SoLuongNhap * ct.DonGiaNhap) AS ThanhTien
        FROM chitietphieunhap ct
-       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       LEFT JOIN sanpham_bienthe bt ON ct.MaBienThe = bt.MaBienThe
+       LEFT JOIN sanpham sp ON COALESCE(bt.MaSanPham, ct.MaSanPham) = sp.MaSanPham
        WHERE ct.MaPhieuNhap IN (?)
        ORDER BY ct.MaChiTietNhap ASC`,
       [importIds]
@@ -1168,14 +1356,19 @@ const getImportReceipts = async (req, res, next) => {
       if (!detailsByImportId.has(d.MaPhieuNhap)) {
         detailsByImportId.set(d.MaPhieuNhap, []);
       }
+      const giaBan = Number(d.GiaBan) || 0;
       detailsByImportId.get(d.MaPhieuNhap).push({
         MaChiTietNhap: d.MaChiTietNhap,
         MaSanPham: d.MaSanPham,
+        MaBienThe: d.MaBienThe || null,
+        MaSKU: d.MaSKU || null,
         TenSanPham: d.TenSanPham || `Sản phẩm #${d.MaSanPham}`,
         Anh: d.Anh || null,
         DungLuong: d.DungLuong || null,
         MauSac: d.MauSac || null,
-        Gia: Number(d.Gia) || 0,
+        GiaBan: giaBan,
+        Gia: giaBan,
+        GiaNhapGanNhat: Number(d.GiaNhapGanNhat) || 0,
         TonKhoHienTai: Number(d.TonKhoHienTai) || 0,
         SoLuongNhap: Number(d.SoLuongNhap),
         DonGiaNhap: Number(d.DonGiaNhap),
@@ -1218,4 +1411,3 @@ module.exports = {
   approveInventoryImport,
   getImportReceipts
 };
-

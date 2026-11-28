@@ -1,61 +1,175 @@
 const { pool } = require('../../../config/db');
+const { pushNotification } = require('../../utils/notificationHelper');
+
+/**
+ * Helper tạo nhãn hiển thị biến thể SKU dễ đọc cho thông báo & phản hồi API
+ */
+const formatVariantDisplayName = (tenSanPham, mauSac, dungLuong, maSKU) => {
+  const attrs = [mauSac, dungLuong]
+    .map((v) => (v !== undefined && v !== null ? String(v).trim() : ''))
+    .filter(Boolean)
+    .join(' - ');
+  const base = tenSanPham || 'Sản phẩm';
+  if (attrs) {
+    return `${base} (${attrs})`;
+  }
+  return maSKU ? `${base} [${maSKU}]` : base;
+};
+
+/**
+ * Helper chuẩn hóa 1 dòng biến thể kho JOIN `sanpham` và `nhasanxuat`
+ */
+const mapWarehouseVariantRow = (item) => {
+  const tonKho = Number(item.TonKho) || 0;
+  let trangThaiTonKho = 'Hết hàng';
+  if (tonKho >= 5) {
+    trangThaiTonKho = 'Còn hàng';
+  } else if (tonKho > 0) {
+    trangThaiTonKho = 'Sắp hết';
+  }
+
+  const giaBan = Number(item.GiaBan) || 0;
+  const giaNhapGanNhat = Number(item.GiaNhapGanNhat) || 0;
+  const mauSac = item.MauSac || null;
+  const dungLuong = item.DungLuong || null;
+
+  return {
+    MaBienThe: Number(item.MaBienThe),
+    MaSKU: item.MaSKU,
+    MaSanPham: Number(item.MaSanPham),
+    TenSanPham: item.TenSanPham,
+    TenHienThi: formatVariantDisplayName(item.TenSanPham, mauSac, dungLuong, item.MaSKU),
+    Anh: item.Anh || null,
+    MauSac: mauSac,
+    DungLuong: dungLuong,
+    TonKho: tonKho,
+    GiaBan: giaBan,
+    Gia: giaBan,
+    GiaNhapGanNhat: giaNhapGanNhat,
+    TrangThai: item.TrangThaiBienThe || item.TrangThai || 'DangBan',
+    TrangThaiBienThe: item.TrangThaiBienThe || 'DangBan',
+    TrangThaiSanPham: item.TrangThaiSanPham || 'DangBan',
+    TrangThaiTonKho: trangThaiTonKho,
+    MaLoaiSanPham: item.MaLoaiSanPham || null,
+    TenLoaiSanPham: item.TenLoaiSanPham || null,
+    MaNhaSanXuat: item.MaNhaSanXuat || null,
+    TenNhaSanXuat: item.TenNhaSanXuat || null
+  };
+};
+
+/**
+ * 0. GET /api/v1/warehouse/variants
+ * Trả về danh sách tất cả biến thể SKU JOIN `sanpham` và `nhasanxuat`
+ * (hiển thị rõ TenSanPham, MauSac, DungLuong, TonKho, GiaBan, GiaNhapGanNhat, MaSKU)
+ */
+const getWarehouseVariants = async (req, res, next) => {
+  try {
+    const { maSanPham, maNhaSanXuat, search } = req.query || {};
+    const whereClauses = [];
+    const params = [];
+
+    if (maSanPham !== undefined && String(maSanPham).trim() !== '') {
+      const parsedSp = Number(maSanPham);
+      if (Number.isInteger(parsedSp) && parsedSp > 0) {
+        whereClauses.push('bt.MaSanPham = ?');
+        params.push(parsedSp);
+      }
+    }
+
+    if (maNhaSanXuat !== undefined && String(maNhaSanXuat).trim() !== '') {
+      const parsedNsx = Number(maNhaSanXuat);
+      if (Number.isInteger(parsedNsx) && parsedNsx > 0) {
+        whereClauses.push('sp.MaNhaSanXuat = ?');
+        params.push(parsedNsx);
+      }
+    }
+
+    if (search !== undefined && String(search).trim() !== '') {
+      const kw = `%${String(search).trim()}%`;
+      whereClauses.push(
+        '(sp.TenSanPham LIKE ? OR bt.MaSKU LIKE ? OR bt.MauSac LIKE ? OR bt.DungLuong LIKE ? OR nsx.TenNhaSanXuat LIKE ?)'
+      );
+      params.push(kw, kw, kw, kw, kw);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const [rows] = await pool.query(
+      `SELECT
+         bt.MaBienThe,
+         bt.MaSKU,
+         bt.MaSanPham,
+         sp.TenSanPham,
+         sp.Anh,
+         bt.MauSac,
+         bt.DungLuong,
+         COALESCE(bt.TonKho, 0) AS TonKho,
+         bt.GiaBan,
+         bt.GiaNhapGanNhat,
+         bt.TrangThai AS TrangThaiBienThe,
+         sp.TrangThai AS TrangThaiSanPham,
+         sp.MaLoaiSanPham,
+         lsp.TenLoaiSanPham,
+         sp.MaNhaSanXuat,
+         nsx.TenNhaSanXuat
+       FROM sanpham_bienthe bt
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
+       LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
+       LEFT JOIN loaisanpham lsp ON sp.MaLoaiSanPham = lsp.MaLoaiSanPham
+       ${whereSql}
+       ORDER BY sp.MaSanPham DESC, bt.MaBienThe ASC`,
+      params
+    );
+
+    const data = rows.map(mapWarehouseVariantRow);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách biến thể sản phẩm trong kho thành công',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * 0a. GET /api/v1/warehouse/inventory/stock-list
- * Lấy toàn bộ danh sách sản phẩm kèm TonKho thực tế từ bảng `sanpham` (bao gồm cả DangBan, HetHang, NgungBan)
+ * Lấy toàn bộ danh sách tồn kho theo từng biến thể SKU (`sanpham_bienthe` JOIN `sanpham`, `nhasanxuat`, `loaisanpham`)
  * dành cho Nhân viên Kho (Role 3) và Admin (Role 1).
  */
 const getWarehouseStockList = async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT
-         sp.MaSanPham,
+         bt.MaBienThe,
+         bt.MaSKU,
+         bt.MaSanPham,
          sp.TenSanPham,
          sp.Anh,
-         sp.Gia,
-         COALESCE(sp.TonKho, 0) AS TonKho,
-         sp.DungLuong,
-         sp.MauSac,
-         sp.TrangThai,
+         bt.MauSac,
+         bt.DungLuong,
+         COALESCE(bt.TonKho, 0) AS TonKho,
+         bt.GiaBan,
+         bt.GiaNhapGanNhat,
+         bt.TrangThai AS TrangThaiBienThe,
+         sp.TrangThai AS TrangThaiSanPham,
          sp.MaLoaiSanPham,
          lsp.TenLoaiSanPham,
          sp.MaNhaSanXuat,
          nsx.TenNhaSanXuat
-       FROM sanpham sp
+       FROM sanpham_bienthe bt
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
        LEFT JOIN loaisanpham lsp ON sp.MaLoaiSanPham = lsp.MaLoaiSanPham
        LEFT JOIN nhasanxuat nsx ON sp.MaNhaSanXuat = nsx.MaNhaSanXuat
-       ORDER BY sp.MaSanPham DESC`
+       ORDER BY sp.MaSanPham DESC, bt.MaBienThe ASC`
     );
 
-    const data = rows.map((item) => {
-      const tonKho = Number(item.TonKho) || 0;
-      let trangThaiTonKho = 'Hết hàng';
-      if (tonKho >= 5) {
-        trangThaiTonKho = 'Còn hàng';
-      } else if (tonKho > 0) {
-        trangThaiTonKho = 'Sắp hết';
-      }
-
-      return {
-        MaSanPham: item.MaSanPham,
-        TenSanPham: item.TenSanPham,
-        Anh: item.Anh || null,
-        Gia: Number(item.Gia) || 0,
-        TonKho: tonKho,
-        DungLuong: item.DungLuong || null,
-        MauSac: item.MauSac || null,
-        TrangThai: item.TrangThai,
-        TrangThaiTonKho: trangThaiTonKho,
-        MaLoaiSanPham: item.MaLoaiSanPham || null,
-        TenLoaiSanPham: item.TenLoaiSanPham || null,
-        MaNhaSanXuat: item.MaNhaSanXuat || null,
-        TenNhaSanXuat: item.TenNhaSanXuat || null
-      };
-    });
+    const data = rows.map(mapWarehouseVariantRow);
 
     return res.status(200).json({
       success: true,
-      message: 'Lấy danh sách tồn kho thành công',
+      message: 'Lấy danh sách tồn kho biến thể thành công',
       data
     });
   } catch (error) {
@@ -65,8 +179,7 @@ const getWarehouseStockList = async (req, res, next) => {
 
 /**
  * 0b. GET /api/v1/warehouse/inventory/adjust-requests
- * Lấy danh sách phiếu đề nghị điều chỉnh lệch kho từ bảng `phieudieuchinhkho`
- * dành cho Nhân viên Kho (Role 3) và Admin (Role 1).
+ * Lấy danh sách phiếu đề nghị điều chỉnh lệch kho gắn với từng biến thể (`MaBienThe`)
  */
 const getAdjustRequests = async (req, res, next) => {
   try {
@@ -74,9 +187,14 @@ const getAdjustRequests = async (req, res, next) => {
       `SELECT
          p.MaPhieuAdjust,
          p.MaSanPham,
+         p.MaBienThe,
+         bt.MaSKU,
+         COALESCE(bt.MauSac, sp.MauSac) AS MauSac,
+         COALESCE(bt.DungLuong, sp.DungLuong) AS DungLuong,
+         COALESCE(bt.GiaBan, sp.Gia, 0) AS GiaBan,
          sp.TenSanPham,
          sp.Anh AS AnhSanPham,
-         COALESCE(sp.TonKho, 0) AS TonKhoHeThong,
+         COALESCE(bt.TonKho, sp.TonKho, 0) AS TonKhoHeThong,
          p.MaNguoiDung_Kho,
          uk.TaiKhoan AS NguoiTaoKho,
          p.SoLuongThucTe,
@@ -89,7 +207,8 @@ const getAdjustRequests = async (req, res, next) => {
          p.NgayTao,
          p.NgayDuyet
        FROM phieudieuchinhkho p
-       LEFT JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+       LEFT JOIN sanpham_bienthe bt ON p.MaBienThe = bt.MaBienThe
+       LEFT JOIN sanpham sp ON COALESCE(bt.MaSanPham, p.MaSanPham) = sp.MaSanPham
        LEFT JOIN nguoidung uk ON p.MaNguoiDung_Kho = uk.MaNguoiDung
        LEFT JOIN nguoidung ua ON p.MaNguoiDung_Admin = ua.MaNguoiDung
        ORDER BY p.NgayTao DESC, p.MaPhieuAdjust DESC`
@@ -98,7 +217,12 @@ const getAdjustRequests = async (req, res, next) => {
     const data = rows.map((row) => ({
       MaPhieuAdjust: row.MaPhieuAdjust,
       MaSanPham: row.MaSanPham,
+      MaBienThe: row.MaBienThe || null,
+      MaSKU: row.MaSKU || null,
       TenSanPham: row.TenSanPham || `Sản phẩm #${row.MaSanPham}`,
+      MauSac: row.MauSac || null,
+      DungLuong: row.DungLuong || null,
+      GiaBan: Number(row.GiaBan) || 0,
       AnhSanPham: row.AnhSanPham || null,
       TonKhoHeThong: Number(row.TonKhoHeThong) || 0,
       MaNguoiDung_Kho: row.MaNguoiDung_Kho,
@@ -126,12 +250,10 @@ const getAdjustRequests = async (req, res, next) => {
 
 /**
  * 1. POST /api/v1/warehouse/inventory/import
- * Nhập kho thực tế dành cho Nhân viên Kho (Role 3) và Admin (Role 1):
- * - Chèn 1 record vào bảng `phieunhapkho` (MaNhaSanXuat, MaNguoiDung, TongTienNhap, GhiChu).
- * - Chèn các record chi tiết vào bảng `chitietphieunhap` (MaPhieuNhap, MaSanPham, SoLuongNhap, DonGiaNhap).
- * - Tự động UPDATE `sanpham` SET `TonKho = TonKho + SoLuongNhap` WHERE `MaSanPham = ...`
- *   (và khôi phục `TrangThai = 'DangBan'` nếu sản phẩm trước đó ở trạng thái `'HetHang'`).
- * - Ghi lịch sử vào bảng `lichsutonkho` với `LoaiBienDong = 'NhapKho'`.
+ * Lập phiếu nhập kho theo Biến thể SKU (`MaBienThe`, `SoLuongNhap`, `DonGiaNhap` >= 1.000.000đ):
+ * - Lưu `phieunhapkho` ở trạng thái `ChoDuyet` (chưa cộng tồn kho).
+ * - Lưu `chitietphieunhap` gắn với `MaBienThe` và `MaSanPham`.
+ * - Gọi `pushNotification` báo cho Admin (`VaiTroNhan = 1`).
  */
 const importInventory = async (req, res, next) => {
   let connection;
@@ -168,7 +290,7 @@ const importInventory = async (req, res, next) => {
       }
     }
 
-    // Hỗ trợ danh sách chi tiết hoặc dữ liệu 1 sản phẩm trực tiếp ở root body
+    // Hỗ trợ danh sách chi tiết hoặc dữ liệu 1 biến thể trực tiếp ở root body
     let rawDetails =
       body.ChiTietPhieuNhap ||
       body.chiTietPhieuNhap ||
@@ -178,11 +300,11 @@ const importInventory = async (req, res, next) => {
 
     if (
       rawDetails === undefined &&
-      (body.MaSanPham !== undefined || body.maSanPham !== undefined)
+      (body.MaBienThe !== undefined || body.maBienThe !== undefined)
     ) {
       rawDetails = [
         {
-          MaSanPham: body.MaSanPham ?? body.maSanPham,
+          MaBienThe: body.MaBienThe ?? body.maBienThe,
           SoLuongNhap: body.SoLuongNhap ?? body.soLuongNhap ?? body.SoLuong ?? body.soLuong,
           DonGiaNhap: body.DonGiaNhap ?? body.donGiaNhap ?? body.GiaNhap ?? body.giaNhap
         }
@@ -192,14 +314,14 @@ const importInventory = async (req, res, next) => {
     if (!Array.isArray(rawDetails) || rawDetails.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Danh sách chi tiết phiếu nhập kho không được để trống'
+        message: 'Vui lòng cung cấp thông tin biến thể nhập kho (MaBienThe, SoLuongNhap, DonGiaNhap)'
       });
     }
 
     const normalizedItems = [];
     for (let i = 0; i < rawDetails.length; i++) {
       const item = rawDetails[i] || {};
-      const maSanPham = Number(item.MaSanPham ?? item.maSanPham);
+      const maBienThe = Number(item.MaBienThe ?? item.maBienThe);
       const soLuongNhap = Number(
         item.SoLuongNhap ?? item.soLuongNhap ?? item.SoLuong ?? item.soLuong
       );
@@ -207,17 +329,17 @@ const importInventory = async (req, res, next) => {
         item.DonGiaNhap ?? item.donGiaNhap ?? item.GiaNhap ?? item.giaNhap
       );
 
-      if (!Number.isInteger(maSanPham) || maSanPham <= 0) {
+      if (!Number.isInteger(maBienThe) || maBienThe <= 0) {
         return res.status(400).json({
           success: false,
-          message: `Sản phẩm ở vị trí ${i + 1} không có Mã sản phẩm hợp lệ`
+          message: `Dòng ${i + 1}: Mã biến thể (MaBienThe) không hợp lệ`
         });
       }
 
       if (!Number.isInteger(soLuongNhap) || soLuongNhap <= 0) {
         return res.status(400).json({
           success: false,
-          message: `Số lượng nhập phải là số nguyên lớn hơn 0 (sản phẩm mã ${maSanPham})`
+          message: `Số lượng nhập phải là số nguyên lớn hơn 0 (biến thể mã #${maBienThe})`
         });
       }
 
@@ -228,7 +350,7 @@ const importInventory = async (req, res, next) => {
         });
       }
 
-      normalizedItems.push({ maSanPham, soLuongNhap, donGiaNhap });
+      normalizedItems.push({ maBienThe, soLuongNhap, donGiaNhap });
     }
 
     const tongTienNhap = normalizedItems.reduce(
@@ -239,7 +361,6 @@ const importInventory = async (req, res, next) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Kiểm tra Nhà sản xuất nếu được cung cấp
     if (maNhaSanXuat !== null) {
       const [nsxRows] = await connection.query(
         `SELECT MaNhaSanXuat FROM nhasanxuat WHERE MaNhaSanXuat = ?`,
@@ -254,40 +375,65 @@ const importInventory = async (req, res, next) => {
       }
     }
 
-    // Kiểm tra trước sự tồn tại của sản phẩm và so sánh DonGiaNhap < Gia
-    const validatedProducts = new Map();
+    // Kiểm tra sự tồn tại của từng biến thể SKU và đối chiếu DonGiaNhap < GiaBan
+    const validatedVariants = new Map();
     for (const item of normalizedItems) {
-      const [spRows] = await connection.query(
-        `SELECT MaSanPham, TenSanPham, Gia, TonKho, TrangThai
-         FROM sanpham
-         WHERE MaSanPham = ?`,
-        [item.maSanPham]
+      const [btRows] = await connection.query(
+        `SELECT
+           bt.MaBienThe,
+           bt.MaSanPham,
+           bt.MaSKU,
+           bt.MauSac,
+           bt.DungLuong,
+           bt.GiaBan,
+           bt.GiaNhapGanNhat,
+           bt.TonKho,
+           bt.TrangThai AS TrangThaiBienThe,
+           sp.TenSanPham,
+           sp.MaNhaSanXuat
+         FROM sanpham_bienthe bt
+         INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
+         WHERE bt.MaBienThe = ?`,
+        [item.maBienThe]
       );
 
-      if (spRows.length === 0) {
+      if (btRows.length === 0) {
         await connection.rollback();
         return res.status(404).json({
           success: false,
-          message: `Sản phẩm có mã ${item.maSanPham} không tồn tại`
+          message: `Biến thể sản phẩm có mã #${item.maBienThe} không tồn tại`
         });
       }
 
-      const product = spRows[0];
-      const productPrice = Number(product.Gia);
+      const variant = btRows[0];
+      const variantPrice = Number(variant.GiaBan) || 0;
 
-      // Validation quy định: DonGiaNhap < Gia (giá nhập phải thấp hơn giá bán niêm yết)
-      if (item.donGiaNhap >= productPrice) {
+      if (variantPrice > 0 && item.donGiaNhap >= variantPrice) {
         await connection.rollback();
+        const label = formatVariantDisplayName(
+          variant.TenSanPham,
+          variant.MauSac,
+          variant.DungLuong,
+          variant.MaSKU
+        );
         return res.status(400).json({
           success: false,
-          message: `Đơn giá nhập (${item.donGiaNhap.toLocaleString('vi-VN')}đ) phải nhỏ hơn giá bán niêm yết (${productPrice.toLocaleString('vi-VN')}đ) của sản phẩm "${product.TenSanPham}"`
+          message: `Đơn giá nhập (${item.donGiaNhap.toLocaleString('vi-VN')}đ) phải nhỏ hơn giá bán niêm yết (${variantPrice.toLocaleString('vi-VN')}đ) của biến thể "${label}"`
         });
       }
 
-      validatedProducts.set(item.maSanPham, product);
+      validatedVariants.set(item.maBienThe, variant);
     }
 
-    // 1. Chèn record vào bảng phieunhapkho với TrangThai = 'ChoDuyet' (CHƯA cộng TonKho)
+    // Nếu không truyền MaNhaSanXuat, tự động suy ra từ sản phẩm của biến thể đầu tiên
+    if (maNhaSanXuat === null) {
+      const firstVariant = validatedVariants.get(normalizedItems[0].maBienThe);
+      if (firstVariant?.MaNhaSanXuat) {
+        maNhaSanXuat = Number(firstVariant.MaNhaSanXuat);
+      }
+    }
+
+    // 1. Chèn phiếu nhập kho ở trạng thái 'ChoDuyet'
     const [phieuResult] = await connection.query(
       `INSERT INTO phieunhapkho (MaNhaSanXuat, MaNguoiDung, TongTienNhap, GhiChu, TrangThai)
        VALUES (?, ?, ?, ?, 'ChoDuyet')`,
@@ -297,32 +443,51 @@ const importInventory = async (req, res, next) => {
     const maPhieuNhap = phieuResult.insertId;
     const processedItems = [];
 
-    // 2. Chèn record vào bảng chitietphieunhap (KHÔNG cập nhật sanpham.TonKho và KHÔNG ghi lichsutonkho lúc này)
+    // 2. Chèn chi tiết phiếu nhập gắn với MaBienThe và MaSanPham
     for (const item of normalizedItems) {
-      const product = validatedProducts.get(item.maSanPham);
+      const variant = validatedVariants.get(item.maBienThe);
 
       const [detailResult] = await connection.query(
-        `INSERT INTO chitietphieunhap (MaPhieuNhap, MaSanPham, SoLuongNhap, DonGiaNhap)
-         VALUES (?, ?, ?, ?)`,
-        [maPhieuNhap, item.maSanPham, item.soLuongNhap, item.donGiaNhap]
+        `INSERT INTO chitietphieunhap (MaPhieuNhap, MaSanPham, MaBienThe, SoLuongNhap, DonGiaNhap)
+         VALUES (?, ?, ?, ?, ?)`,
+        [maPhieuNhap, variant.MaSanPham, item.maBienThe, item.soLuongNhap, item.donGiaNhap]
       );
 
       processedItems.push({
         MaChiTietNhap: detailResult.insertId,
-        MaSanPham: item.maSanPham,
-        TenSanPham: product.TenSanPham,
+        MaBienThe: item.maBienThe,
+        MaSKU: variant.MaSKU,
+        MaSanPham: variant.MaSanPham,
+        TenSanPham: variant.TenSanPham,
+        MauSac: variant.MauSac || null,
+        DungLuong: variant.DungLuong || null,
         SoLuongNhap: item.soLuongNhap,
         DonGiaNhap: item.donGiaNhap,
         ThanhTien: item.soLuongNhap * item.donGiaNhap,
-        TonKhoHienTai: Number(product.TonKho) || 0
+        TonKhoHienTai: Number(variant.TonKho) || 0
       });
     }
 
     await connection.commit();
 
+    // 3. Gửi thông báo nội bộ cho Admin (VaiTroNhan = 1)
+    const firstItem = processedItems[0];
+    const itemSummary =
+      processedItems.length === 1
+        ? `${formatVariantDisplayName(firstItem.TenSanPham, firstItem.MauSac, firstItem.DungLuong, firstItem.MaSKU)} x${firstItem.SoLuongNhap}`
+        : `${processedItems.length} biến thể SKU`;
+
+    await pushNotification({
+      vaiTroNhan: 1,
+      tieuDe: `Phiếu nhập kho #${maPhieuNhap} chờ phê duyệt`,
+      noiDung: `Kho vừa tạo phiếu nhập #${maPhieuNhap} (${itemSummary}) tổng trị giá ${tongTienNhap.toLocaleString('vi-VN')}đ. Vui lòng kiểm tra và phê duyệt.`,
+      loaiThongBao: 'KhoVan',
+      lienKet: '/admin/inventory/adjustments'
+    });
+
     return res.status(201).json({
       success: true,
-      message: 'Tạo phiếu nhập kho thành công. Phiếu đang ở trạng thái Chờ duyệt bởi Admin.',
+      message: 'Tạo phiếu nhập kho theo biến thể thành công. Phiếu đang ở trạng thái Chờ duyệt bởi Admin.',
       data: {
         MaPhieuNhap: maPhieuNhap,
         MaNhaSanXuat: maNhaSanXuat,
@@ -347,10 +512,7 @@ const importInventory = async (req, res, next) => {
 
 /**
  * 2. POST /api/v1/warehouse/inventory/adjust-request
- * Lập phiếu đề nghị điều chỉnh lệch kho gửi Admin chờ duyệt:
- * - Bắt buộc nhận: { maSanPham, soLuongThucTe, soLuongChechLech, lyDoGiaiTrinh }.
- * - Chèn record vào bảng `phieudieuchinhkho` với TrangThai = 'ChoDuyet', MaNguoiDung_Kho = req.user.MaNguoiDung.
- * - KHÔNG thay đổi cột `TonKho` trong bảng `sanpham`.
+ * Lập phiếu báo lệch kho gắn với `MaBienThe` và gọi `pushNotification` báo cho Admin (`VaiTroNhan = 1`).
  */
 const createAdjustRequest = async (req, res, next) => {
   try {
@@ -364,36 +526,34 @@ const createAdjustRequest = async (req, res, next) => {
       });
     }
 
-    const rawMaSanPham = body.maSanPham ?? body.MaSanPham;
-    const rawSoLuongThucTe = body.soLuongThucTe ?? body.SoLuongThucTe;
-    const rawSoLuongChechLech = body.soLuongChechLech ?? body.SoLuongChechLech;
-    const rawLyDoGiaiTrinh = body.lyDoGiaiTrinh ?? body.LyDoGiaiTrinh;
+    const rawMaBienThe = body.MaBienThe ?? body.maBienThe;
+    const rawSoLuongThucTe = body.SoLuongThucTe ?? body.soLuongThucTe;
+    const rawSoLuongChechLech = body.SoLuongChechLech ?? body.soLuongChechLech;
+    const rawLyDoGiaiTrinh =
+      body.LyDoGiaiTrinh ?? body.lyDoGiaiTrinh ?? body.LyDo ?? body.lyDo;
 
     if (
-      rawMaSanPham === undefined ||
-      rawMaSanPham === null ||
-      String(rawMaSanPham).trim() === '' ||
+      rawMaBienThe === undefined ||
+      rawMaBienThe === null ||
+      String(rawMaBienThe).trim() === '' ||
       rawSoLuongThucTe === undefined ||
       rawSoLuongThucTe === null ||
       String(rawSoLuongThucTe).trim() === '' ||
-      rawSoLuongChechLech === undefined ||
-      rawSoLuongChechLech === null ||
-      String(rawSoLuongChechLech).trim() === '' ||
       rawLyDoGiaiTrinh === undefined ||
       rawLyDoGiaiTrinh === null ||
       String(rawLyDoGiaiTrinh).trim() === ''
     ) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng cung cấp đầy đủ: maSanPham, soLuongThucTe, soLuongChechLech, lyDoGiaiTrinh'
+        message: 'Vui lòng cung cấp đầy đủ: MaBienThe, SoLuongThucTe, LyDoGiaiTrinh'
       });
     }
 
-    const maSanPham = Number(rawMaSanPham);
-    if (!Number.isInteger(maSanPham) || maSanPham <= 0) {
+    const maBienThe = Number(rawMaBienThe);
+    if (!Number.isInteger(maBienThe) || maBienThe <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Mã sản phẩm không hợp lệ'
+        message: 'Mã biến thể (MaBienThe) không hợp lệ'
       });
     }
 
@@ -405,42 +565,78 @@ const createAdjustRequest = async (req, res, next) => {
       });
     }
 
-    const soLuongChechLech = Number(rawSoLuongChechLech);
-    if (!Number.isInteger(soLuongChechLech)) {
-      return res.status(400).json({
+    const lyDoGiaiTrinh = String(rawLyDoGiaiTrinh).trim();
+
+    // Tra cứu biến thể và sản phẩm cha
+    const [btRows] = await pool.query(
+      `SELECT
+         bt.MaBienThe,
+         bt.MaSanPham,
+         bt.MaSKU,
+         bt.MauSac,
+         bt.DungLuong,
+         bt.TonKho,
+         sp.TenSanPham
+       FROM sanpham_bienthe bt
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
+       WHERE bt.MaBienThe = ?`,
+      [maBienThe]
+    );
+
+    if (btRows.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: 'Số lượng chênh lệch phải là số nguyên hợp lệ'
+        message: `Biến thể sản phẩm có mã #${maBienThe} không tồn tại`
       });
     }
 
-    const lyDoGiaiTrinh = String(rawLyDoGiaiTrinh).trim();
+    const variant = btRows[0];
+    const tonKhoHeThong = Number(variant.TonKho) || 0;
 
-    // Kiểm tra sản phẩm có tồn tại trong hệ thống (không thay đổi TonKho)
-    const [spRows] = await pool.query(
-      `SELECT MaSanPham, TenSanPham, TonKho FROM sanpham WHERE MaSanPham = ?`,
-      [maSanPham]
-    );
-
-    if (spRows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `Sản phẩm có mã ${maSanPham} không tồn tại`
-      });
+    let soLuongChechLech;
+    if (
+      rawSoLuongChechLech !== undefined &&
+      rawSoLuongChechLech !== null &&
+      String(rawSoLuongChechLech).trim() !== ''
+    ) {
+      soLuongChechLech = Number(rawSoLuongChechLech);
+      if (!Number.isInteger(soLuongChechLech)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Số lượng chênh lệch phải là số nguyên hợp lệ'
+        });
+      }
+    } else {
+      soLuongChechLech = soLuongThucTe - tonKhoHeThong;
     }
 
     const [insertResult] = await pool.query(
       `INSERT INTO phieudieuchinhkho
-         (MaSanPham, MaNguoiDung_Kho, SoLuongThucTe, SoLuongChechLech, LyDoGiaiTrinh, TrangThai)
-       VALUES (?, ?, ?, ?, ?, 'ChoDuyet')`,
-      [maSanPham, maNguoiDungKho, soLuongThucTe, soLuongChechLech, lyDoGiaiTrinh]
+         (MaSanPham, MaBienThe, MaNguoiDung_Kho, SoLuongThucTe, SoLuongChechLech, LyDoGiaiTrinh, TrangThai)
+       VALUES (?, ?, ?, ?, ?, ?, 'ChoDuyet')`,
+      [
+        variant.MaSanPham,
+        maBienThe,
+        maNguoiDungKho,
+        soLuongThucTe,
+        soLuongChechLech,
+        lyDoGiaiTrinh
+      ]
     );
+
+    const maPhieuAdjust = insertResult.insertId;
 
     const [createdRows] = await pool.query(
       `SELECT
          p.MaPhieuAdjust,
          p.MaSanPham,
+         p.MaBienThe,
+         bt.MaSKU,
+         bt.MauSac,
+         bt.DungLuong,
+         bt.GiaBan,
          sp.TenSanPham,
-         sp.TonKho AS TonKhoHeThong,
+         COALESCE(bt.TonKho, 0) AS TonKhoHeThong,
          p.MaNguoiDung_Kho,
          p.SoLuongThucTe,
          p.SoLuongChechLech,
@@ -451,10 +647,28 @@ const createAdjustRequest = async (req, res, next) => {
          p.NgayTao,
          p.NgayDuyet
        FROM phieudieuchinhkho p
-       LEFT JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+       INNER JOIN sanpham_bienthe bt ON p.MaBienThe = bt.MaBienThe
+       INNER JOIN sanpham sp ON bt.MaSanPham = sp.MaSanPham
        WHERE p.MaPhieuAdjust = ?`,
-      [insertResult.insertId]
+      [maPhieuAdjust]
     );
+
+    // Gửi thông báo nội bộ cho Admin (VaiTroNhan = 1)
+    const variantLabel = formatVariantDisplayName(
+      variant.TenSanPham,
+      variant.MauSac,
+      variant.DungLuong,
+      variant.MaSKU
+    );
+    const diffStr = soLuongChechLech > 0 ? `+${soLuongChechLech}` : `${soLuongChechLech}`;
+
+    await pushNotification({
+      vaiTroNhan: 1,
+      tieuDe: `Phiếu báo lệch kho #${maPhieuAdjust} chờ phê duyệt`,
+      noiDung: `Kho báo lệch tồn biến thể ${variantLabel} (Tồn hệ thống: ${tonKhoHeThong}, Thực tế: ${soLuongThucTe}, Lệch: ${diffStr}). Lý do: ${lyDoGiaiTrinh}`,
+      loaiThongBao: 'KhoVan',
+      lienKet: '/admin/inventory/adjustments?tab=adjustments'
+    });
 
     return res.status(201).json({
       success: true,
@@ -468,7 +682,7 @@ const createAdjustRequest = async (req, res, next) => {
 
 /**
  * 3. GET /api/v1/warehouse/inventory/import-receipts
- * Lấy danh sách phiếu nhập kho kèm chi tiết các sản phẩm
+ * Lấy danh sách phiếu nhập kho kèm chi tiết các biến thể SKU
  */
 const getImportReceipts = async (req, res, next) => {
   try {
@@ -509,17 +723,21 @@ const getImportReceipts = async (req, res, next) => {
          ct.MaChiTietNhap,
          ct.MaPhieuNhap,
          ct.MaSanPham,
+         ct.MaBienThe,
+         bt.MaSKU,
          sp.TenSanPham,
          sp.Anh,
-         sp.DungLuong,
-         sp.MauSac,
-         sp.Gia,
-         COALESCE(sp.TonKho, 0) AS TonKhoHienTai,
+         COALESCE(bt.DungLuong, sp.DungLuong) AS DungLuong,
+         COALESCE(bt.MauSac, sp.MauSac) AS MauSac,
+         COALESCE(bt.GiaBan, sp.Gia, 0) AS GiaBan,
+         COALESCE(bt.GiaNhapGanNhat, 0) AS GiaNhapGanNhat,
+         COALESCE(bt.TonKho, sp.TonKho, 0) AS TonKhoHienTai,
          ct.SoLuongNhap,
          ct.DonGiaNhap,
          (ct.SoLuongNhap * ct.DonGiaNhap) AS ThanhTien
        FROM chitietphieunhap ct
-       LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       LEFT JOIN sanpham_bienthe bt ON ct.MaBienThe = bt.MaBienThe
+       LEFT JOIN sanpham sp ON COALESCE(bt.MaSanPham, ct.MaSanPham) = sp.MaSanPham
        WHERE ct.MaPhieuNhap IN (?)
        ORDER BY ct.MaChiTietNhap ASC`,
       [importIds]
@@ -530,14 +748,19 @@ const getImportReceipts = async (req, res, next) => {
       if (!detailsByImportId.has(d.MaPhieuNhap)) {
         detailsByImportId.set(d.MaPhieuNhap, []);
       }
+      const giaBan = Number(d.GiaBan) || 0;
       detailsByImportId.get(d.MaPhieuNhap).push({
         MaChiTietNhap: d.MaChiTietNhap,
         MaSanPham: d.MaSanPham,
+        MaBienThe: d.MaBienThe || null,
+        MaSKU: d.MaSKU || null,
         TenSanPham: d.TenSanPham || `Sản phẩm #${d.MaSanPham}`,
         Anh: d.Anh || null,
         DungLuong: d.DungLuong || null,
         MauSac: d.MauSac || null,
-        Gia: Number(d.Gia) || 0,
+        GiaBan: giaBan,
+        Gia: giaBan,
+        GiaNhapGanNhat: Number(d.GiaNhapGanNhat) || 0,
         TonKhoHienTai: Number(d.TonKhoHienTai) || 0,
         SoLuongNhap: Number(d.SoLuongNhap),
         DonGiaNhap: Number(d.DonGiaNhap),
@@ -574,10 +797,10 @@ const getImportReceipts = async (req, res, next) => {
 };
 
 module.exports = {
+  getWarehouseVariants,
   getWarehouseStockList,
   getAdjustRequests,
   importInventory,
   createAdjustRequest,
   getImportReceipts
 };
-
