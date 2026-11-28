@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from '../common/NotificationBell';
 
 // ─── Route → Title Mapping ────────────────────────────────────────────────────
 const ROUTE_TITLES = {
@@ -28,7 +29,7 @@ const getRouteTitle = (pathname) => {
 };
 
 // ─── AdminHeader Component ────────────────────────────────────────────────────
-const AdminHeader = ({ onToggleMobile }) => {
+const AdminHeader = ({ onToggleMobile, notificationBell }) => {
   const { user } = useAuth();
   const location = useLocation();
   const title = getRouteTitle(location.pathname);
@@ -70,21 +71,7 @@ const AdminHeader = ({ onToggleMobile }) => {
       {/* ── Right: Bell + Greeting + Avatar ── */}
       <div className="flex items-center gap-3">
         {/* Notification Bell */}
-        <button
-          id="btn-notifications"
-          aria-label="Thông báo"
-          className="
-            relative p-2.5
-            bg-slate-50 border border-slate-200
-            rounded-xl text-slate-500
-            hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50
-            transition-all duration-200 cursor-pointer
-          "
-        >
-          <Bell className="w-4 h-4" />
-          {/* Notification dot */}
-          <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full ring-2 ring-white" />
-        </button>
+        {notificationBell || <NotificationBell />}
 
         {/* Divider */}
         <div className="w-px h-6 bg-slate-200 hidden sm:block" />

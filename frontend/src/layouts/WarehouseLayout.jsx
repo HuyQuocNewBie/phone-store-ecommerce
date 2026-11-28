@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from '../components/common/NotificationBell';
 
 // ─── Navigation Items trên Sidebar Kho ────────────────────────────────────────
 const WAREHOUSE_NAV_ITEMS = [
@@ -385,8 +386,12 @@ const WarehouseLayout = ({ children }) => {
             </div>
           </div>
 
-          {/* Right: Avatar + Tên "Nhân viên Kho" + Nút Đăng xuất */}
+          {/* Right: NotificationBell + Avatar + Tên "Nhân viên Kho" + Nút Đăng xuất */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <NotificationBell />
+
+            <div className="w-px h-6 bg-slate-200 hidden sm:block" />
+
             <div className="flex items-center gap-2.5 pl-1.5 pr-2 sm:pr-3 py-1.5 rounded-full sm:rounded-xl bg-slate-50 border border-slate-200/90">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ring-2 ring-blue-500/20 overflow-hidden">
                 {avatarUrl && !avatarError ? (

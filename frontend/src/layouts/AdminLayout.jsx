@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminSidebar from '../components/admin/AdminSidebar';
 import AdminHeader from '../components/admin/AdminHeader';
+import NotificationBell from '../components/common/NotificationBell';
 
 /**
  * AdminLayout
@@ -54,7 +55,10 @@ const AdminLayout = () => {
         }`}
       >
         {/* Sticky Top Navbar */}
-        <AdminHeader onToggleMobile={() => setMobileOpen((prev) => !prev)} />
+        <AdminHeader
+          onToggleMobile={() => setMobileOpen((prev) => !prev)}
+          notificationBell={<NotificationBell />}
+        />
 
         {/* Page content via <Outlet /> */}
         <main className="flex-1 bg-[#faf8ff]">
