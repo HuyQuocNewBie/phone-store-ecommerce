@@ -12,6 +12,8 @@ const manufacturerRoutes = require('./manufacturerRoutes');
 const voucherRoutes = require('./voucherRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
 const adminApprovalRoutes = require('./adminApprovalRoutes');
+const bannerRoutes = require('./bannerRoutes');
+const adminReviewRoutes = require('./adminReviewRoutes');
 
 // Áp dụng middleware verifyRole bọc toàn bộ các tuyến đường Admin (quyền Admin: MaVaiTro = 1)
 router.use(verifyRole(1, 'Admin'));
@@ -27,5 +29,7 @@ router.use('/categories', categoryRoutes);
 router.use('/manufacturers', manufacturerRoutes);
 router.use('/vouchers', voucherRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/banners', bannerRoutes);
+router.use('/reviews', adminReviewRoutes);
 
 module.exports = router;

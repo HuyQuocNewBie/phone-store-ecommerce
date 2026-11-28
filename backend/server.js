@@ -37,6 +37,7 @@ const warehouseOrderRoutes = require('./src/routes/warehouse/warehouseOrderRoute
 const warehouseInventoryRoutes = require('./src/routes/warehouse/warehouseInventoryRoutes');
 const warehouseRoutes = require('./src/routes/warehouse/warehouseRoutes');
 const notificationRoutes = require('./src/routes/common/notificationRoutes');
+const bannerController = require('./src/controllers/admin/bannerController');
 const { verifyToken, verifyRole } = require('./src/middlewares/authMiddleware');
 const { uploadAvatar } = require('./src/controllers/user/profileController');
 
@@ -73,6 +74,7 @@ app.use('/api/v1/notifications', verifyToken, verifyRole([1, 3]), notificationRo
 // POST /api/v1/upload/avatar – upload ảnh đại diện (yêu cầu JWT)
 app.post('/api/v1/upload/avatar', verifyToken, ...uploadAvatar);
 app.get('/api/v1/categories', require('./src/controllers/user/productController').getCategories);
+app.get('/api/v1/banners/active', bannerController.getActiveBanners);
 
 // Centralized error handling middleware
 app.use(errorHandler);
