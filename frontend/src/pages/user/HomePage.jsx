@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Navbar from '../../components/user/Navbar';
 import Footer from '../../components/user/Footer';
 import ProductCard from '../../components/user/ProductCard';
@@ -8,80 +9,16 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
-/* ─── Hero Showcase Promotional Slides ───────────────────────────────────── */
-const HERO_SLIDES = [
-  {
-    id: 1,
-    tag1: 'SIÊU PHẨM 2025',
-    tag2: 'SẴN HÀNG TOÀN QUỐC',
-    title: (
-      <>
-        ĐẶT TRƯỚC <span className="text-primary">IPHONE 16 PRO</span> &amp; PRO MAX
-      </>
-    ),
-    desc: (
-      <>
-        Titanium Sa Mạc đỉnh cao. Trợ giá thu cũ đổi mới lên đến{' '}
-        <span className="text-tertiary font-semibold">2.500.000đ</span>. Giảm thêm{' '}
-        <span className="text-primary font-semibold">1.000.000đ</span> khi thanh toán qua VNPay-QR.
-      </>
-    ),
-    stat1Label: 'Trả góp ưu đãi',
-    stat1Val: '0% Lãi Suất',
-    stat2Label: 'Bảo hành đặc quyền',
-    stat2Val: '24 Tháng 1 Đổi 1',
-    link: '/products',
-  },
-  {
-    id: 2,
-    tag1: 'GALAXY AI ĐỈNH CAO',
-    tag2: 'GIẢM ĐẾN 5 TRIỆU',
-    title: (
-      <>
-        SỞ HỮU <span className="text-primary">GALAXY S24 ULTRA</span> 5G
-      </>
-    ),
-    desc: (
-      <>
-        Quyền năng trí tuệ nhân tạo thế hệ mới. Trợ giá thu cũ đổi mới lên đến{' '}
-        <span className="text-tertiary font-semibold">3.000.000đ</span> cùng gói quà tặng chính hãng độc quyền.
-      </>
-    ),
-    stat1Label: 'Đặc quyền VIP',
-    stat1Val: 'Tặng Củ Sạc 45W',
-    stat2Label: 'Bảo hành đặc quyền',
-    stat2Val: '24 Tháng Toàn Diện',
-    link: '/products?search=Galaxy%20S24',
-  },
-  {
-    id: 3,
-    tag1: 'NHIẾP ẢNH LEICA',
-    tag2: 'SẠC SIÊU NHANH 120W',
-    title: (
-      <>
-        KHÁM PHÁ <span className="text-primary">XIAOMI 14 ULTRA</span> LEICA
-      </>
-    ),
-    desc: (
-      <>
-        Nhiếp ảnh bậc thầy ống kính Summilux Leica đỉnh cao, cảm biến 1-inch vượt trội cùng chip Snapdragon 8 Gen 3 siêu mạnh mẽ.
-      </>
-    ),
-    stat1Label: 'Bộ quà độc quyền',
-    stat1Val: 'Photography Kit VIP',
-    stat2Label: 'Bảo hành đặc quyền',
-    stat2Val: '18 Tháng 1 Đổi 1',
-    link: '/products?search=Xiaomi',
-  },
-];
-
 const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
 
-  // Slider State
+  // Dynamic Hero Banner Slider States
+  const [banners, setBanners] = useState([]);
+  const [loadingBanners, setLoadingBanners] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
 
   // Dynamic Data States
   const [products, setProducts] = useState([]);
@@ -90,13 +27,63 @@ const HomePage = () => {
   const [manufacturers, setManufacturers] = useState([]);
   const [loadingManufacturers, setLoadingManufacturers] = useState(true);
 
-  // Auto-slide Hero Showcase every 6 seconds
+  // Fetch Banner đang kích hoạt từ GET /api/v1/banners/active
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
-    }, 6000);
-    return () => clearInterval(timer);
+    setLoadingBanners(true);
+    api
+      .get('/banners/active')
+      .then((res) => {
+        if (res.data?.success) {
+          const activeBanners = Array.isArray(res.data.data) ? res.data.data : [];
+          setBanners(activeBanners);
+          setCurrentSlide(0);
+        }
+      })
+      .catch(() => {
+        setBanners([]);
+      })
+      .finally(() => setLoadingBanners(false));
   }, []);
+
+  // Tự động chuyển slide mỗi 4 giây
+  useEffect(() => {
+    if (banners.length <= 1 || isBannerPaused) return undefined;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [banners.length, isBannerPaused]);
+
+  const handlePrevSlide = useCallback(
+    (e) => {
+      e.stopPropagation();
+      if (banners.length <= 1) return;
+      setCurrentSlide((prev) => (prev === 0 ? banners.length - 1 : prev - 1));
+    },
+    [banners.length]
+  );
+
+  const handleNextSlide = useCallback(
+    (e) => {
+      e.stopPropagation();
+      if (banners.length <= 1) return;
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
+    },
+    [banners.length]
+  );
+
+  const handleBannerClick = useCallback(
+    (banner) => {
+      const target = banner?.LienKetDich ? String(banner.LienKetDich).trim() : '';
+      if (!target) return;
+      if (target.startsWith('http://') || target.startsWith('https://')) {
+        window.open(target, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      navigate(target.startsWith('/') ? target : `/${target}`);
+    },
+    [navigate]
+  );
 
   // Fetch Danh mục sản phẩm (Categories)
   useEffect(() => {
@@ -215,94 +202,140 @@ const HomePage = () => {
         <div className="flex flex-col w-full">
           <div className="max-w-container-max mx-auto px-gutter-desktop w-full pb-unit-3xl">
             {/* 1. Hero Showcase Area */}
-            <section className="grid grid-cols-12 gap-unit-md pt-unit-md pb-unit-xl items-stretch">
-              {/* Main Promotional Slider Card */}
-              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl shadow-md flex flex-col justify-between overflow-hidden relative group min-h-[420px]">
-                <div className="absolute -right-16 -bottom-16 w-96 h-96 bg-primary-fixed/40 rounded-full blur-3xl pointer-events-none" />
-                <div className="p-unit-lg lg:p-unit-xl relative z-10 flex flex-col justify-between h-full">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-unit-xs mb-unit-sm">
-                      <span className="px-unit-xs py-unit-2xs bg-tertiary-container text-on-tertiary rounded font-label-spec text-label-spec uppercase tracking-wider">
-                        {HERO_SLIDES[currentSlide].tag1}
+            <section className="grid grid-cols-12 gap-unit-md pt-unit-md pb-unit-xl">
+              {/* Dynamic Promotional Banner Slider (16:5) */}
+              <div
+                className="col-span-12 relative rounded-2xl overflow-hidden shadow-md bg-surface-container-lowest group aspect-[16/6] sm:aspect-[16/5]"
+                onMouseEnter={() => setIsBannerPaused(true)}
+                onMouseLeave={() => setIsBannerPaused(false)}
+              >
+                {loadingBanners ? (
+                  <div className="w-full h-full bg-surface-container animate-pulse flex items-center justify-center">
+                    <span className="text-sm font-medium text-on-surface-variant">
+                      Đang tải banner...
+                    </span>
+                  </div>
+                ) : banners.length === 0 ? (
+                  <div
+                    onClick={() => navigate('/products')}
+                    className="w-full h-full bg-gradient-to-r from-primary/95 via-primary-container to-secondary flex items-center justify-between px-unit-lg sm:px-unit-2xl text-on-primary cursor-pointer"
+                  >
+                    <div className="max-w-xl space-y-2">
+                      <span className="inline-block px-2.5 py-1 rounded-md bg-white/15 text-xs font-bold uppercase tracking-wider">
+                        SmartZone Official
                       </span>
-                      <span className="px-unit-xs py-unit-2xs bg-secondary-fixed text-secondary font-label-spec text-label-spec uppercase tracking-wider">
-                        {HERO_SLIDES[currentSlide].tag2}
-                      </span>
-                    </div>
-                    <div className="max-w-xl">
-                      <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight leading-none mb-unit-xs">
-                        {HERO_SLIDES[currentSlide].title}
+                      <h1 className="font-headline-md sm:font-headline-lg text-headline-md sm:text-headline-lg leading-tight">
+                        Khám phá Siêu phẩm Công nghệ Chính hãng
                       </h1>
-                      <p className="font-body-lg text-body-lg text-on-surface-variant mb-unit-md">
-                        {HERO_SLIDES[currentSlide].desc}
+                      <p className="text-xs sm:text-sm text-white/85">
+                        Ưu đãi độc quyền, trả góp 0% lãi suất và giao hàng siêu tốc toàn quốc.
                       </p>
-                      <div className="flex flex-wrap items-center gap-unit-sm">
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Sliding Track */}
+                    <div
+                      className="flex w-full h-full transition-transform duration-500 ease-out"
+                      style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                    >
+                      {banners.map((banner) => {
+                        const hasLink = Boolean(
+                          banner.LienKetDich && String(banner.LienKetDich).trim()
+                        );
+                        return (
+                          <div
+                            key={banner.MaBanner}
+                            onClick={() => handleBannerClick(banner)}
+                            role={hasLink ? 'button' : undefined}
+                            tabIndex={hasLink ? 0 : undefined}
+                            onKeyDown={(e) => {
+                              if (hasLink && (e.key === 'Enter' || e.key === ' ')) {
+                                e.preventDefault();
+                                handleBannerClick(banner);
+                              }
+                            }}
+                            className={`w-full h-full shrink-0 relative select-none ${
+                              hasLink ? 'cursor-pointer' : 'cursor-default'
+                            }`}
+                          >
+                            <img
+                              src={banner.HinhAnh}
+                              alt={banner.TieuDe || 'Banner quảng cáo'}
+                              className="w-full h-full object-cover"
+                            />
+                            {(banner.TieuDe || banner.MoTaNgan) && (
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-transparent px-4 sm:px-8 pt-10 pb-8 sm:pb-9 pointer-events-none">
+                                {banner.TieuDe && (
+                                  <h2 className="text-white font-bold text-base sm:text-2xl leading-snug drop-shadow-sm line-clamp-1">
+                                    {banner.TieuDe}
+                                  </h2>
+                                )}
+                                {banner.MoTaNgan && (
+                                  <p className="text-white/90 text-xs sm:text-sm mt-1 max-w-2xl line-clamp-1 sm:line-clamp-2 drop-shadow-sm">
+                                    {banner.MoTaNgan}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Nút mũi tên Trái / Phải */}
+                    {banners.length > 1 && (
+                      <>
                         <button
                           type="button"
-                          onClick={() => navigate(HERO_SLIDES[currentSlide].link)}
-                          className="px-unit-lg py-unit-sm bg-tertiary-container text-on-tertiary font-title-card text-title-card rounded-lg shadow-sm hover:bg-tertiary transition-transform active:scale-95 flex items-center gap-unit-2xs"
+                          aria-label="Banner trước"
+                          onClick={handlePrevSlide}
+                          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900/45 hover:bg-slate-900/75 text-white backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer shadow-md"
                         >
-                          <span className="material-symbols-outlined leading-none">bolt</span>
-                          <span>Đặt Trước Ngay</span>
+                          <ChevronLeft className="w-5 h-5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigate(HERO_SLIDES[currentSlide].link)}
-                          className="px-unit-lg py-unit-sm bg-surface-container-high text-primary font-title-card text-title-card rounded-lg hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-unit-2xs"
+                          aria-label="Banner tiếp theo"
+                          onClick={handleNextSlide}
+                          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900/45 hover:bg-slate-900/75 text-white backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer shadow-md"
                         >
-                          <span>Xem Đặc Quyền</span>
-                          <span className="material-symbols-outlined text-sm leading-none">arrow_forward</span>
+                          <ChevronRight className="w-5 h-5" />
                         </button>
+                      </>
+                    )}
+
+                    {/* Chấm chỉ mục bên dưới */}
+                    {banners.length > 1 && (
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/35 backdrop-blur-xs">
+                        {banners.map((banner, idx) => (
+                          <button
+                            key={banner.MaBanner}
+                            type="button"
+                            aria-label={`Chuyển đến banner ${idx + 1}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentSlide(idx);
+                            }}
+                            className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                              currentSlide === idx
+                                ? 'w-6 bg-white'
+                                : 'w-2 bg-white/55 hover:bg-white/80'
+                            }`}
+                          />
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                  <div className="pt-unit-lg mt-unit-md flex items-center justify-between border-t border-surface-container/50">
-                    <div className="flex items-center gap-unit-lg">
-                      <div className="flex flex-col">
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">
-                          {HERO_SLIDES[currentSlide].stat1Label}
-                        </span>
-                        <span className="font-title-card text-title-card text-primary font-bold">
-                          {HERO_SLIDES[currentSlide].stat1Val}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">
-                          {HERO_SLIDES[currentSlide].stat2Label}
-                        </span>
-                        <span className="font-title-card text-title-card text-on-surface font-bold">
-                          {HERO_SLIDES[currentSlide].stat2Val}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-unit-2xs">
-                      <button
-                        type="button"
-                        aria-label="Slide trước"
-                        onClick={() => setCurrentSlide((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1))}
-                        className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary hover:text-on-primary transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-sm">chevron_left</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Slide sau"
-                        onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
-                        className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary hover:text-on-primary transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-sm">chevron_right</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* 2 Side Sub-Banners */}
-              <div className="col-span-12 lg:col-span-4 flex flex-col gap-unit-md">
+              <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 gap-unit-md">
                 {/* Sub Banner 1 */}
                 <div
                   onClick={() => navigate('/products?search=Galaxy%20S24')}
-                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex-1 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
+                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-unit-2xs">
@@ -333,7 +366,7 @@ const HomePage = () => {
                 {/* Sub Banner 2 */}
                 <div
                   onClick={() => navigate('/products?search=Xiaomi')}
-                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex-1 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
+                  className="bg-surface-container-lowest rounded-xl p-unit-md shadow-md flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-unit-2xs">

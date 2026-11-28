@@ -15,6 +15,7 @@ const ROUTE_TITLES = {
   '/admin/orders':                 'Đơn hàng',
   '/admin/returns':                'Duyệt hoàn tiền đổi trả',
   '/admin/vouchers':               'Mã giảm giá',
+  '/admin/banners':                'Quản lý Banner',
   '/admin/analytics':     'Thống kê',
 };
 
