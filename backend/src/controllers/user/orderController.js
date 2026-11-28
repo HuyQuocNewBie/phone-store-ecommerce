@@ -19,6 +19,7 @@ const {
   formatVariantLabel,
   formatVND
 } = require('../../utils/variantStockHelper');
+const { evaluateMultiVouchers } = require('./voucherController');
 
 /**
  * Helper: đọc MaBienThe hợp lệ từ payload item
@@ -175,6 +176,14 @@ const createOrder = async (req, res, next) => {
       phi_ship,
       MaVoucher,
       voucher_code,
+      voucherCode,
+      voucherCodes,
+      voucher_codes,
+      codes,
+      vouchers: rawVoucherList,
+      MaVouchers,
+      giamGiaDonCode,
+      freeShipCode,
       cart_item_ids,
       items: rawItems,
       TrangThaiDonHang,
@@ -508,44 +517,86 @@ const createOrder = async (req, res, next) => {
 
     const phiShip = validatedShippingFee;
 
-    // 3. Kiểm tra và áp dụng Voucher (nếu có)
-    let soTienGiam = 0;
+    // 3. Kiểm tra và áp dụng đa Voucher (tối đa 01 mã GiamGiaDon + 01 mã FreeShip)
+    let soTienGiamDon = 0;
+    let soTienGiamShip = 0;
+    let appliedVouchers = [];
     let appliedVoucherId = null;
 
-    const voucherQueryCode = MaVoucher || voucher_code;
-    if (voucherQueryCode) {
-      const isNum = !isNaN(parseInt(voucherQueryCode, 10));
-      const [vouchers] = await connection.query(
-        `SELECT * FROM voucher 
-         WHERE (${isNum ? 'MaVoucher = ? OR ' : ''} Code = ?) 
-           AND TrangThai = 1 
-           AND NgayHetHan >= NOW() FOR UPDATE`,
-        isNum ? [parseInt(voucherQueryCode, 10), String(voucherQueryCode)] : [String(voucherQueryCode)]
+    // Thu thập danh sách mã/ID voucher từ các định dạng payload (tương thích ngược MaVoucher / voucher_code cũ)
+    const rawMultiInput =
+      Array.isArray(voucherCodes)
+        ? voucherCodes
+        : Array.isArray(voucher_codes)
+        ? voucher_codes
+        : Array.isArray(codes)
+        ? codes
+        : Array.isArray(rawVoucherList)
+        ? rawVoucherList
+        : Array.isArray(MaVouchers)
+        ? MaVouchers
+        : null;
+
+    const requestedVoucherIdentifiers = [];
+    if (rawMultiInput) {
+      requestedVoucherIdentifiers.push(...rawMultiInput);
+    } else {
+      if (giamGiaDonCode) requestedVoucherIdentifiers.push(giamGiaDonCode);
+      if (freeShipCode) requestedVoucherIdentifiers.push(freeShipCode);
+      const legacyVoucher = MaVoucher || voucher_code || voucherCode;
+      if (legacyVoucher && requestedVoucherIdentifiers.length === 0) {
+        requestedVoucherIdentifiers.push(legacyVoucher);
+      }
+    }
+
+    if (requestedVoucherIdentifiers.length > 0) {
+      const voucherEval = await evaluateMultiVouchers(
+        connection,
+        requestedVoucherIdentifiers,
+        orderSubtotal,
+        phiShip,
+        { forUpdate: true }
       );
 
-      if (vouchers.length > 0) {
-        const v = vouchers[0];
-        if (v.SoLuong > 0 && orderSubtotal >= Number(v.GiaTriToiThieu)) {
-          appliedVoucherId = v.MaVoucher;
-          if (v.LoaiGiam === 'tien') {
-            soTienGiam = Number(v.GiaTriGiam);
-          } else if (v.LoaiGiam === 'phantram') {
-            soTienGiam = (orderSubtotal * Number(v.GiaTriGiam)) / 100;
-          }
-          if (soTienGiam > orderSubtotal) soTienGiam = orderSubtotal;
+      if (!voucherEval.valid) {
+        await connection.rollback();
+        connection.release();
+        return res.status(voucherEval.status || 400).json({
+          success: false,
+          message: voucherEval.message
+        });
+      }
 
-          // Giảm số lượng Voucher
-          await connection.query(
-            `UPDATE voucher SET SoLuong = SoLuong - 1 WHERE MaVoucher = ?`,
-            [appliedVoucherId]
-          );
+      soTienGiamDon = voucherEval.soTienGiamDon;
+      soTienGiamShip = voucherEval.soTienGiamShip;
+      appliedVouchers = voucherEval.appliedVouchers;
+
+      // Giữ tương thích cột donhang.MaVoucher (ưu tiên mã GiamGiaDon, nếu không có thì lấy mã FreeShip)
+      appliedVoucherId =
+        voucherEval.giamGiaDonVoucher?.MaVoucher ||
+        voucherEval.freeShipVoucher?.MaVoucher ||
+        null;
+
+      // Trừ SoLuong nguyên tử cho từng voucher hợp lệ
+      for (const v of appliedVouchers) {
+        const [deductResult] = await connection.query(
+          `UPDATE voucher SET SoLuong = SoLuong - 1 WHERE MaVoucher = ? AND SoLuong > 0`,
+          [v.MaVoucher]
+        );
+        if (!deductResult || deductResult.affectedRows === 0) {
+          await connection.rollback();
+          connection.release();
+          return res.status(400).json({
+            success: false,
+            message: `Mã voucher "${v.Code}" vừa hết lượt sử dụng, vui lòng thử lại`
+          });
         }
       }
     }
 
-    const voucherDiscount = soTienGiam;
+    const voucherDiscount = soTienGiamDon + soTienGiamShip;
 
-    // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + shippingFee - voucherDiscount
+    // 4. Tính tổng tiền đơn hàng lưu vào DB: TongTien = orderSubtotal + phiShip - (soTienGiamDon + soTienGiamShip)
     const tongTien = Math.max(0, orderSubtotal + phiShip - voucherDiscount);
 
     // Lấy chuỗi phương thức thanh toán từ request body, chuyển thành chữ hoa và map sang ID chuẩn số integer
@@ -626,12 +677,18 @@ const createOrder = async (req, res, next) => {
       [MaNguoiDung, maDonHang, tongTien, initialOrderStatus, maPhuongThucId, maThanhToan]
     );
 
-    // 9. Ghi lịch sử sử dụng voucher nếu có
-    if (appliedVoucherId) {
-      await connection.query(
-        `INSERT INTO lichsu_dung_voucher (MaNguoiDung, MaVoucher, MaDonHang, NgaySuDung) VALUES (?, ?, ?, NOW())`,
-        [MaNguoiDung, appliedVoucherId, maDonHang]
-      );
+    // 9. Lưu từng voucher vào bảng `donhang_voucher` và ghi lịch sử `lichsu_dung_voucher`
+    if (appliedVouchers.length > 0) {
+      for (const v of appliedVouchers) {
+        await connection.query(
+          `INSERT INTO donhang_voucher (MaDonHang, MaVoucher, SoTienGiam) VALUES (?, ?, ?)`,
+          [maDonHang, v.MaVoucher, v.SoTienGiam]
+        );
+        await connection.query(
+          `INSERT INTO lichsu_dung_voucher (MaNguoiDung, MaVoucher, MaDonHang, NgaySuDung) VALUES (?, ?, ?, NOW())`,
+          [MaNguoiDung, v.MaVoucher, maDonHang]
+        );
+      }
     }
 
     // 10. Trừ TonKho của đúng MaBienThe trong `sanpham_bienthe` và Thêm log vào `lichsutonkho` (LoaiBienDong = 'XuatBan')
@@ -730,6 +787,9 @@ const createOrder = async (req, res, next) => {
         shippingFee: phiShip,
         SoTienGiam: voucherDiscount,
         voucherDiscount,
+        soTienGiamDon,
+        soTienGiamShip,
+        appliedVouchers,
         subtotal: orderSubtotal,
         orderSubtotal,
         TenNguoiNhan: finalTenNguoiNhan,
@@ -883,9 +943,49 @@ const getUserOrders = async (req, res, next) => {
       });
     });
 
+    const [orderVoucherRows] = await pool.query(
+      `SELECT
+         dv.MaDonHang,
+         dv.MaVoucher,
+         dv.SoTienGiam,
+         v.Code,
+         v.NhomVoucher,
+         v.LoaiGiam,
+         v.GiaTriGiam,
+         v.GiamToiDa
+       FROM donhang_voucher dv
+       LEFT JOIN voucher v ON dv.MaVoucher = v.MaVoucher
+       WHERE dv.MaDonHang IN (?)`,
+      [orderIds]
+    );
+
+    const orderVouchersMap = new Map();
+    orderVoucherRows.forEach((v) => {
+      if (!orderVouchersMap.has(v.MaDonHang)) {
+        orderVouchersMap.set(v.MaDonHang, []);
+      }
+      orderVouchersMap.get(v.MaDonHang).push({
+        MaVoucher: v.MaVoucher,
+        Code: v.Code || null,
+        NhomVoucher: v.NhomVoucher || (v.LoaiGiam === 'freeship' ? 'FreeShip' : 'GiamGiaDon'),
+        LoaiGiam: v.LoaiGiam || null,
+        GiaTriGiam: v.GiaTriGiam !== null && v.GiaTriGiam !== undefined ? Number(v.GiaTriGiam) : 0,
+        GiamToiDa: v.GiamToiDa !== null && v.GiamToiDa !== undefined ? Number(v.GiamToiDa) : null,
+        SoTienGiam: Number(v.SoTienGiam || 0)
+      });
+    });
+
     const formattedOrders = orders.map((order) => {
       const pttt = order.PhuongThucThanhToan || 'COD';
       const isCOD = !pttt.toUpperCase().includes('VNPAY') && !pttt.toUpperCase().includes('VN PAY') && !pttt.toUpperCase().includes('ZALO');
+      const appliedList = orderVouchersMap.get(order.MaDonHang) || [];
+      const soTienGiamDon = appliedList
+        .filter((v) => v.NhomVoucher !== 'FreeShip')
+        .reduce((sum, v) => sum + v.SoTienGiam, 0);
+      const soTienGiamShip = appliedList
+        .filter((v) => v.NhomVoucher === 'FreeShip')
+        .reduce((sum, v) => sum + v.SoTienGiam, 0);
+
       return {
         MaDonHang: order.MaDonHang,
         CodeDonHang: formatOrderCode(order.MaDonHang, order.NgayMuaHang),
@@ -900,6 +1000,9 @@ const getUserOrders = async (req, res, next) => {
         TongTien: Number(order.TongTien),
         PhiShip: Number(order.PhiShip || 0),
         SoTienGiam: Number(order.SoTienGiam || 0),
+        SoTienGiamDon: soTienGiamDon,
+        SoTienGiamShip: soTienGiamShip,
+        vouchers: appliedList,
         PhuongThucThanhToan: pttt,
         isCOD,
         chitietdonhang: itemsMap.get(order.MaDonHang) || []
@@ -1186,8 +1289,19 @@ const cancelOrder = async (req, res, next) => {
       });
     }
 
-    // 5. Khôi phục số lượng voucher nếu đơn hàng có áp dụng
-    if (order.MaVoucher) {
+    // 5. Khôi phục số lượng cho toàn bộ voucher đã áp dụng trong `donhang_voucher` (hoặc fallback `donhang.MaVoucher`)
+    const [usedVouchers] = await connection.query(
+      `SELECT MaVoucher FROM donhang_voucher WHERE MaDonHang = ?`,
+      [orderId]
+    );
+
+    if (usedVouchers.length > 0) {
+      const voucherIdsToRestore = usedVouchers.map((v) => v.MaVoucher);
+      await connection.query(
+        `UPDATE voucher SET SoLuong = SoLuong + 1 WHERE MaVoucher IN (?)`,
+        [voucherIdsToRestore]
+      );
+    } else if (order.MaVoucher) {
       await connection.query(
         `UPDATE voucher SET SoLuong = SoLuong + 1 WHERE MaVoucher = ?`,
         [order.MaVoucher]

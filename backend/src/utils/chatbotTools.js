@@ -577,8 +577,10 @@ const getVouchers = async () => {
       `SELECT 
          MaVoucher,
          Code,
+         NhomVoucher,
          GiaTriGiam,
          LoaiGiam,
+         GiamToiDa,
          GiaTriToiThieu,
          SoLuong,
          NgayHetHan,
@@ -587,14 +589,35 @@ const getVouchers = async () => {
        WHERE TrangThai = 1
          AND SoLuong > 0
          AND NgayHetHan >= NOW()
-       ORDER BY GiaTriGiam DESC, MaVoucher DESC`
+       ORDER BY NhomVoucher ASC, GiaTriGiam DESC, MaVoucher DESC`
     );
 
     const formattedVouchers = rows.map((v) => {
-      const isPercent = v.LoaiGiam === 'phantram';
-      const discountText = isPercent
-        ? `Giảm ${Number(v.GiaTriGiam)}%`
-        : `Giảm ${formatVND(v.GiaTriGiam)}`;
+      const voucherGroup = v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship' ? 'FreeShip' : 'GiamGiaDon';
+      const maxDiscount =
+        v.GiamToiDa !== null && v.GiamToiDa !== undefined && Number(v.GiamToiDa) > 0
+          ? Number(v.GiamToiDa)
+          : null;
+      const maxCapText = maxDiscount ? ` (tối đa ${formatVND(maxDiscount)})` : '';
+
+      let discountText = '';
+      if (voucherGroup === 'FreeShip') {
+        if (v.LoaiGiam === 'phantram') {
+          discountText = `Giảm ${Number(v.GiaTriGiam)}% phí ship${maxCapText}`;
+        } else if (v.LoaiGiam === 'freeship') {
+          discountText =
+            Number(v.GiaTriGiam) > 0
+              ? `Freeship lên đến ${formatVND(v.GiaTriGiam)}${maxCapText}`
+              : `Miễn phí vận chuyển${maxCapText}`;
+        } else {
+          discountText = `Giảm ${formatVND(v.GiaTriGiam)} phí ship${maxCapText}`;
+        }
+      } else if (v.LoaiGiam === 'phantram') {
+        discountText = `Giảm ${Number(v.GiaTriGiam)}%${maxCapText}`;
+      } else {
+        discountText = `Giảm ${formatVND(v.GiaTriGiam)}${maxCapText}`;
+      }
+
       const minOrderText =
         Number(v.GiaTriToiThieu) > 0
           ? `cho đơn từ ${formatVND(v.GiaTriToiThieu)}`
@@ -608,25 +631,35 @@ const getVouchers = async () => {
       return {
         voucherId: v.MaVoucher,
         code: v.Code,
-        discountType: v.LoaiGiam, // 'tien' hoặc 'phantram'
+        voucherGroup,
+        NhomVoucher: voucherGroup,
+        discountType: v.LoaiGiam, // 'tien', 'phantram' hoặc 'freeship'
         discountValue: Number(v.GiaTriGiam),
+        maxDiscount,
+        GiamToiDa: maxDiscount,
         discountDisplay: discountText,
         minOrderValue: Number(v.GiaTriToiThieu),
         minOrderValueFormatted: formatVND(v.GiaTriToiThieu),
         remainingQuantity: Number(v.SoLuong),
         expiryDate: v.NgayHetHan,
         expiryDateFormatted: formattedExpiry,
-        description: `Mã ${v.Code}: ${discountText} ${minOrderText}. Còn lại ${v.SoLuong} lượt dùng (HSD: ${formattedExpiry}).`
+        description: `[${voucherGroup === 'FreeShip' ? 'Freeship' : 'Giảm giá đơn'}] Mã ${v.Code}: ${discountText} ${minOrderText}. Còn lại ${v.SoLuong} lượt dùng (HSD: ${formattedExpiry}).`
       };
     });
+
+    const giamGiaDon = formattedVouchers.filter((v) => v.voucherGroup !== 'FreeShip');
+    const freeShip = formattedVouchers.filter((v) => v.voucherGroup === 'FreeShip');
 
     return {
       success: true,
       totalVouchers: formattedVouchers.length,
       vouchers: formattedVouchers,
+      giamGiaDon,
+      freeShip,
+      combineRule: 'Có thể áp dụng đồng thời tối đa 01 mã GiamGiaDon và 01 mã FreeShip trên cùng 1 đơn hàng.',
       message:
         formattedVouchers.length > 0
-          ? `Hiện có ${formattedVouchers.length} mã giảm giá đang hoạt động.`
+          ? `Hiện có ${formattedVouchers.length} mã ưu đãi đang hoạt động (${giamGiaDon.length} mã giảm giá đơn hàng và ${freeShip.length} mã Freeship).`
           : 'Hiện tại chưa có mã giảm giá nào đang áp dụng.'
     };
   } catch (error) {
@@ -635,6 +668,8 @@ const getVouchers = async () => {
       success: false,
       error: error.message,
       vouchers: [],
+      giamGiaDon: [],
+      freeShip: [],
       message: 'Đã xảy ra lỗi khi lấy danh sách mã giảm giá.'
     };
   }

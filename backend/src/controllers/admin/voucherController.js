@@ -1,10 +1,93 @@
 const { pool } = require('../../../config/db');
 
+const ALLOWED_VOUCHER_GROUPS = ['GiamGiaDon', 'FreeShip'];
+const ALLOWED_DISCOUNT_TYPES = ['tien', 'phantram', 'freeship'];
+
 /**
  * Helper function format date sang định dạng YYYY-MM-DD HH:mm:ss cho MySQL hoặc trả về ISO String / Object
  */
 const formatDate = (dateObj) => {
   return new Date(dateObj).toISOString().slice(0, 19).replace('T', ' ');
+};
+
+/**
+ * Helper chuẩn hóa giá trị GiamToiDa (cho phép null / chuỗi rỗng nếu không giới hạn)
+ */
+const parseOptionalMaxDiscount = (raw) => {
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return { valid: true, value: null };
+  }
+  const num = Number(raw);
+  if (isNaN(num) || num <= 0) {
+    return { valid: false, message: 'Giảm tối đa (GiamToiDa) phải là số lớn hơn 0 hoặc để trống' };
+  }
+  return { valid: true, value: num };
+};
+
+/**
+ * Helper xác thực cặp NhomVoucher và LoaiGiam
+ */
+const resolveGroupAndType = (rawGroup, rawType, fallbackGroup = 'GiamGiaDon', fallbackType = 'tien') => {
+  let nhomVoucher = rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== ''
+    ? String(rawGroup).trim()
+    : null;
+  let loaiGiam = rawType !== undefined && rawType !== null && String(rawType).trim() !== ''
+    ? String(rawType).trim().toLowerCase()
+    : null;
+
+  if (nhomVoucher && !ALLOWED_VOUCHER_GROUPS.includes(nhomVoucher)) {
+    return {
+      valid: false,
+      message: `Nhóm voucher (NhomVoucher) chỉ chấp nhận: ${ALLOWED_VOUCHER_GROUPS.join(', ')}`
+    };
+  }
+
+  if (loaiGiam && !ALLOWED_DISCOUNT_TYPES.includes(loaiGiam)) {
+    return {
+      valid: false,
+      message: `Loại giảm (LoaiGiam) chỉ chấp nhận: ${ALLOWED_DISCOUNT_TYPES.join(', ')}`
+    };
+  }
+
+  // Tự suy luận nếu chỉ truyền 1 trong 2 trường
+  if (!nhomVoucher) {
+    nhomVoucher = loaiGiam === 'freeship' ? 'FreeShip' : fallbackGroup;
+  }
+  if (!loaiGiam) {
+    loaiGiam = nhomVoucher === 'FreeShip' ? 'freeship' : fallbackType;
+  }
+
+  // Kiểm tra tính nhất quán: GiamGiaDon không thể có LoaiGiam = 'freeship'
+  if (nhomVoucher === 'GiamGiaDon' && loaiGiam === 'freeship') {
+    return {
+      valid: false,
+      message: 'Voucher nhóm GiamGiaDon chỉ hỗ trợ LoaiGiam là "tien" hoặc "phantram"'
+    };
+  }
+
+  return { valid: true, nhomVoucher, loaiGiam };
+};
+
+/**
+ * Format 1 bản ghi voucher trả ra client
+ */
+const formatAdminVoucher = (item, stt = undefined) => {
+  const result = {
+    MaVoucher: item.MaVoucher,
+    Code: item.Code,
+    NhomVoucher: item.NhomVoucher || (item.LoaiGiam === 'freeship' ? 'FreeShip' : 'GiamGiaDon'),
+    GiaTriGiam: Number(item.GiaTriGiam),
+    LoaiGiam: item.LoaiGiam,
+    GiamToiDa: item.GiamToiDa !== null && item.GiamToiDa !== undefined ? Number(item.GiamToiDa) : null,
+    GiaTriToiThieu: Number(item.GiaTriToiThieu),
+    SoLuong: Number(item.SoLuong),
+    NgayHetHan: item.NgayHetHan,
+    TrangThai: Number(item.TrangThai)
+  };
+  if (stt !== undefined) {
+    return { STT: stt, ...result };
+  }
+  return result;
 };
 
 /**
@@ -17,8 +100,10 @@ const getAllVouchers = async (req, res, next) => {
       `SELECT 
          MaVoucher,
          Code,
+         NhomVoucher,
          GiaTriGiam,
          LoaiGiam,
+         GiamToiDa,
          GiaTriToiThieu,
          SoLuong,
          NgayHetHan,
@@ -27,17 +112,7 @@ const getAllVouchers = async (req, res, next) => {
        ORDER BY MaVoucher DESC`
     );
 
-    const vouchers = rows.map((item, index) => ({
-      STT: index + 1,
-      MaVoucher: item.MaVoucher,
-      Code: item.Code,
-      GiaTriGiam: Number(item.GiaTriGiam),
-      LoaiGiam: item.LoaiGiam,
-      GiaTriToiThieu: Number(item.GiaTriToiThieu),
-      SoLuong: item.SoLuong,
-      NgayHetHan: item.NgayHetHan,
-      TrangThai: item.TrangThai
-    }));
+    const vouchers = rows.map((item, index) => formatAdminVoucher(item, index + 1));
 
     return res.status(200).json({
       success: true,
@@ -69,8 +144,10 @@ const getVoucherById = async (req, res, next) => {
       `SELECT 
          MaVoucher,
          Code,
+         NhomVoucher,
          GiaTriGiam,
          LoaiGiam,
+         GiamToiDa,
          GiaTriToiThieu,
          SoLuong,
          NgayHetHan,
@@ -87,15 +164,10 @@ const getVoucherById = async (req, res, next) => {
       });
     }
 
-    const item = rows[0];
     return res.status(200).json({
       success: true,
       message: 'Lấy chi tiết mã giảm giá thành công',
-      data: {
-        ...item,
-        GiaTriGiam: Number(item.GiaTriGiam),
-        GiaTriToiThieu: Number(item.GiaTriToiThieu)
-      }
+      data: formatAdminVoucher(rows[0])
     });
   } catch (error) {
     next(error);
@@ -105,16 +177,21 @@ const getVoucherById = async (req, res, next) => {
 /**
  * 2. POST /api/v1/admin/vouchers
  * Thêm mã voucher mới
- * Validate:
- * - Code: Tự động uppercase, không khoảng trắng, không trùng lặp.
- * - GiaTriGiam: Số > 0 (tính bằng VND).
- * - GiaTriToiThieu: Bắt buộc số > 0 và GiaTriGiam <= GiaTriToiThieu.
- * - SoLuong: Số nguyên > 0.
- * - NgayHetHan: Phải > thời điểm hiện tại.
+ * Hỗ trợ NhomVoucher ('GiamGiaDon' | 'FreeShip'), LoaiGiam ('tien' | 'phantram' | 'freeship'), GiamToiDa.
  */
 const createVoucher = async (req, res, next) => {
   try {
-    const { Code, GiaTriGiam, LoaiGiam, GiaTriToiThieu, SoLuong, NgayHetHan, TrangThai } = req.body;
+    const {
+      Code,
+      NhomVoucher,
+      GiaTriGiam,
+      LoaiGiam,
+      GiamToiDa,
+      GiaTriToiThieu,
+      SoLuong,
+      NgayHetHan,
+      TrangThai
+    } = req.body;
 
     // 1. Validate Code
     if (!Code || !String(Code).trim()) {
@@ -134,37 +211,82 @@ const createVoucher = async (req, res, next) => {
 
     const formattedCode = rawCode.toUpperCase();
 
-    // 2. Validate GiaTriGiam
-    const giaTriGiamNum = Number(GiaTriGiam);
-    if (GiaTriGiam === undefined || GiaTriGiam === null || isNaN(giaTriGiamNum) || giaTriGiamNum <= 0) {
+    // 2. Validate NhomVoucher & LoaiGiam
+    const groupTypeResult = resolveGroupAndType(NhomVoucher, LoaiGiam, 'GiamGiaDon', 'tien');
+    if (!groupTypeResult.valid) {
       return res.status(400).json({
         success: false,
-        message: 'Giá trị giảm (GiaTriGiam) phải là số lớn hơn 0'
+        message: groupTypeResult.message
+      });
+    }
+    const { nhomVoucher, loaiGiam } = groupTypeResult;
+
+    // 3. Validate GiamToiDa (không bắt buộc; nếu nhập phải > 0)
+    const maxDiscountResult = parseOptionalMaxDiscount(GiamToiDa);
+    if (!maxDiscountResult.valid) {
+      return res.status(400).json({
+        success: false,
+        message: maxDiscountResult.message
+      });
+    }
+    const giamToiDaNum = maxDiscountResult.value;
+
+    // 4. Validate GiaTriGiam theo từng LoaiGiam
+    let giaTriGiamNum;
+    if (loaiGiam === 'freeship') {
+      if (GiaTriGiam === undefined || GiaTriGiam === null || String(GiaTriGiam).trim() === '') {
+        giaTriGiamNum = giamToiDaNum !== null ? giamToiDaNum : 0;
+      } else {
+        giaTriGiamNum = Number(GiaTriGiam);
+        if (isNaN(giaTriGiamNum) || giaTriGiamNum < 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Giá trị giảm phí ship (GiaTriGiam) phải là số lớn hơn hoặc bằng 0'
+          });
+        }
+      }
+    } else {
+      giaTriGiamNum = Number(GiaTriGiam);
+      if (GiaTriGiam === undefined || GiaTriGiam === null || isNaN(giaTriGiamNum) || giaTriGiamNum <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá trị giảm (GiaTriGiam) phải là số lớn hơn 0'
+        });
+      }
+      if (loaiGiam === 'phantram' && giaTriGiamNum > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá trị giảm theo phần trăm (GiaTriGiam) không được vượt quá 100%'
+        });
+      }
+    }
+
+    // 5. Validate GiaTriToiThieu (cho phép >= 0 để hỗ trợ voucher Freeship / đơn mọi giá trị)
+    const giaTriToiThieuNum =
+      GiaTriToiThieu === undefined || GiaTriToiThieu === null || String(GiaTriToiThieu).trim() === ''
+        ? 0
+        : Number(GiaTriToiThieu);
+
+    if (isNaN(giaTriToiThieuNum) || giaTriToiThieuNum < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Giá trị đơn hàng tối thiểu (GiaTriToiThieu) phải là số lớn hơn hoặc bằng 0'
       });
     }
 
-    // 3. Validate GiaTriToiThieu
-    const giaTriToiThieuNum = Number(GiaTriToiThieu);
     if (
-      GiaTriToiThieu === undefined ||
-      GiaTriToiThieu === null ||
-      isNaN(giaTriToiThieuNum) ||
-      giaTriToiThieuNum <= 0
+      nhomVoucher === 'GiamGiaDon' &&
+      loaiGiam === 'tien' &&
+      giaTriToiThieuNum > 0 &&
+      giaTriGiamNum > giaTriToiThieuNum
     ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Giá trị tối thiểu (GiaTriToiThieu) phải là số lớn hơn 0'
-      });
-    }
-
-    if (giaTriGiamNum > giaTriToiThieuNum) {
       return res.status(400).json({
         success: false,
         message: 'Giá trị giảm không được lớn hơn giá trị đơn hàng tối thiểu'
       });
     }
 
-    // 4. Validate SoLuong
+    // 6. Validate SoLuong
     const soLuongNum = Number(SoLuong);
     if (
       SoLuong === undefined ||
@@ -179,7 +301,7 @@ const createVoucher = async (req, res, next) => {
       });
     }
 
-    // 5. Validate NgayHetHan
+    // 7. Validate NgayHetHan
     if (!NgayHetHan) {
       return res.status(400).json({
         success: false,
@@ -215,14 +337,24 @@ const createVoucher = async (req, res, next) => {
       });
     }
 
-    const voucherType = LoaiGiam === 'phantram' ? 'phantram' : 'tien';
     const status = TrangThai !== undefined ? (Number(TrangThai) === 0 ? 0 : 1) : 1;
     const formattedExpiryDate = formatDate(expireDate);
 
     const [result] = await pool.query(
-      `INSERT INTO voucher (Code, GiaTriGiam, LoaiGiam, GiaTriToiThieu, SoLuong, NgayHetHan, TrangThai)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [formattedCode, giaTriGiamNum, voucherType, giaTriToiThieuNum, soLuongNum, formattedExpiryDate, status]
+      `INSERT INTO voucher
+         (Code, NhomVoucher, GiaTriGiam, LoaiGiam, GiamToiDa, GiaTriToiThieu, SoLuong, NgayHetHan, TrangThai)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        formattedCode,
+        nhomVoucher,
+        giaTriGiamNum,
+        loaiGiam,
+        giamToiDaNum,
+        giaTriToiThieuNum,
+        soLuongNum,
+        formattedExpiryDate,
+        status
+      ]
     );
 
     return res.status(201).json({
@@ -231,8 +363,10 @@ const createVoucher = async (req, res, next) => {
       data: {
         MaVoucher: result.insertId,
         Code: formattedCode,
+        NhomVoucher: nhomVoucher,
         GiaTriGiam: giaTriGiamNum,
-        LoaiGiam: voucherType,
+        LoaiGiam: loaiGiam,
+        GiamToiDa: giamToiDaNum,
         GiaTriToiThieu: giaTriToiThieuNum,
         SoLuong: soLuongNum,
         NgayHetHan: expireDate,
@@ -273,9 +407,19 @@ const updateVoucher = async (req, res, next) => {
     }
 
     const currentVoucher = existing[0];
-    const { Code, GiaTriGiam, LoaiGiam, GiaTriToiThieu, SoLuong, NgayHetHan, TrangThai } = req.body;
+    const {
+      Code,
+      NhomVoucher,
+      GiaTriGiam,
+      LoaiGiam,
+      GiamToiDa,
+      GiaTriToiThieu,
+      SoLuong,
+      NgayHetHan,
+      TrangThai
+    } = req.body;
 
-    // Validate Code nếu có truyền lên
+    // 1. Validate Code nếu có truyền lên
     let newCode = currentVoucher.Code;
     if (Code !== undefined) {
       if (!String(Code).trim()) {
@@ -306,40 +450,94 @@ const updateVoucher = async (req, res, next) => {
       }
     }
 
-    // Validate GiaTriGiam & GiaTriToiThieu
+    // 2. Validate NhomVoucher & LoaiGiam
+    const groupTypeResult = resolveGroupAndType(
+      NhomVoucher !== undefined ? NhomVoucher : currentVoucher.NhomVoucher,
+      LoaiGiam !== undefined ? LoaiGiam : currentVoucher.LoaiGiam,
+      currentVoucher.NhomVoucher || 'GiamGiaDon',
+      currentVoucher.LoaiGiam || 'tien'
+    );
+    if (!groupTypeResult.valid) {
+      return res.status(400).json({
+        success: false,
+        message: groupTypeResult.message
+      });
+    }
+    const newNhomVoucher = groupTypeResult.nhomVoucher;
+    const newLoaiGiam = groupTypeResult.loaiGiam;
+
+    // 3. Validate GiamToiDa
+    let newGiamToiDa =
+      currentVoucher.GiamToiDa !== null && currentVoucher.GiamToiDa !== undefined
+        ? Number(currentVoucher.GiamToiDa)
+        : null;
+    if (GiamToiDa !== undefined) {
+      const maxDiscountResult = parseOptionalMaxDiscount(GiamToiDa);
+      if (!maxDiscountResult.valid) {
+        return res.status(400).json({
+          success: false,
+          message: maxDiscountResult.message
+        });
+      }
+      newGiamToiDa = maxDiscountResult.value;
+    }
+
+    // 4. Validate GiaTriGiam
     const newGiaTriGiam = GiaTriGiam !== undefined ? Number(GiaTriGiam) : Number(currentVoucher.GiaTriGiam);
-    if (isNaN(newGiaTriGiam) || newGiaTriGiam <= 0) {
+    if (newLoaiGiam === 'freeship') {
+      if (isNaN(newGiaTriGiam) || newGiaTriGiam < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá trị giảm phí ship phải là số lớn hơn hoặc bằng 0'
+        });
+      }
+    } else {
+      if (isNaN(newGiaTriGiam) || newGiaTriGiam <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá trị giảm phải là số lớn hơn 0'
+        });
+      }
+      if (newLoaiGiam === 'phantram' && newGiaTriGiam > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giá trị giảm theo phần trăm không được vượt quá 100%'
+        });
+      }
+    }
+
+    // 5. Validate GiaTriToiThieu
+    const newGiaTriToiThieu =
+      GiaTriToiThieu !== undefined ? Number(GiaTriToiThieu) : Number(currentVoucher.GiaTriToiThieu);
+    if (isNaN(newGiaTriToiThieu) || newGiaTriToiThieu < 0) {
       return res.status(400).json({
         success: false,
-        message: 'Giá trị giảm phải là số lớn hơn 0'
+        message: 'Giá trị tối thiểu phải là số lớn hơn hoặc bằng 0'
       });
     }
 
-    const newGiaTriToiThieu = GiaTriToiThieu !== undefined ? Number(GiaTriToiThieu) : Number(currentVoucher.GiaTriToiThieu);
-    if (isNaN(newGiaTriToiThieu) || newGiaTriToiThieu <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Giá trị tối thiểu phải là số lớn hơn 0'
-      });
-    }
-
-    if (newGiaTriGiam > newGiaTriToiThieu) {
+    if (
+      newNhomVoucher === 'GiamGiaDon' &&
+      newLoaiGiam === 'tien' &&
+      newGiaTriToiThieu > 0 &&
+      newGiaTriGiam > newGiaTriToiThieu
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Giá trị giảm không được lớn hơn giá trị đơn hàng tối thiểu'
       });
     }
 
-    // Validate SoLuong
-    const newSoLuong = SoLuong !== undefined ? Number(SoLuong) : currentVoucher.SoLuong;
-    if (isNaN(newSoLuong) || !Number.isInteger(newSoLuong) || newSoLuong <= 0) {
+    // 6. Validate SoLuong
+    const newSoLuong = SoLuong !== undefined ? Number(SoLuong) : Number(currentVoucher.SoLuong);
+    if (isNaN(newSoLuong) || !Number.isInteger(newSoLuong) || newSoLuong < 0) {
       return res.status(400).json({
         success: false,
-        message: 'Số lượng phải là số nguyên lớn hơn 0'
+        message: 'Số lượng phải là số nguyên lớn hơn hoặc bằng 0'
       });
     }
 
-    // Validate NgayHetHan
+    // 7. Validate NgayHetHan
     let newExpireDate = new Date(currentVoucher.NgayHetHan);
     if (NgayHetHan !== undefined) {
       newExpireDate = new Date(NgayHetHan);
@@ -357,22 +555,33 @@ const updateVoucher = async (req, res, next) => {
       }
     }
 
-    const newLoaiGiam = LoaiGiam !== undefined ? (LoaiGiam === 'phantram' ? 'phantram' : 'tien') : currentVoucher.LoaiGiam;
-    const newTrangThai = TrangThai !== undefined ? (Number(TrangThai) === 0 ? 0 : 1) : currentVoucher.TrangThai;
-
+    const newTrangThai = TrangThai !== undefined ? (Number(TrangThai) === 0 ? 0 : 1) : Number(currentVoucher.TrangThai);
     const formattedExpiryDate = formatDate(newExpireDate);
 
     await pool.query(
       `UPDATE voucher SET
          Code = ?,
+         NhomVoucher = ?,
          GiaTriGiam = ?,
          LoaiGiam = ?,
+         GiamToiDa = ?,
          GiaTriToiThieu = ?,
          SoLuong = ?,
          NgayHetHan = ?,
          TrangThai = ?
        WHERE MaVoucher = ?`,
-      [newCode, newGiaTriGiam, newLoaiGiam, newGiaTriToiThieu, newSoLuong, formattedExpiryDate, newTrangThai, voucherId]
+      [
+        newCode,
+        newNhomVoucher,
+        newGiaTriGiam,
+        newLoaiGiam,
+        newGiamToiDa,
+        newGiaTriToiThieu,
+        newSoLuong,
+        formattedExpiryDate,
+        newTrangThai,
+        voucherId
+      ]
     );
 
     return res.status(200).json({
@@ -381,8 +590,10 @@ const updateVoucher = async (req, res, next) => {
       data: {
         MaVoucher: voucherId,
         Code: newCode,
+        NhomVoucher: newNhomVoucher,
         GiaTriGiam: newGiaTriGiam,
         LoaiGiam: newLoaiGiam,
+        GiamToiDa: newGiamToiDa,
         GiaTriToiThieu: newGiaTriToiThieu,
         SoLuong: newSoLuong,
         NgayHetHan: newExpireDate,

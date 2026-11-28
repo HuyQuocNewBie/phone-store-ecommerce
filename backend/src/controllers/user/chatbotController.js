@@ -15,6 +15,107 @@ const { pool } = require('../../../config/db');
 const { GoogleGenAI } = require('@google/genai');
 const { geminiTools, executeChatbotTool } = require('../../utils/chatbotTools');
 
+const formatCurrencyVND = (price) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price) || 0);
+
+/**
+ * Truy vấn nhanh danh sách voucher đang hoạt động để đưa vào ngữ cảnh hệ thống của AI Chatbot
+ */
+const buildActiveVouchersContext = async () => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         MaVoucher,
+         Code,
+         NhomVoucher,
+         GiaTriGiam,
+         LoaiGiam,
+         GiamToiDa,
+         GiaTriToiThieu,
+         SoLuong,
+         NgayHetHan
+       FROM voucher
+       WHERE TrangThai = 1
+         AND SoLuong > 0
+         AND NgayHetHan >= NOW()
+       ORDER BY NhomVoucher ASC, GiaTriGiam DESC, MaVoucher DESC`
+    );
+
+    if (!rows || rows.length === 0) {
+      return `
+
+--- CHƯƠNG TRÌNH VOUCHER & ƯU ĐÃI ĐANG HOẠT ĐỘNG TẠI SMARTZONE ---
+Hiện tại chưa có mã voucher nào đang kích hoạt. Nếu khách hỏi, hãy thông báo lịch sự rằng hiện chưa có mã khuyến mãi và nhắc khách theo dõi các đợt ưu đãi sắp tới của SmartZone.`;
+    }
+
+    const formatLine = (v) => {
+      const group = v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship' ? 'FreeShip' : 'GiamGiaDon';
+      const maxCap =
+        v.GiamToiDa !== null && v.GiamToiDa !== undefined && Number(v.GiamToiDa) > 0
+          ? ` (giảm tối đa ${formatCurrencyVND(v.GiamToiDa)})`
+          : '';
+
+      let discountDesc = '';
+      if (group === 'FreeShip') {
+        if (v.LoaiGiam === 'phantram') {
+          discountDesc = `Giảm ${Number(v.GiaTriGiam)}% phí vận chuyển${maxCap}`;
+        } else if (v.LoaiGiam === 'freeship') {
+          const cap = Number(v.GiaTriGiam) > 0 ? formatCurrencyVND(v.GiaTriGiam) : null;
+          discountDesc = cap
+            ? `Miễn phí vận chuyển lên đến ${cap}${maxCap}`
+            : `Miễn phí vận chuyển${maxCap || ' toàn bộ phí ship'}`;
+        } else {
+          discountDesc = `Giảm ${formatCurrencyVND(v.GiaTriGiam)} phí vận chuyển${maxCap}`;
+        }
+      } else if (v.LoaiGiam === 'phantram') {
+        discountDesc = `Giảm ${Number(v.GiaTriGiam)}% giá trị đơn hàng${maxCap}`;
+      } else {
+        discountDesc = `Giảm trực tiếp ${formatCurrencyVND(v.GiaTriGiam)}${maxCap}`;
+      }
+
+      const minOrderDesc =
+        Number(v.GiaTriToiThieu) > 0
+          ? `đơn tối thiểu ${formatCurrencyVND(v.GiaTriToiThieu)}`
+          : 'áp dụng mọi đơn hàng';
+
+      const expiry = new Date(v.NgayHetHan);
+      const expiryStr = isNaN(expiry.getTime()) ? String(v.NgayHetHan) : expiry.toLocaleDateString('vi-VN');
+
+      return `  + Mã "${v.Code}": ${discountDesc} | Điều kiện: ${minOrderDesc} | Còn ${v.SoLuong} lượt | HSD: ${expiryStr}`;
+    };
+
+    const giamGiaDonRows = rows.filter((v) => v.NhomVoucher !== 'FreeShip' && v.LoaiGiam !== 'freeship');
+    const freeShipRows = rows.filter((v) => v.NhomVoucher === 'FreeShip' || v.LoaiGiam === 'freeship');
+
+    const giamGiaDonText =
+      giamGiaDonRows.length > 0
+        ? giamGiaDonRows.map(formatLine).join('\n')
+        : '  (Hiện chưa có mã giảm giá đơn hàng)';
+
+    const freeShipText =
+      freeShipRows.length > 0
+        ? freeShipRows.map(formatLine).join('\n')
+        : '  (Hiện chưa có mã Freeship)';
+
+    return `
+
+--- CHƯƠNG TRÌNH VOUCHER & ƯU ĐÃI ĐANG HOẠT ĐỘNG TẠI SMARTZONE ---
+QUY TẮC ÁP DỤNG VOUCHER: Khách hàng được áp dụng ĐỒNG THỜI tối đa 01 mã Giảm giá đơn hàng (GiamGiaDon) + 01 mã Miễn phí vận chuyển (FreeShip) trên cùng một đơn hàng!
+1. Nhóm Giảm giá đơn hàng (GiamGiaDon):
+${giamGiaDonText}
+2. Nhóm Miễn phí vận chuyển (FreeShip):
+${freeShipText}
+
+HƯỚNG DẪN TƯ VẤN VOUCHER CHỦ ĐỘNG:
+- Khi khách hàng hỏi tư vấn mua điện thoại, hỏi giá sản phẩm hoặc phân vân chọn máy: Ngoài tư vấn cấu hình/giá bán, HÃY CHỦ ĐỘNG gợi ý 01 mã Giảm giá đơn hàng phù hợp với mức giá máy (đảm bảo giá máy >= đơn tối thiểu của mã, có thể tính ước lượng giá sau giảm) KÈM 01 mã Freeship đang có (nếu đủ điều kiện) để giúp khách tiết kiệm tối đa.
+- Nếu khách hỏi trực tiếp về "mã giảm giá", "săn voucher", "khuyến mãi", "mã freeship": Hãy gọi thêm tool \`getVouchers\` để giao diện hiển thị thẻ voucher tương tác, đồng thời tư vấn cách kết hợp 1 mã giảm giá máy + 1 mã Freeship.
+- Tuyệt đối chỉ gợi ý các mã có thật trong danh sách trên, không tự bịa mã voucher.`;
+  } catch (err) {
+    console.warn('[chatbotController] Không thể nạp ngữ cảnh voucher:', err.message);
+    return '';
+  }
+};
+
 // 1. Đọc API Key & Cấu hình Model từ biến môi trường
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
@@ -211,8 +312,13 @@ const sendMessage = async (req, res, next) => {
       currentUser = bodyUser;
     }
 
-    // 2. Tạo System Instruction động kèm ngữ cảnh khách hàng đăng nhập
+    // 2. Tạo System Instruction động kèm ngữ cảnh voucher đang hoạt động & khách hàng đăng nhập
     let dynamicSystemInstruction = SYSTEM_INSTRUCTION;
+    const activeVouchersContext = await buildActiveVouchersContext();
+    if (activeVouchersContext) {
+      dynamicSystemInstruction += activeVouchersContext;
+    }
+
     if (currentUser) {
       dynamicSystemInstruction += `
 
