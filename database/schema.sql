@@ -1,6 +1,6 @@
 -- ============================================================================
 -- SCRIPT KHỞI TẠO VÀ CẬP NHẬT CƠ SỞ DỮ LIỆU PHONE STORE E-COMMERCE
--- Tương thích: MySQL 8.0+
+-- Tương thích: MySQL 8.0+ / MariaDB 10.4+
 -- Bảng mã: utf8mb4 / utf8mb4_unicode_ci
 -- ============================================================================
 
@@ -49,12 +49,14 @@ CREATE TABLE `trangthaithanhtoan` (
   PRIMARY KEY (`MaTrangThaiThanhToan`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 1.6 Bảng Mã Giảm Giá (Voucher) - Bổ sung TrangThai TINYINT(1) DEFAULT 1
+-- 1.6 Bảng Mã Giảm Giá (Voucher) - Hỗ trợ nhóm voucher (GiamGiaDon / FreeShip) và giảm tối đa
 CREATE TABLE `voucher` (
   `MaVoucher` int(11) NOT NULL AUTO_INCREMENT,
   `Code` varchar(50) NOT NULL,
+  `NhomVoucher` enum('GiamGiaDon','FreeShip') NOT NULL DEFAULT 'GiamGiaDon',
   `GiaTriGiam` decimal(18,2) NOT NULL,
-  `LoaiGiam` enum('tien','phantram') NOT NULL,
+  `LoaiGiam` enum('tien','phantram','freeship') NOT NULL,
+  `GiamToiDa` decimal(18,2) DEFAULT NULL,
   `GiaTriToiThieu` decimal(18,2) DEFAULT 0.00,
   `SoLuong` int(11) NOT NULL DEFAULT 0,
   `NgayHetHan` datetime NOT NULL,
@@ -125,7 +127,24 @@ CREATE TABLE `sanpham` (
   CONSTRAINT `SanPham_ibfk_2` FOREIGN KEY (`MaNhaSanXuat`) REFERENCES `nhasanxuat` (`MaNhaSanXuat`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3.2 Bảng Thông Số Kỹ Thuật
+-- 3.2 Bảng Biến Thể Sản Phẩm (SKU theo màu sắc & dung lượng)
+CREATE TABLE `sanpham_bienthe` (
+  `MaBienThe` int(11) NOT NULL AUTO_INCREMENT,
+  `MaSanPham` int(11) NOT NULL,
+  `MaSKU` varchar(100) NOT NULL,
+  `MauSac` varchar(50) DEFAULT NULL,
+  `DungLuong` varchar(50) DEFAULT NULL,
+  `GiaBan` decimal(18,2) NOT NULL,
+  `GiaNhapGanNhat` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `TonKho` int(11) NOT NULL DEFAULT 0,
+  `TrangThai` enum('DangBan','HetHang','NgungBan') NOT NULL DEFAULT 'DangBan',
+  PRIMARY KEY (`MaBienThe`),
+  UNIQUE KEY `MaSKU` (`MaSKU`),
+  KEY `idx_bienthe_sanpham` (`MaSanPham`),
+  CONSTRAINT `fk_bienthe_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3.3 Bảng Thông Số Kỹ Thuật
 CREATE TABLE `thongsokythuat` (
   `MaThongSo` int(11) NOT NULL AUTO_INCREMENT,
   `MaSanPham` int(11) NOT NULL,
@@ -137,7 +156,7 @@ CREATE TABLE `thongsokythuat` (
   CONSTRAINT `fk_thongso_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3.3 Bảng Sản Phẩm Yêu Thích
+-- 3.4 Bảng Sản Phẩm Yêu Thích
 CREATE TABLE `sanphamyeuthich` (
   `MaYeuThich` int(11) NOT NULL AUTO_INCREMENT,
   `MaNguoiDung` int(11) NOT NULL,
@@ -150,19 +169,22 @@ CREATE TABLE `sanphamyeuthich` (
   CONSTRAINT `sanphamyeuthich_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3.4 Bảng Giỏ Hàng
+-- 3.5 Bảng Giỏ Hàng
 CREATE TABLE `giohang` (
   `MaGioHang` int(11) NOT NULL AUTO_INCREMENT,
   `MaNguoiDung` int(11) NOT NULL,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `SoLuong` int(11) NOT NULL CHECK (`SoLuong` > 0),
   `DungLuong` varchar(50) DEFAULT NULL,
   `MauSac` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`MaGioHang`),
   KEY `MaNguoiDung` (`MaNguoiDung`),
   KEY `MaSanPham` (`MaSanPham`),
+  KEY `idx_giohang_bienthe` (`MaBienThe`),
   CONSTRAINT `GioHang_ibfk_1` FOREIGN KEY (`MaNguoiDung`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `GioHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `GioHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_giohang_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -228,6 +250,7 @@ CREATE TABLE `chitietdonhang` (
   `MaChiTietDonHang` int(11) NOT NULL AUTO_INCREMENT,
   `MaDonHang` int(11) NOT NULL,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `SoLuong` int(11) NOT NULL CHECK (`SoLuong` > 0),
   `DonGia` decimal(18,2) NOT NULL,
   `TongGia` decimal(18,2) GENERATED ALWAYS AS (`SoLuong` * `DonGia`) STORED,
@@ -236,9 +259,22 @@ CREATE TABLE `chitietdonhang` (
   PRIMARY KEY (`MaChiTietDonHang`),
   KEY `MaDonHang` (`MaDonHang`),
   KEY `MaSanPham` (`MaSanPham`),
+  KEY `idx_chitietdonhang_bienthe` (`MaBienThe`),
   CONSTRAINT `ChiTietDonHang_ibfk_1` FOREIGN KEY (`MaDonHang`) REFERENCES `donhang` (`MaDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `ChiTietDonHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `ChiTietDonHang_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_chitietdonhang_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=52 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4.4b Bảng Liên Kết Đơn Hàng - Voucher (Hỗ trợ áp dụng nhiều voucher / cộng dồn FreeShip)
+CREATE TABLE `donhang_voucher` (
+  `MaDonHang` int(11) NOT NULL,
+  `MaVoucher` int(11) NOT NULL,
+  `SoTienGiam` decimal(18,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`MaDonHang`, `MaVoucher`),
+  KEY `idx_donhang_voucher_voucher` (`MaVoucher`),
+  CONSTRAINT `fk_donhang_voucher_donhang` FOREIGN KEY (`MaDonHang`) REFERENCES `donhang` (`MaDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_donhang_voucher_voucher` FOREIGN KEY (`MaVoucher`) REFERENCES `voucher` (`MaVoucher`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4.5 Bảng Giao Dịch Thanh Toán
 CREATE TABLE `thanhtoan` (
@@ -326,20 +362,24 @@ CREATE TABLE `chitietphieunhap` (
   `MaChiTietNhap` int(11) NOT NULL AUTO_INCREMENT,
   `MaPhieuNhap` int(11) NOT NULL,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `SoLuongNhap` int(11) NOT NULL CHECK (`SoLuongNhap` > 0),
   `DonGiaNhap` decimal(18,2) NOT NULL,
   `ThanhTien` decimal(18,2) GENERATED ALWAYS AS (`SoLuongNhap` * `DonGiaNhap`) STORED,
   PRIMARY KEY (`MaChiTietNhap`),
   KEY `MaPhieuNhap` (`MaPhieuNhap`),
   KEY `MaSanPham` (`MaSanPham`),
+  KEY `idx_chitietphieunhap_bienthe` (`MaBienThe`),
   CONSTRAINT `chitietphieunhap_ibfk_1` FOREIGN KEY (`MaPhieuNhap`) REFERENCES `phieunhapkho` (`MaPhieuNhap`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `chitietphieunhap_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `chitietphieunhap_ibfk_2` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_chitietphieunhap_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5.3 Bảng Lịch Sử Tồn Kho
 CREATE TABLE `lichsutonkho` (
   `MaLichSuTon` int(11) NOT NULL AUTO_INCREMENT,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `LoaiBienDong` enum('NhapKho','XuatBan','CapNhatThuCong','HuyDon') NOT NULL,
   `SoLuongThayDoi` int(11) NOT NULL,
   `TonThucTeSauDoi` int(11) NOT NULL,
@@ -348,13 +388,16 @@ CREATE TABLE `lichsutonkho` (
   `GhiChu` text DEFAULT NULL,
   PRIMARY KEY (`MaLichSuTon`),
   KEY `MaSanPham` (`MaSanPham`),
-  CONSTRAINT `lichsutonkho_ibfk_1` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_lichsutonkho_bienthe` (`MaBienThe`),
+  CONSTRAINT `lichsutonkho_ibfk_1` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lichsutonkho_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5.4 Bảng Phiếu Điều Chỉnh Kho (Quản lý báo lệch kho)
 CREATE TABLE IF NOT EXISTS `phieudieuchinhkho` (
   `MaPhieuAdjust` int(11) NOT NULL AUTO_INCREMENT,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `MaNguoiDung_Kho` int(11) NOT NULL,
   `SoLuongThucTe` int(11) NOT NULL,
   `SoLuongChechLech` int(11) NOT NULL,
@@ -366,8 +409,10 @@ CREATE TABLE IF NOT EXISTS `phieudieuchinhkho` (
   `NgayDuyet` datetime DEFAULT NULL,
   PRIMARY KEY (`MaPhieuAdjust`),
   KEY `MaSanPham` (`MaSanPham`),
+  KEY `idx_phieudieuchinhkho_bienthe` (`MaBienThe`),
   KEY `MaNguoiDung_Kho` (`MaNguoiDung_Kho`),
   CONSTRAINT `fk_adjust_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_phieudieuchinhkho_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_adjust_kho` FOREIGN KEY (`MaNguoiDung_Kho`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -404,11 +449,39 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 7. MIGRATION: QUY TRÌNH ADMIN PHÊ DUYỆT PHIẾU NHẬP KHO & ĐỔI TRẢ
+-- 7. BẢNG BANNER & THÔNG BÁO HỆ THỐNG (V2)
 -- ============================================================================
-ALTER TABLE `phieunhapkho` ADD COLUMN `TrangThai` ENUM('ChoDuyet', 'DaDuyet', 'TuChoi') NOT NULL DEFAULT 'ChoDuyet';
 
--- 7.1 Thêm cột lưu đường dẫn ảnh QR hoàn tiền vào bảng phieudoitra
-ALTER TABLE phieudoitra ADD COLUMN AnhQRHoanTien VARCHAR(255) NULL;
+-- 7.1 Bảng Banner Quảng Cáo Trang Chủ
+CREATE TABLE IF NOT EXISTS `banner` (
+  `MaBanner` int(11) NOT NULL AUTO_INCREMENT,
+  `TieuDe` varchar(255) NOT NULL,
+  `MoTaNgan` varchar(500) DEFAULT NULL,
+  `HinhAnh` varchar(255) NOT NULL,
+  `LienKetDich` varchar(255) DEFAULT NULL,
+  `ThuTuHienThi` int(11) NOT NULL DEFAULT 1,
+  `TrangThai` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1: Hiển thị, 0: Ẩn',
+  `NgayTao` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`MaBanner`),
+  KEY `idx_banner_trangthai_thutu` (`TrangThai`, `ThuTuHienThi`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7.2 Bảng Thông Báo Nội Bộ (Admin & Kho)
+CREATE TABLE IF NOT EXISTS `thongbao` (
+  `MaThongBao` int(11) NOT NULL AUTO_INCREMENT,
+  `VaiTroNhan` int(11) NOT NULL COMMENT '1: Admin, 3: Warehouse',
+  `TieuDe` varchar(255) NOT NULL,
+  `NoiDung` text DEFAULT NULL,
+  `LoaiThongBao` enum('DonHang','KhoVan','DoiTra','DanhGia') NOT NULL,
+  `LienKet` varchar(255) DEFAULT NULL,
+  `DaDoc` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0: Chưa đọc, 1: Đã đọc',
+  `NgayTao` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`MaThongBao`),
+  KEY `idx_thongbao_vaitro_dadoc` (`VaiTroNhan`, `DaDoc`, `NgayTao`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Lưu ý: Các migration trước (phieunhapkho.TrangThai, phieudoitra.AnhQRHoanTien)
+-- đã được tích hợp trực tiếp vào CREATE TABLE ở trên.
+-- Xem script nâng cấp cơ sở dữ liệu hiện có tại: backend/src/models/migration_v2.sql
 
 SET FOREIGN_KEY_CHECKS = 1;
