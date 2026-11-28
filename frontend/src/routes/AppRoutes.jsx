@@ -24,6 +24,7 @@ import OrderListPage from '../pages/admin/orders/OrderListPage';
 import VoucherListPage from '../pages/admin/vouchers/VoucherListPage';
 import VoucherFormPage from '../pages/admin/vouchers/VoucherFormPage';
 import AdminBannersPage from '../pages/admin/AdminBannersPage';
+import AdminReviewsPage from '../pages/admin/AdminReviewsPage';
 import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 
 import HomePage from '../pages/user/HomePage';
@@ -171,6 +172,7 @@ const AppRoutes = () => {
         <Route path="vouchers/new" element={<VoucherFormPage />} />
         <Route path="vouchers/:id/edit" element={<VoucherFormPage />} />
         <Route path="banners" element={<AdminBannersPage />} />
+        <Route path="reviews" element={<AdminReviewsPage />} />
         <Route path="coupons" element={<Navigate to="../vouchers" replace />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="statistics" element={<Navigate to="../analytics" replace />} />
