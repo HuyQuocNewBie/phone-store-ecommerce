@@ -8,6 +8,27 @@ const {
   USER_TAB_STATUS_GROUPS,
   normalizeOrderStatus
 } = require('../../utils/orderStatus');
+const { pushNotification } = require('../../utils/notificationHelper');
+const {
+  loadVariantsByProducts,
+  pickVariant,
+  variantErrorMessage,
+  syncParentProductStock,
+  deductVariantStock,
+  restoreOrderItemStock,
+  formatVariantLabel,
+  formatVND
+} = require('../../utils/variantStockHelper');
+
+/**
+ * Helper: đọc MaBienThe hợp lệ từ payload item
+ */
+const readVariantId = (obj) => {
+  if (!obj) return null;
+  const raw = obj.MaBienThe ?? obj.maBienThe ?? obj.variant_id ?? obj.variantId;
+  const id = parseInt(raw, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
 
 // Bảng ánh xạ phương thức thanh toán chuẩn số integer
 const METHOD_MAP = {
@@ -198,7 +219,7 @@ const createOrder = async (req, res, next) => {
     if (validCartIds.length > 0) {
       // 1. Trường hợp người dùng tạo đơn hàng từ giỏ hàng (chọn các mục cụ thể qua cart_item_ids)
       const [cartRows] = await connection.query(
-        `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
+        `SELECT MaGioHang, MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac FROM giohang WHERE MaGioHang IN (?) AND MaNguoiDung = ?`,
         [validCartIds, MaNguoiDung]
       );
 
@@ -224,6 +245,7 @@ const createOrder = async (req, res, next) => {
 
         return {
           MaSanPham: r.MaSanPham,
+          MaBienThe: readVariantId(r) || readVariantId(matchingRaw),
           SoLuong: isNaN(soLuong) || soLuong <= 0 ? r.SoLuong : soLuong,
           DonGia: donGia,
           DungLuong: dungLuong ? String(dungLuong).trim() : null,
@@ -241,6 +263,7 @@ const createOrder = async (req, res, next) => {
             const rawDonGia = it.DonGia ?? it.don_gia ?? it.price ?? it.Gia;
             itemsToProcess.push({
               MaSanPham: pId,
+              MaBienThe: readVariantId(it),
               SoLuong: parseInt(it.SoLuong || it.quantity || 1, 10),
               DonGia: (rawDonGia !== undefined && rawDonGia !== null && !isNaN(Number(rawDonGia)) && Number(rawDonGia) >= 0) ? Number(rawDonGia) : null,
               DungLuong: (it.DungLuong || it.dung_luong || it.capacity || it.storage || null) ? String(it.DungLuong || it.dung_luong || it.capacity || it.storage).trim() : null,
@@ -259,7 +282,7 @@ const createOrder = async (req, res, next) => {
       let userCartRows = [];
       if (prodIds.length > 0) {
         const [rows] = await connection.query(
-          `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ? AND MaSanPham IN (?)`,
+          `SELECT MaGioHang, MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ? AND MaSanPham IN (?)`,
           [MaNguoiDung, prodIds]
         );
         userCartRows = rows;
@@ -276,22 +299,26 @@ const createOrder = async (req, res, next) => {
         let dungLuong = item.DungLuong || item.dung_luong || item.capacity || item.storage || null;
         let mauSac = item.MauSac || item.mau_sac || item.color || null;
         let maGioHang = item.MaGioHang || item.cart_id || item.cart_item_id || null;
+        let maBienThe = readVariantId(item);
 
-        // Nếu thiếu DungLuong hoặc MauSac, bổ sung từ bảng giohang của user
-        if ((!dungLuong || !mauSac || !maGioHang) && userCartRows.length > 0) {
-          const matchedCart = userCartRows.find((c) => {
-            if (maGioHang && c.MaGioHang === parseInt(maGioHang, 10)) return true;
-            return c.MaSanPham === pId;
-          });
+        // Nếu thiếu DungLuong / MauSac / MaBienThe, bổ sung từ bảng giohang của user
+        if ((!dungLuong || !mauSac || !maGioHang || !maBienThe) && userCartRows.length > 0) {
+          const matchedByCartId = maGioHang
+            ? userCartRows.find((c) => c.MaGioHang === parseInt(maGioHang, 10))
+            : null;
+          const matchedCart = matchedByCartId || userCartRows.find((c) => c.MaSanPham === pId);
           if (matchedCart) {
             if (!dungLuong && matchedCart.DungLuong) dungLuong = matchedCart.DungLuong;
             if (!mauSac && matchedCart.MauSac) mauSac = matchedCart.MauSac;
             if (!maGioHang) maGioHang = matchedCart.MaGioHang;
+            // Chỉ kế thừa MaBienThe khi khớp chính xác dòng giỏ hàng (tránh lấy nhầm biến thể khác cùng sản phẩm)
+            if (!maBienThe && matchedByCartId) maBienThe = readVariantId(matchedByCartId);
           }
         }
 
         return {
           MaSanPham: pId,
+          MaBienThe: maBienThe,
           SoLuong: soLuong,
           DonGia: donGia,
           DungLuong: dungLuong ? String(dungLuong).trim() : null,
@@ -302,11 +329,12 @@ const createOrder = async (req, res, next) => {
     } else {
       // 3. Nếu không truyền items lẫn cart_item_ids, tự động lấy toàn bộ sản phẩm trong giỏ hàng của user
       const [cartRows] = await connection.query(
-        `SELECT MaGioHang, MaSanPham, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ?`,
+        `SELECT MaGioHang, MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac FROM giohang WHERE MaNguoiDung = ?`,
         [MaNguoiDung]
       );
       itemsToProcess = cartRows.map((r) => ({
         MaSanPham: r.MaSanPham,
+        MaBienThe: readVariantId(r),
         SoLuong: r.SoLuong,
         DonGia: null,
         DungLuong: r.DungLuong ? String(r.DungLuong).trim() : null,
@@ -339,6 +367,9 @@ const createOrder = async (req, res, next) => {
 
     // 1. Truy vấn giá thực tế (DonGia), Tên sản phẩm và Tồn kho từ DB (Đảm bảo BẢO MẬT GIÁ CẢ)
     const productIds = Array.from(new Set(itemsToProcess.map((i) => i.MaSanPham)));
+    // Khóa biến thể SKU (sanpham_bienthe) trước rồi tới sản phẩm cha (sanpham) – cùng thứ tự khóa với luồng duyệt kho
+    const variantsByProduct = await loadVariantsByProducts(connection, productIds, { forUpdate: true });
+
     const [dbProducts] = await connection.query(
       `SELECT MaSanPham, TenSanPham, Gia, TonKho, TrangThai, DungLuong, MauSac 
        FROM sanpham 
@@ -351,6 +382,8 @@ const createOrder = async (req, res, next) => {
 
     let subtotal = 0;
     const orderItemsDetails = [];
+    // Tổng số lượng yêu cầu theo từng MaBienThe (gộp nhiều dòng cùng SKU)
+    const requestedByVariant = new Map();
 
     for (const item of itemsToProcess) {
       const product = productMap.get(item.MaSanPham);
@@ -372,18 +405,50 @@ const createOrder = async (req, res, next) => {
         });
       }
 
-      const currentTonKho = Number(product.TonKho);
-      if (item.SoLuong > currentTonKho) {
+      // Xác định đúng biến thể SKU của dòng hàng
+      const { variant, reason } = pickVariant(variantsByProduct.get(Number(item.MaSanPham)) || [], {
+        maBienThe: item.MaBienThe,
+        dungLuong: item.DungLuong,
+        mauSac: item.MauSac
+      });
+
+      if (!variant) {
         await connection.rollback();
         connection.release();
         return res.status(400).json({
           success: false,
-          message: `Sản phẩm "${product.TenSanPham}" không đủ tồn kho (Tồn kho: ${currentTonKho}, Yêu cầu: ${item.SoLuong})`
+          message: variantErrorMessage(reason, product.TenSanPham)
         });
       }
 
-      const dbGia = Number(product.Gia);
-      // Đọc DonGia: ưu tiên DonGia hợp lệ từ payload / cart, nếu không có lấy giá gốc từ DB
+      const variantLabel = formatVariantLabel(product.TenSanPham, variant.MauSac, variant.DungLuong, variant.MaSKU);
+
+      if (variant.TrangThai === 'NgungBan') {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({
+          success: false,
+          message: `Phiên bản "${variantLabel}" đã ngừng kinh doanh`
+        });
+      }
+
+      // Kiểm tra TonKho của đúng MaBienThe (tính gộp các dòng cùng SKU)
+      const maBienThe = Number(variant.MaBienThe);
+      const variantTonKho = Number(variant.TonKho) || 0;
+      const requestedQty = (requestedByVariant.get(maBienThe) || 0) + item.SoLuong;
+      requestedByVariant.set(maBienThe, requestedQty);
+
+      if (requestedQty > variantTonKho) {
+        await connection.rollback();
+        connection.release();
+        return res.status(400).json({
+          success: false,
+          message: `Phiên bản "${variantLabel}" không đủ tồn kho (Tồn kho: ${variantTonKho}, Yêu cầu: ${requestedQty})`
+        });
+      }
+
+      const dbGia = Number(variant.GiaBan) > 0 ? Number(variant.GiaBan) : Number(product.Gia);
+      // Đọc DonGia: ưu tiên DonGia hợp lệ từ payload / cart, nếu không có lấy giá bán của biến thể từ DB
       const itemDonGia = (item.DonGia !== undefined && item.DonGia !== null && !isNaN(Number(item.DonGia)) && Number(item.DonGia) > 0)
         ? Number(item.DonGia)
         : dbGia;
@@ -391,18 +456,21 @@ const createOrder = async (req, res, next) => {
       const itemSubtotal = item.SoLuong * itemDonGia;
       subtotal += itemSubtotal;
 
-      // Ưu tiên DungLuong và MauSac từ giỏ hàng hoặc request payload; nếu chưa có thì fallback về thông tin sanpham
+      // Ưu tiên DungLuong và MauSac từ giỏ hàng hoặc request payload; nếu chưa có thì lấy theo biến thể SKU
       const finalDungLuong = (item.DungLuong && String(item.DungLuong).trim() !== '')
         ? String(item.DungLuong).trim()
-        : (product.DungLuong ? String(product.DungLuong).trim() : null);
+        : (variant.DungLuong ? String(variant.DungLuong).trim() : null);
 
       const finalMauSac = (item.MauSac && String(item.MauSac).trim() !== '')
         ? String(item.MauSac).trim()
-        : (product.MauSac ? String(product.MauSac).trim() : null);
+        : (variant.MauSac ? String(variant.MauSac).trim() : null);
 
       orderItemsDetails.push({
         MaSanPham: item.MaSanPham,
+        MaBienThe: maBienThe,
+        MaSKU: variant.MaSKU,
         TenSanPham: product.TenSanPham,
+        VariantLabel: variantLabel,
         DungLuong: finalDungLuong,
         MauSac: finalMauSac,
         SoLuong: item.SoLuong,
@@ -535,8 +603,8 @@ const createOrder = async (req, res, next) => {
     // 6. Thêm bản ghi vào `chitietdonhang` (bao gồm DungLuong và MauSac được copy từ giỏ hàng)
     for (const item of orderItemsDetails) {
       await connection.query(
-        `INSERT INTO chitietdonhang (MaDonHang, MaSanPham, SoLuong, DonGia, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?, ?)`,
-        [maDonHang, item.MaSanPham, item.SoLuong, item.DonGia, item.DungLuong, item.MauSac]
+        `INSERT INTO chitietdonhang (MaDonHang, MaSanPham, MaBienThe, SoLuong, DonGia, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [maDonHang, item.MaSanPham, item.MaBienThe, item.SoLuong, item.DonGia, item.DungLuong, item.MauSac]
       );
     }
 
@@ -566,51 +634,36 @@ const createOrder = async (req, res, next) => {
       );
     }
 
-    // 10. Trừ số lượng TonKho trong bảng `sanpham` và Thêm log vào `lichsutonkho` (LoaiBienDong = 'XuatBan')
+    // 10. Trừ TonKho của đúng MaBienThe trong `sanpham_bienthe` và Thêm log vào `lichsutonkho` (LoaiBienDong = 'XuatBan')
     for (const item of orderItemsDetails) {
-      // BƯỚC C: Atomic UPDATE – chỉ trừ khi TonKho còn đủ (chống race condition)
-      const [updateResult] = await connection.query(
-        `UPDATE sanpham SET TonKho = TonKho - ? WHERE MaSanPham = ? AND TonKho >= ?`,
-        [item.SoLuong, item.MaSanPham, item.SoLuong]
-      );
+      // Atomic UPDATE trên biến thể – chỉ trừ khi TonKho còn đủ (chống race condition)
+      const newTonKho = await deductVariantStock(connection, item.MaBienThe, item.SoLuong);
 
-      // Nếu affectedRows = 0 nghĩa là hàng vừa hết (race condition) -> Rollback ngay
-      if (updateResult.affectedRows === 0) {
+      // Nếu null nghĩa là biến thể vừa hết hàng (race condition) -> Rollback ngay
+      if (newTonKho === null) {
         await connection.rollback();
         connection.release();
         return res.status(400).json({
           success: false,
-          message: `Sản phẩm "${item.TenSanPham}" đã hết hàng trong kho`
+          message: `Phiên bản "${item.VariantLabel}" đã hết hàng trong kho`
         });
       }
 
-      // BƯỚC D: Lấy tồn kho thực tế sau khi trừ để ghi log chính xác
-      const [updatedProdRows] = await connection.query(
-        `SELECT TonKho FROM sanpham WHERE MaSanPham = ?`,
-        [item.MaSanPham]
-      );
+      // Đồng bộ tổng TonKho / TrangThai của sản phẩm cha theo các biến thể
+      await syncParentProductStock(connection, item.MaSanPham);
 
-      const newTonKho = Number(updatedProdRows[0].TonKho);
-
-      // Nếu hết hàng thì cập nhật trạng thái sản phẩm
-      if (newTonKho <= 0) {
-        await connection.query(
-          `UPDATE sanpham SET TrangThai = 'HetHang' WHERE MaSanPham = ?`,
-          [item.MaSanPham]
-        );
-      }
-
-      // Ghi log biến động kho vào `lichsutonkho`
+      // Ghi log biến động kho theo đúng MaBienThe vào `lichsutonkho`
       await connection.query(
         `INSERT INTO lichsutonkho 
-          (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
-         VALUES (?, 'XuatBan', ?, ?, ?, NOW(), ?)`,
+          (MaSanPham, MaBienThe, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
+         VALUES (?, ?, 'XuatBan', ?, ?, ?, NOW(), ?)`,
         [
           item.MaSanPham,
+          item.MaBienThe,
           -item.SoLuong,
           newTonKho,
           maDonHang,
-          `Xuất bán cho đơn hàng ${formatOrderCode(maDonHang, new Date())}`
+          `Xuất bán ${item.VariantLabel}${item.MaSKU ? ` [${item.MaSKU}]` : ''} cho đơn hàng ${formatOrderCode(maDonHang, new Date())}`
         ]
       );
     }
@@ -637,6 +690,22 @@ const createOrder = async (req, res, next) => {
     await connection.commit();
     connection.release();
 
+    const orderCode = formatOrderCode(maDonHang, new Date());
+
+    // Thông báo cho Admin (VaiTroNhan = 1) có đơn hàng mới cần xác nhận
+    const totalQty = orderItemsDetails.reduce((sum, i) => sum + Number(i.SoLuong || 0), 0);
+    const itemSummary = orderItemsDetails
+      .slice(0, 3)
+      .map((i) => `${i.VariantLabel} x${i.SoLuong}`)
+      .join(', ');
+    await pushNotification({
+      vaiTroNhan: 1,
+      tieuDe: `Đơn hàng mới ${orderCode} chờ xác nhận`,
+      noiDung: `Khách hàng ${finalTenNguoiNhan} (${finalSoDienThoai}) vừa đặt ${totalQty} sản phẩm: ${itemSummary}${orderItemsDetails.length > 3 ? ', ...' : ''}. Tổng tiền: ${formatVND(tongTien)} - Thanh toán: ${paymentMethodCode}.`,
+      loaiThongBao: 'DonHang',
+      lienKet: '/admin/orders'
+    });
+
     // 12. Gửi Email hóa đơn theo phương thức thanh toán:
     // - NẾU phuongThucThanhToan === 'COD': Tiếp tục gọi hàm sendInvoiceEmail(orderId) ngay lập tức.
     // - NẾU phuongThucThanhToan LÀ 'VNPAY' HOẶC 'ZALOPAY': Chỉ gửi email sau khi xác nhận giao dịch thanh toán thành công qua callback.
@@ -653,7 +722,7 @@ const createOrder = async (req, res, next) => {
       message: 'Tạo đơn hàng thành công',
       data: {
         MaDonHang: maDonHang,
-        CodeDonHang: formatOrderCode(maDonHang, new Date()),
+        CodeDonHang: orderCode,
         NgayMuaHang: new Date(),
         TrangThaiDonHang: initialOrderStatus,
         TongTien: tongTien,
@@ -668,6 +737,8 @@ const createOrder = async (req, res, next) => {
         DiaChiGiaoHang: finalDiaChiGiaoHang,
         items: orderItemsDetails.map((i) => ({
           MaSanPham: i.MaSanPham,
+          MaBienThe: i.MaBienThe,
+          MaSKU: i.MaSKU,
           TenSanPham: i.TenSanPham,
           DungLuong: i.DungLuong,
           MauSac: i.MauSac,
@@ -765,6 +836,7 @@ const getUserOrders = async (req, res, next) => {
          ct.MaChiTietDonHang,
          ct.MaDonHang,
          ct.MaSanPham,
+         ct.MaBienThe,
          ct.SoLuong,
          ct.DonGia,
          ct.DungLuong,
@@ -773,9 +845,13 @@ const getUserOrders = async (req, res, next) => {
          sp.TenSanPham,
          sp.Anh,
          sp.TrangThai AS TrangThaiSanPham,
-         sp.TonKho
+         sp.TonKho,
+         bt.MaSKU,
+         bt.TonKho AS TonKhoBienThe,
+         bt.TrangThai AS TrangThaiBienThe
        FROM chitietdonhang ct
        LEFT JOIN sanpham sp ON ct.MaSanPham = sp.MaSanPham
+       LEFT JOIN sanpham_bienthe bt ON ct.MaBienThe = bt.MaBienThe
        WHERE ct.MaDonHang IN (?)
        ORDER BY ct.MaChiTietDonHang ASC`,
       [orderIds]
@@ -786,10 +862,13 @@ const getUserOrders = async (req, res, next) => {
       if (!itemsMap.has(item.MaDonHang)) {
         itemsMap.set(item.MaDonHang, []);
       }
+      const hasVariant = item.MaBienThe !== null && item.MaBienThe !== undefined && item.MaSKU;
       itemsMap.get(item.MaDonHang).push({
         MaChiTietDonHang: item.MaChiTietDonHang,
         MaDonHang: item.MaDonHang,
         MaSanPham: item.MaSanPham,
+        MaBienThe: item.MaBienThe || null,
+        MaSKU: item.MaSKU || null,
         TenSanPham: item.TenSanPham || null,
         Anh: item.Anh || null,
         DungLuong: item.DungLuong || null,
@@ -797,8 +876,10 @@ const getUserOrders = async (req, res, next) => {
         SoLuong: Number(item.SoLuong),
         DonGia: Number(item.DonGia),
         TongGia: Number(item.TongGia || item.SoLuong * item.DonGia),
-        TrangThaiSanPham: item.TrangThaiSanPham || null,
-        TonKho: item.TonKho !== null && item.TonKho !== undefined ? Number(item.TonKho) : 0
+        TrangThaiSanPham: hasVariant ? item.TrangThaiBienThe : (item.TrangThaiSanPham || null),
+        TonKho: hasVariant
+          ? Number(item.TonKhoBienThe || 0)
+          : (item.TonKho !== null && item.TonKho !== undefined ? Number(item.TonKho) : 0)
       });
     });
 
@@ -865,10 +946,11 @@ const reorder = async (req, res, next) => {
       });
     }
 
-    // 2. Lấy danh sách sản phẩm từ chitietdonhang kèm thông tin sản phẩm từ bảng sanpham
+    // 2. Lấy danh sách sản phẩm từ chitietdonhang kèm biến thể SKU (sanpham_bienthe) và thông tin sanpham
     const [items] = await pool.query(
       `SELECT 
          ct.MaSanPham,
+         ct.MaBienThe,
          ct.SoLuong,
          ct.DungLuong,
          ct.MauSac,
@@ -890,26 +972,45 @@ const reorder = async (req, res, next) => {
 
     const addedItems = [];
     const skippedItems = [];
+    const variantsByProduct = await loadVariantsByProducts(pool, items.map((i) => i.MaSanPham));
 
-    // 3. Thêm từng sản phẩm vào bảng giohang
+    // 3. Thêm từng sản phẩm vào bảng giohang theo đúng MaBienThe
     for (const item of items) {
       const maSanPham = item.MaSanPham;
       const orderQty = Number(item.SoLuong);
-      const tonKho = Number(item.TonKho);
 
-      // Nếu sản phẩm bị ngừng kinh doanh hoặc hết hàng
-      if (item.TrangThai === 'NgungBan' || tonKho <= 0) {
+      const { variant } = pickVariant(variantsByProduct.get(Number(maSanPham)) || [], {
+        maBienThe: item.MaBienThe,
+        dungLuong: item.DungLuong,
+        mauSac: item.MauSac
+      });
+
+      if (!variant) {
         skippedItems.push({
           MaSanPham: maSanPham,
           TenSanPham: item.TenSanPham,
-          reason: item.TrangThai === 'NgungBan' ? 'Ngừng kinh doanh' : 'Hết hàng'
+          reason: 'Phiên bản sản phẩm không còn tồn tại'
         });
         continue;
       }
 
-      // Kiểm tra sản phẩm đã có trong giỏ hàng của user chưa (khớp MaSanPham + DungLuong + MauSac)
-      let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?';
-      const cartCheckParams = [MaNguoiDung, maSanPham];
+      const maBienThe = Number(variant.MaBienThe);
+      const tonKho = Number(variant.TonKho) || 0;
+
+      // Nếu sản phẩm / biến thể bị ngừng kinh doanh hoặc hết hàng
+      if (item.TrangThai === 'NgungBan' || variant.TrangThai === 'NgungBan' || tonKho <= 0) {
+        skippedItems.push({
+          MaSanPham: maSanPham,
+          MaBienThe: maBienThe,
+          TenSanPham: item.TenSanPham,
+          reason: item.TrangThai === 'NgungBan' || variant.TrangThai === 'NgungBan' ? 'Ngừng kinh doanh' : 'Hết hàng'
+        });
+        continue;
+      }
+
+      // Kiểm tra dòng giỏ hàng đã có chưa (khớp MaBienThe + DungLuong + MauSac)
+      let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ? AND MaBienThe = ?';
+      const cartCheckParams = [MaNguoiDung, maSanPham, maBienThe];
 
       if (item.DungLuong) {
         cartCheckSql += ' AND DungLuong = ?';
@@ -942,6 +1043,7 @@ const reorder = async (req, res, next) => {
         addedItems.push({
           MaGioHang: cartRows[0].MaGioHang,
           MaSanPham: maSanPham,
+          MaBienThe: maBienThe,
           TenSanPham: item.TenSanPham,
           DungLuong: item.DungLuong || null,
           MauSac: item.MauSac || null,
@@ -952,13 +1054,14 @@ const reorder = async (req, res, next) => {
         const qtyToAdd = Math.min(orderQty, tonKho);
         if (qtyToAdd > 0) {
           const [insertResult] = await pool.query(
-            `INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?)`,
-            [MaNguoiDung, maSanPham, qtyToAdd, item.DungLuong || null, item.MauSac || null]
+            `INSERT INTO giohang (MaNguoiDung, MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?, ?)`,
+            [MaNguoiDung, maSanPham, maBienThe, qtyToAdd, item.DungLuong || variant.DungLuong || null, item.MauSac || variant.MauSac || null]
           );
 
           addedItems.push({
             MaGioHang: insertResult.insertId,
             MaSanPham: maSanPham,
+            MaBienThe: maBienThe,
             TenSanPham: item.TenSanPham,
             DungLuong: item.DungLuong || null,
             MauSac: item.MauSac || null,
@@ -1066,54 +1169,21 @@ const cancelOrder = async (req, res, next) => {
 
     // 4. Lấy chi tiết các sản phẩm trong đơn hàng để hoàn trả kho
     const [items] = await connection.query(
-      `SELECT MaSanPham, SoLuong FROM chitietdonhang WHERE MaDonHang = ?`,
+      `SELECT MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac FROM chitietdonhang WHERE MaDonHang = ?`,
       [orderId]
     );
 
+    // Cộng lại TonKho cho đúng MaBienThe, đồng bộ sanpham.TonKho và ghi log 'HuyDon'
     for (const item of items) {
-      const soLuongHoanTra = Number(item.SoLuong) || 0;
-      const maSanPham = item.MaSanPham;
-
-      if (soLuongHoanTra > 0) {
-        // Hoàn trả lại số lượng TonKho
-        await connection.query(
-          `UPDATE sanpham SET TonKho = TonKho + ? WHERE MaSanPham = ?`,
-          [soLuongHoanTra, maSanPham]
-        );
-
-        // Lấy lại thông tin tồn kho và trạng thái sau khi hoàn trả
-        const [prodRows] = await connection.query(
-          `SELECT TonKho, TrangThai FROM sanpham WHERE MaSanPham = ?`,
-          [maSanPham]
-        );
-
-        if (prodRows.length > 0) {
-          const newTonKho = Number(prodRows[0].TonKho);
-          const currentTrangThai = prodRows[0].TrangThai;
-
-          // Nếu trước đó là 'HetHang' và giờ TonKho > 0, cập nhật lại thành 'DangBan'
-          if (currentTrangThai === 'HetHang' && newTonKho > 0) {
-            await connection.query(
-              `UPDATE sanpham SET TrangThai = 'DangBan' WHERE MaSanPham = ?`,
-              [maSanPham]
-            );
-          }
-
-          // Ghi log vào lichsutonkho
-          await connection.query(
-            `INSERT INTO lichsutonkho 
-              (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
-             VALUES (?, 'HuyDon', ?, ?, ?, NOW(), ?)`,
-            [
-              maSanPham,
-              soLuongHoanTra,
-              newTonKho,
-              orderId,
-              `Hoàn tồn do khách hàng hủy đơn hàng #${orderId}`
-            ]
-          );
-        }
-      }
+      await restoreOrderItemStock(connection, {
+        maSanPham: item.MaSanPham,
+        maBienThe: item.MaBienThe,
+        dungLuong: item.DungLuong,
+        mauSac: item.MauSac,
+        soLuong: item.SoLuong,
+        maThamChieu: orderId,
+        ghiChu: `Hoàn tồn do khách hàng hủy đơn hàng #${orderId}`
+      });
     }
 
     // 5. Khôi phục số lượng voucher nếu đơn hàng có áp dụng

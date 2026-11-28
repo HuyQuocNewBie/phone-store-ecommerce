@@ -1,9 +1,28 @@
 const { pool } = require('../../../config/db');
+const {
+  resolveVariant,
+  variantErrorMessage
+} = require('../../utils/variantStockHelper');
+
+/**
+ * Helper: tổng số lượng của cùng 1 biến thể SKU đang nằm trong giỏ của user (trừ dòng đang xét)
+ */
+const sumVariantQtyInCart = async (maNguoiDung, maBienThe, excludeMaGioHang = null) => {
+  if (!maBienThe) return 0;
+  let sql = 'SELECT COALESCE(SUM(SoLuong), 0) AS total FROM giohang WHERE MaNguoiDung = ? AND MaBienThe = ?';
+  const params = [maNguoiDung, maBienThe];
+  if (excludeMaGioHang) {
+    sql += ' AND MaGioHang != ?';
+    params.push(excludeMaGioHang);
+  }
+  const [[row]] = await pool.query(sql, params);
+  return Number(row?.total) || 0;
+};
 
 /**
  * 1. GET /api/v1/cart
  * Lấy danh sách sản phẩm trong giỏ của người dùng từ bảng giohang
- * (Kèm TenSanPham, Gia, Anh, DungLuong, MauSac từ giohang, TonKho).
+ * (Kèm TenSanPham, Gia, Anh, DungLuong, MauSac từ giohang, MaBienThe + TonKho theo biến thể SKU).
  */
 const getCart = async (req, res, next) => {
   try {
@@ -14,35 +33,54 @@ const getCart = async (req, res, next) => {
         g.MaGioHang,
         g.MaNguoiDung,
         g.MaSanPham,
+        g.MaBienThe,
         g.SoLuong,
         g.DungLuong,
         g.MauSac,
         s.TenSanPham,
         s.Gia,
         s.Anh,
-        s.TonKho,
-        s.TrangThai
+        s.TonKho AS TonKhoSanPham,
+        s.TrangThai AS TrangThaiSanPham,
+        bt.MaSKU,
+        bt.GiaBan,
+        bt.TonKho AS TonKhoBienThe,
+        bt.TrangThai AS TrangThaiBienThe,
+        bt.DungLuong AS DungLuongBienThe,
+        bt.MauSac AS MauSacBienThe
       FROM giohang g
       JOIN sanpham s ON g.MaSanPham = s.MaSanPham
+      LEFT JOIN sanpham_bienthe bt ON g.MaBienThe = bt.MaBienThe
       WHERE g.MaNguoiDung = ?
       ORDER BY g.MaGioHang DESC
     `;
 
     const [rows] = await pool.query(sql, [MaNguoiDung]);
 
-    const formattedData = rows.map((item) => ({
-      MaGioHang: item.MaGioHang,
-      MaNguoiDung: item.MaNguoiDung,
-      MaSanPham: item.MaSanPham,
-      SoLuong: Number(item.SoLuong),
-      TenSanPham: item.TenSanPham,
-      Gia: Number(item.Gia),
-      Anh: item.Anh,
-      DungLuong: item.DungLuong || null,
-      MauSac: item.MauSac || null,
-      TonKho: Number(item.TonKho),
-      TrangThai: item.TrangThai
-    }));
+    const formattedData = rows.map((item) => {
+      const hasVariant = item.MaBienThe !== null && item.MaBienThe !== undefined && item.MaSKU;
+      let trangThai = item.TrangThaiSanPham;
+      if (trangThai !== 'NgungBan' && hasVariant) {
+        trangThai = item.TrangThaiBienThe;
+      }
+
+      return {
+        MaGioHang: item.MaGioHang,
+        MaNguoiDung: item.MaNguoiDung,
+        MaSanPham: item.MaSanPham,
+        MaBienThe: hasVariant ? item.MaBienThe : null,
+        MaSKU: hasVariant ? item.MaSKU : null,
+        SoLuong: Number(item.SoLuong),
+        TenSanPham: item.TenSanPham,
+        Gia: Number(item.Gia),
+        GiaBan: hasVariant ? Number(item.GiaBan) : Number(item.Gia),
+        Anh: item.Anh,
+        DungLuong: item.DungLuong || (hasVariant ? item.DungLuongBienThe : null) || null,
+        MauSac: item.MauSac || (hasVariant ? item.MauSacBienThe : null) || null,
+        TonKho: Number(hasVariant ? item.TonKhoBienThe : item.TonKhoSanPham) || 0,
+        TrangThai: trangThai
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -56,16 +94,20 @@ const getCart = async (req, res, next) => {
 
 /**
  * 2. POST /api/v1/cart/items
- * Thêm sản phẩm vào giỏ hàng. Nếu đã tồn tại (cùng MaSanPham + DungLuong + MauSac) thì cộng dồn SoLuong.
- * Body parameters: { MaSanPham, SoLuong, DungLuong, MauSac } (hoặc { product_id, quantity })
+ * Thêm sản phẩm vào giỏ hàng theo đúng biến thể SKU (MaBienThe).
+ * - MaBienThe được lấy trực tiếp từ body, hoặc tự xác định từ (MaSanPham + DungLuong + MauSac) trong `sanpham_bienthe`.
+ * - Nếu đã tồn tại (cùng MaBienThe + DungLuong + MauSac) thì cộng dồn SoLuong.
+ * - Kiểm tra TonKho theo biến thể (tính cả số lượng biến thể đó đã có trong giỏ).
+ * Body parameters: { MaSanPham, MaBienThe?, SoLuong, DungLuong, MauSac } (hoặc { product_id, variant_id, quantity })
  */
 const addToCart = async (req, res, next) => {
   try {
     const { MaNguoiDung } = req.user;
     const rawMaSanPham = req.body.MaSanPham || req.body.product_id;
+    const rawMaBienThe = req.body.MaBienThe ?? req.body.maBienThe ?? req.body.variant_id ?? null;
     const rawSoLuong = req.body.SoLuong ?? req.body.quantity ?? 1;
-    const DungLuong = req.body.DungLuong || null;
-    const MauSac = req.body.MauSac || null;
+    const inputDungLuong = req.body.DungLuong ? String(req.body.DungLuong).trim() : null;
+    const inputMauSac = req.body.MauSac ? String(req.body.MauSac).trim() : null;
 
     const MaSanPham = parseInt(rawMaSanPham, 10);
     const addSoLuong = parseInt(rawSoLuong, 10);
@@ -98,7 +140,6 @@ const addToCart = async (req, res, next) => {
     }
 
     const product = productRows[0];
-    const tonKho = Number(product.TonKho);
 
     if (product.TrangThai === 'NgungBan') {
       return res.status(400).json({
@@ -107,16 +148,43 @@ const addToCart = async (req, res, next) => {
       });
     }
 
-    if (tonKho <= 0) {
+    // 2. Xác định đúng biến thể SKU (MaBienThe)
+    const { variant, reason } = await resolveVariant(pool, {
+      maSanPham: MaSanPham,
+      maBienThe: rawMaBienThe,
+      dungLuong: inputDungLuong,
+      mauSac: inputMauSac
+    });
+
+    if (!variant) {
       return res.status(400).json({
         success: false,
-        message: 'Sản phẩm đã hết hàng'
+        message: variantErrorMessage(reason, product.TenSanPham)
       });
     }
 
-    // 2. Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa (khớp cả DungLuong + MauSac)
-    let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ?';
-    const cartCheckParams = [MaNguoiDung, MaSanPham];
+    if (variant.TrangThai === 'NgungBan') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phiên bản sản phẩm này đã ngừng kinh doanh'
+      });
+    }
+
+    const MaBienThe = Number(variant.MaBienThe);
+    const tonKho = Number(variant.TonKho) || 0;
+    const DungLuong = inputDungLuong || variant.DungLuong || null;
+    const MauSac = inputMauSac || variant.MauSac || null;
+
+    if (tonKho <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phiên bản sản phẩm này đã hết hàng'
+      });
+    }
+
+    // 3. Kiểm tra dòng giỏ hàng đã tồn tại (khớp MaBienThe + DungLuong + MauSac)
+    let cartCheckSql = 'SELECT MaGioHang, SoLuong FROM giohang WHERE MaNguoiDung = ? AND MaSanPham = ? AND MaBienThe = ?';
+    const cartCheckParams = [MaNguoiDung, MaSanPham, MaBienThe];
 
     if (DungLuong !== null) {
       cartCheckSql += ' AND DungLuong = ?';
@@ -133,63 +201,71 @@ const addToCart = async (req, res, next) => {
     }
 
     const [cartRows] = await pool.query(cartCheckSql, cartCheckParams);
+    const existingRow = cartRows[0] || null;
 
-    if (cartRows.length > 0) {
-      // Đã có trong giỏ (cùng variant) -> Cộng dồn số lượng
-      const currentQty = Number(cartRows[0].SoLuong);
+    // Tổng số lượng cùng biến thể ở các dòng giỏ hàng khác
+    const otherQty = await sumVariantQtyInCart(MaNguoiDung, MaBienThe, existingRow ? existingRow.MaGioHang : null);
+
+    if (existingRow) {
+      // Đã có trong giỏ (cùng biến thể) -> Cộng dồn số lượng
+      const currentQty = Number(existingRow.SoLuong);
       const newQty = currentQty + addSoLuong;
 
-      if (newQty > tonKho) {
+      if (newQty + otherQty > tonKho) {
         return res.status(400).json({
           success: false,
-          message: `Số lượng trong giỏ vượt quá số lượng tồn kho (Tồn kho: ${tonKho}, đã có trong giỏ: ${currentQty})`
+          message: `Số lượng trong giỏ vượt quá số lượng tồn kho của phiên bản này (Tồn kho: ${tonKho}, đã có trong giỏ: ${currentQty + otherQty})`
         });
       }
 
       await pool.query(
-        'UPDATE giohang SET SoLuong = ? WHERE MaGioHang = ?',
-        [newQty, cartRows[0].MaGioHang]
+        'UPDATE giohang SET SoLuong = ?, MaBienThe = ? WHERE MaGioHang = ?',
+        [newQty, MaBienThe, existingRow.MaGioHang]
       );
 
       return res.status(200).json({
         success: true,
         message: 'Cập nhật số lượng giỏ hàng thành công',
         data: {
-          MaGioHang: cartRows[0].MaGioHang,
+          MaGioHang: existingRow.MaGioHang,
           MaSanPham,
+          MaBienThe,
+          MaSKU: variant.MaSKU,
           SoLuong: newQty,
           DungLuong,
           MauSac,
           TonKho: tonKho
         }
       });
-    } else {
-      // Chưa có trong giỏ (hoặc variant khác) -> Thêm mới dòng sản phẩm
-      if (addSoLuong > tonKho) {
-        return res.status(400).json({
-          success: false,
-          message: `Số lượng thêm vào vượt quá số lượng tồn kho khả dụng (Tồn kho: ${tonKho})`
-        });
-      }
+    }
 
-      const [insertResult] = await pool.query(
-        'INSERT INTO giohang (MaNguoiDung, MaSanPham, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?)',
-        [MaNguoiDung, MaSanPham, addSoLuong, DungLuong, MauSac]
-      );
-
-      return res.status(201).json({
-        success: true,
-        message: 'Thêm sản phẩm vào giỏ hàng thành công',
-        data: {
-          MaGioHang: insertResult.insertId,
-          MaSanPham,
-          SoLuong: addSoLuong,
-          DungLuong,
-          MauSac,
-          TonKho: tonKho
-        }
+    // Chưa có trong giỏ -> Thêm mới dòng sản phẩm kèm MaBienThe
+    if (addSoLuong + otherQty > tonKho) {
+      return res.status(400).json({
+        success: false,
+        message: `Số lượng thêm vào vượt quá số lượng tồn kho khả dụng của phiên bản này (Tồn kho: ${tonKho}${otherQty > 0 ? `, đã có trong giỏ: ${otherQty}` : ''})`
       });
     }
+
+    const [insertResult] = await pool.query(
+      'INSERT INTO giohang (MaNguoiDung, MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac) VALUES (?, ?, ?, ?, ?, ?)',
+      [MaNguoiDung, MaSanPham, MaBienThe, addSoLuong, DungLuong, MauSac]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Thêm sản phẩm vào giỏ hàng thành công',
+      data: {
+        MaGioHang: insertResult.insertId,
+        MaSanPham,
+        MaBienThe,
+        MaSKU: variant.MaSKU,
+        SoLuong: addSoLuong,
+        DungLuong,
+        MauSac,
+        TonKho: tonKho
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -197,7 +273,7 @@ const addToCart = async (req, res, next) => {
 
 /**
  * 3. PUT /api/v1/cart/items
- * Cập nhật SoLuong (+/-) của 1 mục trong giỏ.
+ * Cập nhật SoLuong (+/-) của 1 mục trong giỏ (kiểm tra tồn kho theo MaBienThe).
  * Body parameters: 
  * - MaGioHang (hoặc cart_item_id hoặc MaSanPham)
  * - SoLuong (hoặc quantity hoặc delta hoặc action)
@@ -221,7 +297,8 @@ const updateCartItem = async (req, res, next) => {
 
     // Tìm dòng giỏ hàng tương ứng thuộc về người dùng hiện tại
     let querySql = `
-      SELECT g.MaGioHang, g.SoLuong, g.MaSanPham, s.TonKho, s.TenSanPham, s.TrangThai
+      SELECT g.MaGioHang, g.SoLuong, g.MaSanPham, g.MaBienThe, g.DungLuong, g.MauSac,
+             s.TonKho, s.TenSanPham, s.TrangThai
       FROM giohang g
       JOIN sanpham s ON g.MaSanPham = s.MaSanPham
       WHERE g.MaNguoiDung = ?
@@ -247,7 +324,6 @@ const updateCartItem = async (req, res, next) => {
 
     const cartItem = cartRows[0];
     const currentQty = Number(cartItem.SoLuong);
-    const tonKho = Number(cartItem.TonKho);
 
     let targetQty = currentQty;
 
@@ -283,23 +359,50 @@ const updateCartItem = async (req, res, next) => {
         data: {
           MaGioHang: cartItem.MaGioHang,
           MaSanPham: cartItem.MaSanPham,
+          MaBienThe: cartItem.MaBienThe || null,
           SoLuong: 0
         }
       });
     }
 
-    // Kiểm tra không vượt quá tồn kho
-    if (targetQty > tonKho) {
+    // Xác định biến thể của dòng giỏ hàng (dòng cũ thiếu MaBienThe sẽ được bổ sung tự động)
+    const { variant, reason } = await resolveVariant(pool, {
+      maSanPham: cartItem.MaSanPham,
+      maBienThe: cartItem.MaBienThe,
+      dungLuong: cartItem.DungLuong,
+      mauSac: cartItem.MauSac
+    });
+
+    if (!variant) {
       return res.status(400).json({
         success: false,
-        message: `Số lượng cập nhật vượt quá số lượng tồn kho (Tồn kho: ${tonKho})`
+        message: variantErrorMessage(reason, cartItem.TenSanPham)
       });
     }
 
-    // Cập nhật số lượng mới
+    const maBienThe = Number(variant.MaBienThe);
+    const tonKho = Number(variant.TonKho) || 0;
+
+    if (cartItem.TrangThai === 'NgungBan' || variant.TrangThai === 'NgungBan') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phiên bản sản phẩm này đã ngừng kinh doanh'
+      });
+    }
+
+    // Kiểm tra không vượt quá tồn kho của biến thể (tính cả các dòng giỏ khác cùng biến thể)
+    const otherQty = await sumVariantQtyInCart(MaNguoiDung, maBienThe, cartItem.MaGioHang);
+    if (targetQty + otherQty > tonKho) {
+      return res.status(400).json({
+        success: false,
+        message: `Số lượng cập nhật vượt quá số lượng tồn kho của phiên bản này (Tồn kho: ${tonKho}${otherQty > 0 ? `, dòng khác trong giỏ: ${otherQty}` : ''})`
+      });
+    }
+
+    // Cập nhật số lượng mới (đồng thời chuẩn hóa MaBienThe)
     await pool.query(
-      'UPDATE giohang SET SoLuong = ? WHERE MaGioHang = ?',
-      [targetQty, cartItem.MaGioHang]
+      'UPDATE giohang SET SoLuong = ?, MaBienThe = ? WHERE MaGioHang = ?',
+      [targetQty, maBienThe, cartItem.MaGioHang]
     );
 
     return res.status(200).json({
@@ -308,6 +411,7 @@ const updateCartItem = async (req, res, next) => {
       data: {
         MaGioHang: cartItem.MaGioHang,
         MaSanPham: cartItem.MaSanPham,
+        MaBienThe: maBienThe,
         SoLuong: targetQty,
         TonKho: tonKho
       }

@@ -425,6 +425,7 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
   `MaPhieuDoiTra` int(11) NOT NULL AUTO_INCREMENT,
   `MaDonHang` int(11) NOT NULL,
   `MaSanPham` int(11) NOT NULL,
+  `MaBienThe` int(11) DEFAULT NULL,
   `MaNguoiDung_User` int(11) NOT NULL,
   `LyDo` text NOT NULL,
   `HinhAnhProof` text DEFAULT NULL,
@@ -442,9 +443,11 @@ CREATE TABLE IF NOT EXISTS `phieudoitra` (
   PRIMARY KEY (`MaPhieuDoiTra`),
   KEY `MaDonHang` (`MaDonHang`),
   KEY `MaSanPham` (`MaSanPham`),
+  KEY `idx_phieudoitra_bienthe` (`MaBienThe`),
   KEY `MaNguoiDung_User` (`MaNguoiDung_User`),
   CONSTRAINT `fk_doitra_donhang` FOREIGN KEY (`MaDonHang`) REFERENCES `donhang` (`MaDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_doitra_sanpham` FOREIGN KEY (`MaSanPham`) REFERENCES `sanpham` (`MaSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_doitra_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_doitra_user` FOREIGN KEY (`MaNguoiDung_User`) REFERENCES `nguoidung` (`MaNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

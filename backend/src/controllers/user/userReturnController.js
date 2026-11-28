@@ -2,6 +2,21 @@ const multer = require('multer');
 const { pool } = require('../../../config/db');
 const { cloudinary } = require('../../../utils/cloudinary');
 const { formatOrderCode } = require('../../utils/formatters');
+const { pushNotification } = require('../../utils/notificationHelper');
+const {
+  resolveVariant,
+  formatVariantLabel,
+  ensureReturnVariantColumn
+} = require('../../utils/variantStockHelper');
+
+/**
+ * Helper: đọc số nguyên dương từ body (trả về null nếu không truyền, NaN nếu sai định dạng)
+ */
+const readPositiveInt = (raw) => {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const num = Number(raw);
+  return Number.isInteger(num) && num > 0 ? num : NaN;
+};
 
 const VALID_DELIVERED_STATUSES = ['DaGiao', 'Đã giao'];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -130,6 +145,8 @@ const createReturnRequest = async (req, res, next) => {
     const body = req.body || {};
     const rawMaDonHang = body.maDonHang ?? body.MaDonHang ?? body.ma_don_hang ?? body.orderId ?? body.order_id;
     const rawMaSanPham = body.maSanPham ?? body.MaSanPham ?? body.ma_san_pham ?? body.productId ?? body.product_id;
+    const rawMaBienThe = body.maBienThe ?? body.MaBienThe ?? body.ma_bien_the ?? body.variantId ?? body.variant_id;
+    const rawMaChiTiet = body.maChiTietDonHang ?? body.MaChiTietDonHang ?? body.order_item_id;
     const rawLyDo = body.lyDo ?? body.LyDo ?? body.ly_do ?? body.reason ?? body.moTa ?? body.description;
     const rawHinhAnhProofUrl = body.hinhAnhProof ?? body.HinhAnhProof ?? body.hinh_anh_proof;
     const rawAnhQRUrl = body.anhQRHoanTien ?? body.AnhQRHoanTien ?? body.anh_qr_hoan_tien;
@@ -176,20 +193,33 @@ const createReturnRequest = async (req, res, next) => {
       });
     }
 
-    let requestedMaSanPham = null;
-    if (
-      rawMaSanPham !== undefined &&
-      rawMaSanPham !== null &&
-      String(rawMaSanPham).trim() !== ''
-    ) {
-      requestedMaSanPham = Number(rawMaSanPham);
-      if (!Number.isInteger(requestedMaSanPham) || requestedMaSanPham <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mã sản phẩm không hợp lệ'
-        });
-      }
+    const requestedMaSanPham = readPositiveInt(rawMaSanPham);
+    const requestedMaBienThe = readPositiveInt(rawMaBienThe);
+    const requestedMaChiTiet = readPositiveInt(rawMaChiTiet);
+
+    if (Number.isNaN(requestedMaSanPham)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã sản phẩm không hợp lệ'
+      });
     }
+
+    if (Number.isNaN(requestedMaBienThe)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã biến thể (maBienThe) không hợp lệ'
+      });
+    }
+
+    if (Number.isNaN(requestedMaChiTiet)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã chi tiết đơn hàng (maChiTietDonHang) không hợp lệ'
+      });
+    }
+
+    // Đảm bảo cột phieudoitra.MaBienThe sẵn sàng trước khi mở Transaction (tránh DDL gây implicit commit)
+    const saveVariant = await ensureReturnVariantColumn(pool);
 
     connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -246,34 +276,65 @@ const createReturnRequest = async (req, res, next) => {
       });
     }
 
-    // 2. Xác định và xác thực MaSanPham thuộc đơn hàng (nếu đơn hàng có chitietdonhang)
+    // 2. Xác định dòng chi tiết đơn hàng (MaSanPham + MaBienThe) cần đổi trả
     const [orderItemRows] = await connection.query(
-      `SELECT MaSanPham FROM chitietdonhang WHERE MaDonHang = ? ORDER BY MaChiTietDonHang ASC`,
+      `SELECT MaChiTietDonHang, MaSanPham, MaBienThe, DungLuong, MauSac
+       FROM chitietdonhang
+       WHERE MaDonHang = ?
+       ORDER BY MaChiTietDonHang ASC`,
       [maDonHang]
     );
 
     let maSanPham = requestedMaSanPham;
-    if (!maSanPham) {
-      if (orderItemRows.length > 0) {
-        maSanPham = Number(orderItemRows[0].MaSanPham);
+    let orderLine = null;
+
+    if (orderItemRows.length > 0) {
+      if (requestedMaChiTiet) {
+        orderLine = orderItemRows.find((r) => Number(r.MaChiTietDonHang) === requestedMaChiTiet) || null;
+        if (!orderLine) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Dòng sản phẩm #${requestedMaChiTiet} không thuộc đơn hàng #${maDonHang}`
+          });
+        }
+      } else if (requestedMaBienThe) {
+        orderLine = orderItemRows.find((r) => Number(r.MaBienThe) === requestedMaBienThe) || null;
+        if (!orderLine) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Phiên bản sản phẩm (MaBienThe #${requestedMaBienThe}) không nằm trong đơn hàng #${maDonHang}`
+          });
+        }
+      } else if (requestedMaSanPham) {
+        orderLine = orderItemRows.find((r) => Number(r.MaSanPham) === requestedMaSanPham) || null;
+        if (!orderLine) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Sản phẩm mã #${requestedMaSanPham} không nằm trong đơn hàng #${maDonHang}`
+          });
+        }
       } else {
+        orderLine = orderItemRows[0];
+      }
+
+      if (requestedMaSanPham && Number(orderLine.MaSanPham) !== requestedMaSanPham) {
         await connection.rollback();
         return res.status(400).json({
           success: false,
-          message: 'Vui lòng cung cấp mã sản phẩm cần đổi trả (maSanPham)'
+          message: `Dòng sản phẩm được chọn không khớp với sản phẩm mã #${requestedMaSanPham}`
         });
       }
-    } else if (orderItemRows.length > 0) {
-      const hasProductInOrder = orderItemRows.some(
-        (item) => Number(item.MaSanPham) === Number(maSanPham)
-      );
-      if (!hasProductInOrder) {
-        await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Sản phẩm mã #${maSanPham} không nằm trong đơn hàng #${maDonHang}`
-        });
-      }
+
+      maSanPham = Number(orderLine.MaSanPham);
+    } else if (!maSanPham) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp mã sản phẩm cần đổi trả (maSanPham)'
+      });
     }
 
     // Kiểm tra sản phẩm tồn tại trong bảng sanpham
@@ -289,6 +350,21 @@ const createReturnRequest = async (req, res, next) => {
         message: `Sản phẩm mã #${maSanPham} không tồn tại`
       });
     }
+
+    // Xác định MaBienThe (dữ liệu cũ thiếu MaBienThe -> suy ra từ DungLuong/MauSac hoặc biến thể mặc định)
+    const { variant } = await resolveVariant(connection, {
+      maSanPham,
+      maBienThe: orderLine?.MaBienThe || requestedMaBienThe,
+      dungLuong: orderLine?.DungLuong,
+      mauSac: orderLine?.MauSac
+    });
+    const maBienThe = variant ? Number(variant.MaBienThe) : null;
+    const variantLabel = formatVariantLabel(
+      productRows[0].TenSanPham,
+      variant?.MauSac || orderLine?.MauSac,
+      variant?.DungLuong || orderLine?.DungLuong,
+      variant?.MaSKU
+    );
 
     // 3. Upload ảnh minh chứng và ảnh QR hoàn tiền lên Cloudinary sau khi toàn bộ kiểm tra hợp lệ
     let hinhAnhProof = rawHinhAnhProofUrl ? String(rawHinhAnhProofUrl).trim() : null;
@@ -314,13 +390,20 @@ const createReturnRequest = async (req, res, next) => {
       await Promise.all(uploadTasks);
     }
 
-    // 4. Chèn phiếu đổi trả vào bảng `phieudoitra` bao gồm cột AnhQRHoanTien
-    const [insertResult] = await connection.query(
-      `INSERT INTO phieudoitra
-         (MaDonHang, MaSanPham, MaNguoiDung_User, LyDo, HinhAnhProof, AnhQRHoanTien, KetQuaKiemDinh, TrangThaiHoanTien)
-       VALUES (?, ?, ?, ?, ?, ?, 'ChoKiemDinh', 'ChoDuyet')`,
-      [maDonHang, maSanPham, userId, lyDo, hinhAnhProof, anhQRHoanTien]
-    );
+    // 4. Chèn phiếu đổi trả vào bảng `phieudoitra` bao gồm cột AnhQRHoanTien và MaBienThe
+    const [insertResult] = saveVariant
+      ? await connection.query(
+          `INSERT INTO phieudoitra
+             (MaDonHang, MaSanPham, MaBienThe, MaNguoiDung_User, LyDo, HinhAnhProof, AnhQRHoanTien, KetQuaKiemDinh, TrangThaiHoanTien)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'ChoKiemDinh', 'ChoDuyet')`,
+          [maDonHang, maSanPham, maBienThe, userId, lyDo, hinhAnhProof, anhQRHoanTien]
+        )
+      : await connection.query(
+          `INSERT INTO phieudoitra
+             (MaDonHang, MaSanPham, MaNguoiDung_User, LyDo, HinhAnhProof, AnhQRHoanTien, KetQuaKiemDinh, TrangThaiHoanTien)
+           VALUES (?, ?, ?, ?, ?, ?, 'ChoKiemDinh', 'ChoDuyet')`,
+          [maDonHang, maSanPham, userId, lyDo, hinhAnhProof, anhQRHoanTien]
+        );
 
     // 5. Cập nhật trạng thái đơn hàng sang 'YeuCauDoiTra' (và đồng bộ lichsumuahang nếu có)
     await connection.query(
@@ -359,13 +442,28 @@ const createReturnRequest = async (req, res, next) => {
     );
 
     const created = createdRows[0];
+    const orderCode = formatOrderCode(created.MaDonHang, order.NgayMuaHang);
+
+    // Thông báo cho Kho (VaiTroNhan = 3) tiếp nhận & kiểm định hàng đổi trả
+    await pushNotification({
+      vaiTroNhan: 3,
+      tieuDe: `Yêu cầu đổi trả mới - Đơn hàng ${orderCode}`,
+      noiDung: `Khách hàng yêu cầu đổi trả ${variantLabel}${variant?.MaSKU ? ` [${variant.MaSKU}]` : ''} thuộc đơn hàng ${orderCode}. Lý do: ${lyDo.length > 150 ? `${lyDo.slice(0, 150)}...` : lyDo}`,
+      loaiThongBao: 'DoiTra',
+      lienKet: '/warehouse/returns'
+    });
 
     return res.status(201).json({
       success: true,
       message: 'Gửi yêu cầu đổi trả thành công',
       data: {
         ...created,
-        CodeDonHang: formatOrderCode(created.MaDonHang, order.NgayMuaHang),
+        MaBienThe: maBienThe,
+        MaSKU: variant?.MaSKU || null,
+        MauSac: variant?.MauSac || orderLine?.MauSac || null,
+        DungLuong: variant?.DungLuong || orderLine?.DungLuong || null,
+        MaChiTietDonHang: orderLine?.MaChiTietDonHang || null,
+        CodeDonHang: orderCode,
         HinhAnhProofList: parseProofImages(created.HinhAnhProof),
         AnhQRHoanTien: created.AnhQRHoanTien || null
       }

@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const { pool } = require('../../config/db');
+const { restoreOrderItemStock } = require('./variantStockHelper');
 
 /**
  * Tự động hủy các đơn hàng ở trạng thái 'Chờ thanh toán' quá hạn 30 phút.
@@ -45,56 +46,22 @@ const cancelExpiredOrders = async () => {
           [order.MaDonHang]
         );
 
-        // Lấy chi tiết các sản phẩm của đơn hàng để hoàn trả kho
+        // Lấy chi tiết các sản phẩm của đơn hàng để hoàn trả kho theo đúng MaBienThe
         const [items] = await connection.query(
-          `SELECT MaSanPham, SoLuong FROM chitietdonhang WHERE MaDonHang = ?`,
+          `SELECT MaSanPham, MaBienThe, SoLuong, DungLuong, MauSac FROM chitietdonhang WHERE MaDonHang = ?`,
           [order.MaDonHang]
         );
 
         for (const item of items) {
-          const soLuong = Number(item.SoLuong) || 0;
-          const maSanPham = item.MaSanPham;
-
-          if (soLuong > 0) {
-            // Hoàn trả số lượng tồn kho
-            await connection.query(
-              `UPDATE sanpham SET TonKho = TonKho + ? WHERE MaSanPham = ?`,
-              [soLuong, maSanPham]
-            );
-
-            // Kiểm tra số lượng tồn kho và trạng thái hiện tại của sản phẩm
-            const [prodRows] = await connection.query(
-              `SELECT TonKho, TrangThai FROM sanpham WHERE MaSanPham = ?`,
-              [maSanPham]
-            );
-
-            if (prodRows.length > 0) {
-              const newTonKho = Number(prodRows[0].TonKho);
-              const currentTrangThai = prodRows[0].TrangThai;
-
-              // Nếu sản phẩm trước đó có TrangThai = 'HetHang' mà TonKho > 0 -> Cập nhật lại TrangThai = 'DangBan'
-              if (currentTrangThai === 'HetHang' && newTonKho > 0) {
-                await connection.query(
-                  `UPDATE sanpham SET TrangThai = 'DangBan' WHERE MaSanPham = ?`,
-                  [maSanPham]
-                );
-              }
-
-              // Ghi log vào lichsutonkho với LoaiBienDong = 'HuyDon'
-              await connection.query(
-                `INSERT INTO lichsutonkho 
-                  (MaSanPham, LoaiBienDong, SoLuongThayDoi, TonThucTeSauDoi, MaThamChieu, NgayThucHien, GhiChu)
-                 VALUES (?, 'HuyDon', ?, ?, ?, NOW(), ?)`,
-                [
-                  maSanPham,
-                  soLuong,
-                  newTonKho,
-                  order.MaDonHang,
-                  `Tự động hủy đơn hàng quá hạn thanh toán #${order.MaDonHang}`
-                ]
-              );
-            }
-          }
+          await restoreOrderItemStock(connection, {
+            maSanPham: item.MaSanPham,
+            maBienThe: item.MaBienThe,
+            dungLuong: item.DungLuong,
+            mauSac: item.MauSac,
+            soLuong: item.SoLuong,
+            maThamChieu: order.MaDonHang,
+            ghiChu: `Tự động hủy đơn hàng quá hạn thanh toán #${order.MaDonHang}`
+          });
         }
 
         // Hoàn trả voucher nếu có áp dụng

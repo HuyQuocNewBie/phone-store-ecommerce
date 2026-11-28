@@ -278,6 +278,28 @@ SET @sql = IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- 6.6 Bảng `phieudoitra`
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'phieudoitra' AND COLUMN_NAME = 'MaBienThe') = 0,
+  'ALTER TABLE `phieudoitra` ADD COLUMN `MaBienThe` INT(11) NULL AFTER `MaSanPham`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'phieudoitra' AND INDEX_NAME = 'idx_phieudoitra_bienthe') = 0,
+  'ALTER TABLE `phieudoitra` ADD KEY `idx_phieudoitra_bienthe` (`MaBienThe`)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'phieudoitra' AND CONSTRAINT_NAME = 'fk_doitra_bienthe') = 0,
+  'ALTER TABLE `phieudoitra` ADD CONSTRAINT `fk_doitra_bienthe` FOREIGN KEY (`MaBienThe`) REFERENCES `sanpham_bienthe` (`MaBienThe`) ON DELETE SET NULL ON UPDATE CASCADE',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- ============================================================================
 -- 7. ÁNH XẠ `MaBienThe` MẶC ĐỊNH CHO DỮ LIỆU LỊCH SỬ CŨ (CHỈ KHI ĐANG NULL)
 -- ============================================================================
@@ -325,5 +347,21 @@ INNER JOIN (
 ) bt ON ls.`MaSanPham` = bt.`MaSanPham`
 SET ls.`MaBienThe` = bt.`MaBienThe`
 WHERE ls.`MaBienThe` IS NULL;
+
+UPDATE `phieudoitra` p
+LEFT JOIN `chitietdonhang` ct ON ct.`MaChiTietDonHang` = (
+  SELECT ct2.`MaChiTietDonHang`
+  FROM `chitietdonhang` ct2
+  WHERE ct2.`MaDonHang` = p.`MaDonHang` AND ct2.`MaSanPham` = p.`MaSanPham`
+  ORDER BY ct2.`MaChiTietDonHang` ASC
+  LIMIT 1
+)
+LEFT JOIN (
+  SELECT `MaSanPham`, MIN(`MaBienThe`) AS `MaBienThe`
+  FROM `sanpham_bienthe`
+  GROUP BY `MaSanPham`
+) bt ON p.`MaSanPham` = bt.`MaSanPham`
+SET p.`MaBienThe` = COALESCE(ct.`MaBienThe`, bt.`MaBienThe`)
+WHERE p.`MaBienThe` IS NULL;
 
 SET FOREIGN_KEY_CHECKS = 1;

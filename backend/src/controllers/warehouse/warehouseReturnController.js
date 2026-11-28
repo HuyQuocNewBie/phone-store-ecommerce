@@ -1,5 +1,10 @@
 const { pool } = require('../../../config/db');
 const { formatOrderCode } = require('../../utils/formatters');
+const { pushNotification } = require('../../utils/notificationHelper');
+const {
+  formatVariantLabel,
+  ensureReturnVariantColumn
+} = require('../../utils/variantStockHelper');
 
 const VALID_INSPECT_RESULTS = ['Dat', 'Loi_KhongDat'];
 const VALID_FILTER_RESULTS = ['ChoKiemDinh', 'Dat', 'Loi_KhongDat'];
@@ -24,7 +29,76 @@ const parseProofImages = (rawProof) => {
 };
 
 /**
- * Helper: format 1 bản ghi phiếu đổi trả kèm thông tin donhang, sanpham, nguoidung
+ * Helper: tạo câu truy vấn danh sách / chi tiết phiếu đổi trả kèm biến thể SKU
+ */
+const buildReturnSelectSql = (hasVariantCol, tailClause = '') => {
+  const maBienTheExpr = hasVariantCol ? 'COALESCE(p.MaBienThe, ct.MaBienThe)' : 'ct.MaBienThe';
+  const orderLineMatchOrder = hasVariantCol
+    ? 'ORDER BY (p.MaBienThe IS NOT NULL AND ct2.MaBienThe = p.MaBienThe) DESC, ct2.MaChiTietDonHang ASC'
+    : 'ORDER BY ct2.MaChiTietDonHang ASC';
+
+  return `
+    SELECT
+      p.MaPhieuDoiTra,
+      p.MaDonHang,
+      p.MaSanPham,
+      ${maBienTheExpr} AS MaBienThe,
+      bt.MaSKU,
+      ct.MaChiTietDonHang,
+      COALESCE(NULLIF(TRIM(ct.DungLuong), ''), bt.DungLuong) AS DungLuong,
+      COALESCE(NULLIF(TRIM(ct.MauSac), ''), bt.MauSac) AS MauSac,
+      ct.SoLuong,
+      ct.DonGia,
+      p.MaNguoiDung_User,
+      p.LyDo,
+      p.HinhAnhProof,
+      p.AnhQRHoanTien,
+      p.KetQuaKiemDinh,
+      p.GhiChuKho,
+      p.TrangThaiHoanTien,
+      p.MaGiaoDichHoanTien,
+      p.PhuongThucHoanTien,
+      p.GhiChuHoanTien,
+      p.NgayHoanTien,
+      p.NgayTao,
+      p.NgayCapNhat,
+      d.NgayMuaHang,
+      d.TrangThaiDonHang,
+      d.TongTien,
+      d.TenNguoiNhan,
+      d.SoDienThoai AS SoDienThoaiDonHang,
+      d.DiaChiGiaoHang,
+      d.GhiChu,
+      sp.TenSanPham,
+      sp.Anh AS AnhSanPham,
+      sp.Gia AS GiaSanPham,
+      u.TaiKhoan,
+      u.Email,
+      u.SoDienThoai AS SoDienThoaiUser,
+      u.AnhDaiDien,
+      COALESCE(
+        (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
+        (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
+        'COD'
+      ) AS PhuongThucThanhToan
+    FROM phieudoitra p
+    JOIN donhang d ON p.MaDonHang = d.MaDonHang
+    JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
+    JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
+    LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
+      SELECT ct2.MaChiTietDonHang
+      FROM chitietdonhang ct2
+      WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
+      ${orderLineMatchOrder}
+      LIMIT 1
+    )
+    LEFT JOIN sanpham_bienthe bt ON bt.MaBienThe = ${maBienTheExpr}
+    ${tailClause}
+  `;
+};
+
+/**
+ * Helper: format 1 bản ghi phiếu đổi trả kèm thông tin donhang, sanpham, bienthe, nguoidung
  */
 const formatReturnRecord = (row) => {
   const dungLuong =
@@ -45,6 +119,8 @@ const formatReturnRecord = (row) => {
     MaDonHang: row.MaDonHang,
     CodeDonHang: formatOrderCode(row.MaDonHang, row.NgayMuaHang),
     MaSanPham: row.MaSanPham,
+    MaBienThe: row.MaBienThe || null,
+    MaSKU: row.MaSKU || null,
     MaChiTietDonHang: row.MaChiTietDonHang || null,
     DungLuong: dungLuong,
     MauSac: mauSac,
@@ -95,6 +171,8 @@ const formatReturnRecord = (row) => {
     },
     sanpham: {
       MaSanPham: row.MaSanPham,
+      MaBienThe: row.MaBienThe || null,
+      MaSKU: row.MaSKU || null,
       TenSanPham: row.TenSanPham,
       Anh: row.AnhSanPham,
       Gia: Number(row.GiaSanPham)
@@ -111,7 +189,7 @@ const formatReturnRecord = (row) => {
 
 /**
  * 1. GET /api/v1/warehouse/returns
- * Lấy danh sách phiếu đổi trả JOIN với bảng `donhang`, `sanpham`, `nguoidung`.
+ * Lấy danh sách phiếu đổi trả JOIN với bảng `donhang`, `sanpham`, `sanpham_bienthe`, `nguoidung`.
  * Hỗ trợ query lọc tùy chọn: ?ketQua=ChoKiemDinh|Dat|Loi_KhongDat
  */
 const getReturns = async (req, res, next) => {
@@ -133,64 +211,13 @@ const getReturns = async (req, res, next) => {
       queryParams.push(filterValue);
     }
 
-    const [rows] = await pool.query(
-      `SELECT
-         p.MaPhieuDoiTra,
-         p.MaDonHang,
-         p.MaSanPham,
-         ct.MaChiTietDonHang,
-         ct.DungLuong,
-         ct.MauSac,
-         ct.SoLuong,
-         ct.DonGia,
-         p.MaNguoiDung_User,
-         p.LyDo,
-         p.HinhAnhProof,
-         p.AnhQRHoanTien,
-         p.KetQuaKiemDinh,
-         p.GhiChuKho,
-         p.TrangThaiHoanTien,
-         p.MaGiaoDichHoanTien,
-         p.PhuongThucHoanTien,
-         p.GhiChuHoanTien,
-         p.NgayHoanTien,
-         p.NgayTao,
-         p.NgayCapNhat,
-         d.NgayMuaHang,
-         d.TrangThaiDonHang,
-         d.TongTien,
-         d.TenNguoiNhan,
-         d.SoDienThoai AS SoDienThoaiDonHang,
-         d.DiaChiGiaoHang,
-         d.GhiChu,
-         sp.TenSanPham,
-         sp.Anh AS AnhSanPham,
-         sp.Gia AS GiaSanPham,
-         u.TaiKhoan,
-         u.Email,
-         u.SoDienThoai AS SoDienThoaiUser,
-         u.AnhDaiDien,
-         COALESCE(
-           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
-           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
-           'COD'
-         ) AS PhuongThucThanhToan
-       FROM phieudoitra p
-       JOIN donhang d ON p.MaDonHang = d.MaDonHang
-       JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
-       JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
-       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
-         SELECT ct2.MaChiTietDonHang
-         FROM chitietdonhang ct2
-         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
-         ORDER BY ct2.MaChiTietDonHang ASC
-         LIMIT 1
-       )
-       ${whereClause}
-       ORDER BY p.NgayTao DESC, p.MaPhieuDoiTra DESC`,
-      queryParams
+    const hasVariantCol = await ensureReturnVariantColumn(pool);
+    const sql = buildReturnSelectSql(
+      hasVariantCol,
+      `${whereClause} ORDER BY p.NgayTao DESC, p.MaPhieuDoiTra DESC`
     );
 
+    const [rows] = await pool.query(sql, queryParams);
     const formattedData = rows.map(formatReturnRecord);
 
     return res.status(200).json({
@@ -208,6 +235,7 @@ const getReturns = async (req, res, next) => {
  * Nhân viên Kho kiểm định hàng trả về:
  * - Bắt buộc nhận `{ ketQua: 'Dat' | 'Loi_KhongDat', ghiChuKho }`.
  * - Cập nhật `phieudoitra` SET `KetQuaKiemDinh = ketQua`, `GhiChuKho = ghiChuKho`.
+ * - NẾU `ketQua === 'Dat'`: Gọi `pushNotification` báo cho Admin (`VaiTroNhan = 1`, `LienKet = '/admin/returns'`).
  */
 const inspectReturn = async (req, res, next) => {
   let connection;
@@ -281,67 +309,36 @@ const inspectReturn = async (req, res, next) => {
 
     await connection.commit();
 
+    const hasVariantCol = await ensureReturnVariantColumn(pool);
     const [updatedRows] = await pool.query(
-      `SELECT
-         p.MaPhieuDoiTra,
-         p.MaDonHang,
-         p.MaSanPham,
-         ct.MaChiTietDonHang,
-         ct.DungLuong,
-         ct.MauSac,
-         ct.SoLuong,
-         ct.DonGia,
-         p.MaNguoiDung_User,
-         p.LyDo,
-         p.HinhAnhProof,
-         p.AnhQRHoanTien,
-         p.KetQuaKiemDinh,
-         p.GhiChuKho,
-         p.TrangThaiHoanTien,
-         p.MaGiaoDichHoanTien,
-         p.PhuongThucHoanTien,
-         p.GhiChuHoanTien,
-         p.NgayHoanTien,
-         p.NgayTao,
-         p.NgayCapNhat,
-         d.NgayMuaHang,
-         d.TrangThaiDonHang,
-         d.TongTien,
-         d.TenNguoiNhan,
-         d.SoDienThoai AS SoDienThoaiDonHang,
-         d.DiaChiGiaoHang,
-         d.GhiChu,
-         sp.TenSanPham,
-         sp.Anh AS AnhSanPham,
-         sp.Gia AS GiaSanPham,
-         u.TaiKhoan,
-         u.Email,
-         u.SoDienThoai AS SoDienThoaiUser,
-         u.AnhDaiDien,
-         COALESCE(
-           (SELECT pt.TenPhuongThucThanhToan FROM thanhtoan tt JOIN phuongthucthanhtoan pt ON tt.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE tt.MaDonHang = d.MaDonHang ORDER BY tt.MaThanhToan DESC LIMIT 1),
-           (SELECT pt.TenPhuongThucThanhToan FROM lichsumuahang lsm JOIN phuongthucthanhtoan pt ON lsm.MaPhuongThucThanhToan = pt.MaPhuongThucThanhToan WHERE lsm.MaDonHang = d.MaDonHang ORDER BY lsm.MaLichSuMuaHang DESC LIMIT 1),
-           'COD'
-         ) AS PhuongThucThanhToan
-       FROM phieudoitra p
-       JOIN donhang d ON p.MaDonHang = d.MaDonHang
-       JOIN sanpham sp ON p.MaSanPham = sp.MaSanPham
-       JOIN nguoidung u ON p.MaNguoiDung_User = u.MaNguoiDung
-       LEFT JOIN chitietdonhang ct ON ct.MaChiTietDonHang = (
-         SELECT ct2.MaChiTietDonHang
-         FROM chitietdonhang ct2
-         WHERE ct2.MaDonHang = p.MaDonHang AND ct2.MaSanPham = p.MaSanPham
-         ORDER BY ct2.MaChiTietDonHang ASC
-         LIMIT 1
-       )
-       WHERE p.MaPhieuDoiTra = ?`,
+      buildReturnSelectSql(hasVariantCol, 'WHERE p.MaPhieuDoiTra = ?'),
       [returnId]
     );
+
+    const formatted = formatReturnRecord(updatedRows[0]);
+
+    // Khi Kho kiểm định kết quả 'Dat': gọi pushNotification báo cho Admin xử lý hoàn tiền
+    if (ketQua === 'Dat') {
+      const variantLabel = formatVariantLabel(
+        formatted.TenSanPham,
+        formatted.MauSac,
+        formatted.DungLuong,
+        formatted.MaSKU
+      );
+
+      await pushNotification({
+        vaiTroNhan: 1,
+        tieuDe: `Phiếu đổi trả #${returnId} đạt kiểm định - chờ hoàn tiền`,
+        noiDung: `Kho đã kiểm định ĐẠT cho ${variantLabel}${formatted.MaSKU ? ` [${formatted.MaSKU}]` : ''} thuộc đơn hàng ${formatted.CodeDonHang} (Khách hàng: ${formatted.TenKhachHang}). Ghi chú kho: ${ghiChuKho.length > 140 ? `${ghiChuKho.slice(0, 140)}...` : ghiChuKho}`,
+        loaiThongBao: 'DoiTra',
+        lienKet: '/admin/returns'
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Cập nhật kết quả kiểm định phiếu đổi trả thành công',
-      data: formatReturnRecord(updatedRows[0])
+      data: formatted
     });
   } catch (error) {
     if (connection) {
@@ -359,4 +356,3 @@ module.exports = {
   getReturns,
   inspectReturn
 };
-
