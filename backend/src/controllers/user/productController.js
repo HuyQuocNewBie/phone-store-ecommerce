@@ -198,9 +198,9 @@ const getProductById = async (req, res, next) => {
       });
     }
 
-    // Lấy thông tin chi tiết sản phẩm (chỉ lấy sản phẩm có TrangThai = 'DangBan')
+    // Lấy thông tin chi tiết sản phẩm (cho phép xem cả sản phẩm DangBan và HetHang để hiển thị trạng thái tồn kho)
     const [productRows] = await pool.query(
-      `SELECT * FROM sanpham WHERE MaSanPham = ? AND TrangThai = 'DangBan'`,
+      `SELECT * FROM sanpham WHERE MaSanPham = ? AND TrangThai != 'NgungBan'`,
       [productId]
     );
 
@@ -215,6 +215,30 @@ const getProductById = async (req, res, next) => {
     product.Gia = Number(product.Gia);
     product.TonKho = Number(product.TonKho);
 
+    // Lấy danh sách biến thể SKU (MaBienThe, MauSac, DungLuong, GiaBan, TonKho) từ sanpham_bienthe
+    const [variantRows] = await pool.query(
+      `SELECT MaBienThe, MaSanPham, MaSKU, MauSac, DungLuong, GiaBan, TonKho, TrangThai
+       FROM sanpham_bienthe
+       WHERE MaSanPham = ? AND TrangThai != 'NgungBan'
+       ORDER BY MaBienThe ASC`,
+      [productId]
+    );
+
+    const variants = variantRows.map((v) => ({
+      MaBienThe: Number(v.MaBienThe),
+      MaSanPham: Number(v.MaSanPham),
+      MaSKU: v.MaSKU || null,
+      MauSac: v.MauSac !== null && v.MauSac !== undefined && String(v.MauSac).trim() !== ''
+        ? String(v.MauSac).trim()
+        : null,
+      DungLuong: v.DungLuong !== null && v.DungLuong !== undefined && String(v.DungLuong).trim() !== ''
+        ? String(v.DungLuong).trim()
+        : null,
+      GiaBan: Number(v.GiaBan) || 0,
+      TonKho: Number(v.TonKho) || 0,
+      TrangThai: v.TrangThai || 'DangBan'
+    }));
+
     // Lấy danh sách thông số kỹ thuật từ bảng thongsokythuat
     const [specRows] = await pool.query(
       `SELECT MaThongSo, NhomThongSo, TenThongSo, GiaTri 
@@ -223,31 +247,38 @@ const getProductById = async (req, res, next) => {
       [productId]
     );
 
-    // Lấy danh sách DungLuong và MauSac khả dụng của cùng dòng sản phẩm
-    const [dlRows] = await pool.query(
-      `SELECT DISTINCT DungLuong FROM sanpham 
-       WHERE TenSanPham = ? AND DungLuong IS NOT NULL AND DungLuong != '' AND TrangThai = 'DangBan'`,
-      [product.TenSanPham]
-    );
+    // Lấy danh sách DungLuong và MauSac khả dụng (ưu tiên từ sanpham_bienthe, fallback dữ liệu sản phẩm)
+    let listDungLuong = [...new Set(variants.map((v) => v.DungLuong).filter(Boolean))];
+    let listMauSac = [...new Set(variants.map((v) => v.MauSac).filter(Boolean))];
 
-    const [msRows] = await pool.query(
-      `SELECT DISTINCT MauSac FROM sanpham 
-       WHERE TenSanPham = ? AND MauSac IS NOT NULL AND MauSac != '' AND TrangThai = 'DangBan'`,
-      [product.TenSanPham]
-    );
-
-    let listDungLuong = dlRows.map((r) => r.DungLuong);
-    if (listDungLuong.length === 0 && product.DungLuong) {
-      listDungLuong = [product.DungLuong];
+    if (listDungLuong.length === 0) {
+      const [dlRows] = await pool.query(
+        `SELECT DISTINCT DungLuong FROM sanpham 
+         WHERE TenSanPham = ? AND DungLuong IS NOT NULL AND DungLuong != '' AND TrangThai != 'NgungBan'`,
+        [product.TenSanPham]
+      );
+      listDungLuong = dlRows.map((r) => r.DungLuong);
+      if (listDungLuong.length === 0 && product.DungLuong) {
+        listDungLuong = [product.DungLuong];
+      }
     }
 
-    let listMauSac = msRows.map((r) => r.MauSac);
-    if (listMauSac.length === 0 && product.MauSac) {
-      listMauSac = [product.MauSac];
+    if (listMauSac.length === 0) {
+      const [msRows] = await pool.query(
+        `SELECT DISTINCT MauSac FROM sanpham 
+         WHERE TenSanPham = ? AND MauSac IS NOT NULL AND MauSac != '' AND TrangThai != 'NgungBan'`,
+        [product.TenSanPham]
+      );
+      listMauSac = msRows.map((r) => r.MauSac);
+      if (listMauSac.length === 0 && product.MauSac) {
+        listMauSac = [product.MauSac];
+      }
     }
 
     const productDetail = {
       ...product,
+      variants,
+      bienThe: variants,
       danhSachDungLuong: listDungLuong,
       danhSachMauSac: listMauSac,
       thongsokythuat: specRows

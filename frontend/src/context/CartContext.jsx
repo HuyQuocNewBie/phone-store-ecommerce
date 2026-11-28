@@ -50,6 +50,7 @@ export const CartProvider = ({ children }) => {
       if (typeof maSanPhamOrPayload === 'object' && maSanPhamOrPayload !== null) {
         payload = {
           MaSanPham: maSanPhamOrPayload.MaSanPham || maSanPhamOrPayload.product_id,
+          MaBienThe: maSanPhamOrPayload.MaBienThe ?? maSanPhamOrPayload.variant_id ?? null,
           SoLuong: maSanPhamOrPayload.SoLuong ?? maSanPhamOrPayload.quantity ?? 1,
           DungLuong: maSanPhamOrPayload.DungLuong || null,
           MauSac: maSanPhamOrPayload.MauSac || null,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -10,8 +10,10 @@ const STORAGE_KEY = 'search_history';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { totalCartCount } = useCart();
+  const isVouchersActive = location.pathname.startsWith('/vouchers');
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -301,8 +303,28 @@ const Navbar = () => {
           />
         </div>
 
-        {/* 3. Actions Right (Giỏ hàng & Tài khoản) */}
-        <div className="flex items-center gap-unit-md shrink-0">
+        {/* 3. Actions Right (Ưu đãi / Voucher, Giỏ hàng & Tài khoản) */}
+        <div className="flex items-center gap-unit-sm lg:gap-unit-md shrink-0">
+          {/* Ưu đãi / Voucher nổi bật */}
+          <Link
+            to="/vouchers"
+            id="nav-vouchers-link"
+            className={`relative inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-body-sm text-body-sm font-bold whitespace-nowrap transition-all duration-200 group shadow-sm ${
+              isVouchersActive
+                ? 'bg-gradient-to-r from-orange-600 to-rose-600 text-white shadow-orange-500/30 ring-2 ring-orange-200'
+                : 'bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-orange-500/20 hover:shadow-md active:scale-95'
+            }`}
+            title="Săn mã giảm giá điện thoại & Freeship"
+          >
+            <span className="material-symbols-outlined text-[18px] leading-none group-hover:rotate-12 transition-transform">
+              confirmation_number
+            </span>
+            <span>Ưu đãi / Voucher</span>
+            <span className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold uppercase tracking-wider leading-none">
+              Hot
+            </span>
+          </Link>
+
           {/* Giỏ hàng */}
           <Link
             to="/cart"
@@ -668,6 +690,32 @@ const Navbar = () => {
             >
               <span className="material-symbols-outlined text-blue-500 text-[20px] leading-none group-hover:scale-110 transition-transform">home</span>
               <span>Trang chủ</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDrawerNavigate('/vouchers')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-[13px] font-bold group my-0.5 ${
+                isVouchersActive
+                  ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm'
+                  : 'bg-orange-50/90 hover:bg-orange-100 text-orange-700 border border-orange-200/80'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[20px] leading-none group-hover:scale-110 transition-transform ${
+                  isVouchersActive ? 'text-white' : 'text-orange-500'
+                }`}
+              >
+                confirmation_number
+              </span>
+              <span>Ưu đãi / Voucher</span>
+              <span
+                className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide ${
+                  isVouchersActive ? 'bg-white/20 text-white' : 'bg-rose-500 text-white'
+                }`}
+              >
+                Hot
+              </span>
             </button>
 
             <button

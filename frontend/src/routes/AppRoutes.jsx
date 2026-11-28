@@ -30,6 +30,7 @@ import AnalyticsPage from '../pages/admin/analytics/AnalyticsPage';
 import HomePage from '../pages/user/HomePage';
 import CatalogPage from '../pages/user/CatalogPage';
 import ProductDetailPage from '../pages/user/ProductDetailPage';
+import VouchersPage from '../pages/user/VouchersPage';
 import ComparePage from '../pages/user/ComparePage';
 import CartPage from '../pages/user/CartPage';
 import CheckoutPage from '../pages/user/CheckoutPage';
@@ -107,6 +108,7 @@ const AppRoutes = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/products" element={<CatalogPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
+        <Route path="/vouchers" element={<VouchersPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
