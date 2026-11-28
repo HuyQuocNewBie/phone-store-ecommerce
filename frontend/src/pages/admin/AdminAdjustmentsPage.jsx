@@ -9,12 +9,16 @@ import {
   RefreshCw,
   Search,
   AlertCircle,
+  AlertTriangle,
   Boxes,
   TrendingUp,
   TrendingDown,
   Minus,
   Loader2,
   Smartphone,
+  HardDrive,
+  Palette,
+  Barcode,
   User,
   ArrowRight,
   X,
@@ -49,6 +53,42 @@ const formatImageUrl = (url) => {
       ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, '')
       : 'http://localhost:5000');
   return `${base}${cleanPath}`;
+};
+
+const getColorDotClass = (colorName) => {
+  if (!colorName) return 'bg-slate-400';
+  const c = String(colorName).toLowerCase();
+  if (c.includes('đen') || c.includes('black') || c.includes('midnight') || c.includes('obsidian')) {
+    return 'bg-slate-900';
+  }
+  if (c.includes('trắng') || c.includes('white') || c.includes('starlight') || c.includes('bạc') || c.includes('silver')) {
+    return 'bg-slate-100 ring-1 ring-slate-300';
+  }
+  if (c.includes('titan tự nhiên') || c.includes('natural') || c.includes('xám') || c.includes('gray') || c.includes('grey')) {
+    return 'bg-stone-400';
+  }
+  if (c.includes('xanh dương') || c.includes('xanh biển') || c.includes('blue') || c.includes('navy')) {
+    return 'bg-blue-600';
+  }
+  if (c.includes('xanh lá') || c.includes('green') || c.includes('mint') || c.includes('emerald')) {
+    return 'bg-emerald-500';
+  }
+  if (c.includes('tím') || c.includes('purple') || c.includes('violet')) {
+    return 'bg-purple-500';
+  }
+  if (c.includes('hồng') || c.includes('pink') || c.includes('rose')) {
+    return 'bg-pink-400';
+  }
+  if (c.includes('đỏ') || c.includes('red')) {
+    return 'bg-rose-600';
+  }
+  if (c.includes('vàng') || c.includes('gold') || c.includes('yellow') || c.includes('sa mạc') || c.includes('desert')) {
+    return 'bg-amber-400';
+  }
+  if (c.includes('cam') || c.includes('orange')) {
+    return 'bg-orange-500';
+  }
+  return 'bg-purple-500';
 };
 
 const getStatusBadge = (status) => {
@@ -237,9 +277,14 @@ const AdminAdjustmentsPage = () => {
       const note = String(item.GhiChu || '').toLowerCase();
       const creator = String(item.TaiKhoanKho || '').toLowerCase();
       const admin = String(item.TaiKhoanAdmin || '').toLowerCase();
-      const matchProduct = (item.ChiTiet || []).some((ct) =>
-        String(ct.TenSanPham || '').toLowerCase().includes(keyword) ||
-        String(ct.MaSanPham || '').includes(keyword)
+      const matchProduct = (item.ChiTiet || []).some(
+        (ct) =>
+          String(ct.TenSanPham || '').toLowerCase().includes(keyword) ||
+          String(ct.MauSac || '').toLowerCase().includes(keyword) ||
+          String(ct.DungLuong || '').toLowerCase().includes(keyword) ||
+          String(ct.MaSKU || '').toLowerCase().includes(keyword) ||
+          String(ct.MaBienThe || '').includes(keyword) ||
+          String(ct.MaSanPham || '').includes(keyword)
       );
 
       return (
@@ -268,6 +313,10 @@ const AdminAdjustmentsPage = () => {
       const idStr = String(item.MaPhieuAdjust || '');
       const adjCode = `#adj${String(item.MaPhieuAdjust || '').padStart(4, '0')}`;
       const prodName = String(item.TenSanPham || '').toLowerCase();
+      const color = String(item.MauSac || '').toLowerCase();
+      const storage = String(item.DungLuong || '').toLowerCase();
+      const sku = String(item.MaSKU || '').toLowerCase();
+      const btId = String(item.MaBienThe || '');
       const prodId = String(item.MaSanPham || '');
       const reason = String(item.LyDoGiaiTrinh || '').toLowerCase();
       const staff = String(item.NguoiTaoKho || '').toLowerCase();
@@ -276,6 +325,10 @@ const AdminAdjustmentsPage = () => {
         idStr.includes(keyword) ||
         adjCode.includes(keyword) ||
         prodName.includes(keyword) ||
+        color.includes(keyword) ||
+        storage.includes(keyword) ||
+        sku.includes(keyword) ||
+        btId.includes(keyword) ||
         prodId.includes(keyword) ||
         reason.includes(keyword) ||
         staff.includes(keyword)
@@ -318,8 +371,13 @@ const AdminAdjustmentsPage = () => {
       setImports((prev) =>
         prev.map((row) => {
           if (row.MaPhieuNhap !== importId) return row;
+          const updatedList = updated?.ChiTietCapNhat || updated?.sanPhamCapNhat || [];
           const nextChiTiet = (row.ChiTiet || []).map((ct) => {
-            const up = updated?.sanPhamCapNhat?.find?.((u) => u.MaSanPham === ct.MaSanPham);
+            const up = updatedList.find((u) =>
+              u.MaBienThe && ct.MaBienThe
+                ? Number(u.MaBienThe) === Number(ct.MaBienThe)
+                : Number(u.MaSanPham) === Number(ct.MaSanPham)
+            );
             return {
               ...ct,
               TonKhoHienTai:
@@ -349,7 +407,7 @@ const AdminAdjustmentsPage = () => {
       if (hanhDong === 'Approve') {
         toast.success(
           res.data?.message ||
-            `Đã phê duyệt phiếu nhập #PN${String(importId).padStart(4, '0')} — Tồn kho đã được cộng vào hệ thống!`,
+            `Đã phê duyệt phiếu nhập #PN${String(importId).padStart(4, '0')} — Tồn kho biến thể đã được cộng vào hệ thống!`,
           { id: `import-approve-${importId}`, duration: 4000 }
         );
       } else {
@@ -429,7 +487,7 @@ const AdminAdjustmentsPage = () => {
           updated?.TonKhoMoi ?? updated?.TonKhoHienTai ?? item.SoLuongThucTe;
         toast.success(
           res.data?.message ||
-            `Đã phê duyệt phiếu #ADJ${String(adjustmentId).padStart(4, '0')} — Tồn kho cập nhật thành ${newStock}`,
+            `Đã phê duyệt phiếu #ADJ${String(adjustmentId).padStart(4, '0')} — Tồn kho biến thể cập nhật thành ${newStock}`,
           { id: `adjust-approve-${adjustmentId}`, duration: 4000 }
         );
       } else {
@@ -463,29 +521,41 @@ const AdminAdjustmentsPage = () => {
   return (
     <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-auto max-w-7xl mx-auto w-full">
       {/* ── Top Action Bar ── */}
-      <div className="flex items-center justify-end gap-2.5 flex-wrap">
-        <Link
-          to="/admin/inventory"
-          className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs font-semibold transition-all shadow-sm"
-        >
-          <Boxes className="w-3.5 h-3.5 text-sky-600" />
-          <span>Theo dõi Tồn kho</span>
-        </Link>
+      <div className="flex items-center justify-between gap-2.5 flex-wrap">
+        <div>
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+            Cổng Phê duyệt Nhập kho &amp; Điều chỉnh Lệch kho theo Biến thể SKU
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Đối chiếu chính xác <strong>Màu sắc</strong>, <strong>Dung lượng</strong> và so sánh{' '}
+            <strong>Giá nhập lô mới</strong> với <strong>Giá bán hiện tại</strong> trước khi duyệt.
+          </p>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => fetchAllData({ silent: true })}
-          disabled={loading || refreshing}
-          className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 cursor-pointer"
-          title="Tải lại danh sách"
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${
-              loading || refreshing ? 'animate-spin text-blue-600' : ''
-            }`}
-          />
-          <span>Làm mới</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Link
+            to="/admin/inventory"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs font-semibold transition-all shadow-sm"
+          >
+            <Boxes className="w-3.5 h-3.5 text-sky-600" />
+            <span>Theo dõi Tồn kho SKU</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => fetchAllData({ silent: true })}
+            disabled={loading || refreshing}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 cursor-pointer"
+            title="Tải lại danh sách"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                loading || refreshing ? 'animate-spin text-blue-600' : ''
+              }`}
+            />
+            <span>Làm mới</span>
+          </button>
+        </div>
       </div>
 
       {/* ── View Switcher: Nhập kho vs Lệch kho ── */}
@@ -544,7 +614,7 @@ const AdminAdjustmentsPage = () => {
             </p>
             <h3 className="text-2xl font-bold text-slate-800 mt-1">{activeStats.total}</h3>
             <span className="text-[11px] text-slate-400 mt-0.5 block">
-              Tất cả các phiếu đã tạo
+              Tất cả các phiếu theo biến thể SKU
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
@@ -567,7 +637,7 @@ const AdminAdjustmentsPage = () => {
             </p>
             <h3 className="text-2xl font-bold text-amber-600 mt-1">{activeStats.pending}</h3>
             <span className="text-[11px] text-amber-600 font-medium mt-0.5 block">
-              Cần phê duyệt hoặc từ chối
+              Cần đối chiếu &amp; phê duyệt
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
@@ -590,7 +660,7 @@ const AdminAdjustmentsPage = () => {
             </p>
             <h3 className="text-2xl font-bold text-emerald-600 mt-1">{activeStats.approved}</h3>
             <span className="text-[11px] text-emerald-600 font-medium mt-0.5 block">
-              {activeView === 'imports' ? 'Đã cộng tồn kho thành công' : 'Đã cập nhật tồn kho mới'}
+              {activeView === 'imports' ? 'Đã cộng tồn kho biến thể' : 'Đã cập nhật tồn kho biến thể'}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
@@ -670,8 +740,8 @@ const AdminAdjustmentsPage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={
               activeView === 'imports'
-                ? 'Tìm mã phiếu #PN..., nhà sản xuất, sản phẩm...'
-                : 'Tìm mã phiếu #ADJ..., sản phẩm, lý do giải trình...'
+                ? 'Tìm mã phiếu #PN..., sản phẩm, màu sắc, dung lượng, SKU...'
+                : 'Tìm mã phiếu #ADJ..., sản phẩm, màu sắc, dung lượng, lý do...'
             }
             className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
@@ -711,7 +781,7 @@ const AdminAdjustmentsPage = () => {
           </div>
         ) : activeView === 'imports' ? (
           /* ═════════════════════════════════════════════════════════════════ */
-          /* ── TABLE 1: PHÊ DUYỆT PHIẾU NHẬP KHO HÀNG ── */
+          /* ── TABLE 1: PHÊ DUYỆT PHIẾU NHẬP KHO HÀNG (ĐỐI CHIẾU GIÁ NHẬP & GIÁ BÁN BIẾN THỂ) ── */
           /* ═════════════════════════════════════════════════════════════════ */
           filteredImports.length === 0 ? (
             <div className="p-14 text-center">
@@ -744,12 +814,14 @@ const AdminAdjustmentsPage = () => {
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left border-collapse text-slate-700">
+              <table className="w-full min-w-[1080px] text-left border-collapse text-slate-700">
                 <thead className="bg-slate-50/90 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="px-5 py-3.5 w-[140px] whitespace-nowrap">Mã phiếu</th>
-                    <th className="px-4 py-3.5 w-[180px]">Nhà sản xuất</th>
-                    <th className="px-4 py-3.5 min-w-[320px]">Chi tiết sản phẩm &amp; Giá nhập</th>
+                    <th className="px-4 py-3.5 w-[170px]">Nhà sản xuất</th>
+                    <th className="px-4 py-3.5 min-w-[380px]">
+                      Biến thể SKU &amp; Đối chiếu Giá nhập lô mới vs Giá bán hiện tại
+                    </th>
                     <th className="px-4 py-3.5 w-[150px] text-right whitespace-nowrap">Tổng tiền nhập</th>
                     <th className="px-4 py-3.5 w-[130px] text-center whitespace-nowrap">Trạng thái</th>
                     <th className="px-5 py-3.5 w-[210px] text-center whitespace-nowrap">Thao tác Admin</th>
@@ -802,33 +874,42 @@ const AdminAdjustmentsPage = () => {
                           </div>
                         </td>
 
-                        {/* Chi tiết sản phẩm nhập */}
+                        {/* Chi tiết biến thể sản phẩm & So sánh Giá nhập lô mới với Giá bán hiện tại */}
                         <td className="px-4 py-4 align-top">
-                          <div className="space-y-2.5">
-                            {items.map((prod) => {
+                          <div className="space-y-3">
+                            {items.map((prod, idx) => {
                               const currStock = Number(prod.TonKhoHienTai) || 0;
                               const importQty = Number(prod.SoLuongNhap) || 0;
                               const expectedStock = currStock + importQty;
-                              const unitPrice = Number(prod.DonGiaNhap) || 0;
-                              const retailPrice = Number(prod.Gia) || 0;
+                              const newImportPrice = Number(prod.DonGiaNhap) || 0;
+                              const currentSellPrice = Number(prod.GiaBan ?? prod.Gia) || 0;
+                              const lastImportPrice = Number(prod.GiaNhapGanNhat) || 0;
 
-                              const validDungLuong = prod.DungLuong
-                                ? String(prod.DungLuong).split(/[,;|•]/)[0].trim()
-                                : '';
-                              const validMauSac = prod.MauSac
-                                ? String(prod.MauSac).split(/[,;|•]/)[0].trim()
-                                : '';
-                              const specs = [validDungLuong, validMauSac]
-                                .filter(Boolean)
-                                .join(' · ');
+                              const validDungLuong =
+                                prod.DungLuong && String(prod.DungLuong).trim()
+                                  ? String(prod.DungLuong).trim()
+                                  : 'Tiêu chuẩn';
+                              const validMauSac =
+                                prod.MauSac && String(prod.MauSac).trim()
+                                  ? String(prod.MauSac).trim()
+                                  : 'Mặc định';
+
+                              const priceDiff = currentSellPrice - newImportPrice;
+                              const marginPct =
+                                currentSellPrice > 0
+                                  ? Math.round((priceDiff / currentSellPrice) * 100)
+                                  : 0;
+                              const isPriceWarning =
+                                currentSellPrice > 0 && newImportPrice >= currentSellPrice;
 
                               return (
                                 <div
-                                  key={prod.MaChiTietNhap || prod.MaSanPham}
-                                  className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5"
+                                  key={prod.MaChiTietNhap || `${prod.MaBienThe || prod.MaSanPham}-${idx}`}
+                                  className="p-3 rounded-xl bg-slate-50 border border-slate-200/90 space-y-2.5"
                                 >
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                                  {/* Dòng 1: Ảnh + Tên SP + Pills Màu sắc & Dung lượng + SL nhập */}
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                                       {prod.Anh ? (
                                         <img
                                           src={formatImageUrl(prod.Anh)}
@@ -839,48 +920,119 @@ const AdminAdjustmentsPage = () => {
                                         <Smartphone className="w-4 h-4 text-slate-300" />
                                       )}
                                     </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
-                                        {prod.TenSanPham}
-                                      </p>
-                                      {specs && (
-                                        <p className="text-[11px] text-slate-500">
-                                          {specs}
+
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="font-bold text-slate-900 text-xs sm:text-sm">
+                                          {prod.TenSanPham}
                                         </p>
-                                      )}
+                                        <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                          +{importQty} máy
+                                        </span>
+                                      </div>
+
+                                      {/* Pills Màu sắc, Dung lượng, SKU của biến thể */}
+                                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold">
+                                          <span
+                                            className={`w-2 h-2 rounded-full shrink-0 ${getColorDotClass(
+                                              validMauSac
+                                            )}`}
+                                          />
+                                          <Palette className="w-3 h-3" />
+                                          <span>Màu: {validMauSac}</span>
+                                        </span>
+
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold">
+                                          <HardDrive className="w-3 h-3" />
+                                          <span>Dung lượng: {validDungLuong}</span>
+                                        </span>
+
+                                        {prod.MaSKU && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 font-mono text-[11px] font-bold text-slate-600">
+                                            <Barcode className="w-3 h-3 text-slate-400" />
+                                            {prod.MaSKU}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                    <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                                      +{importQty} máy
-                                    </span>
                                   </div>
 
-                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60 text-xs">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-slate-600">
-                                        Giá nhập: <strong className="text-emerald-600 font-bold">{formatVND(unitPrice)}</strong>
-                                      </span>
-                                      {retailPrice > 0 && (
-                                        <span className="text-slate-400 text-[11px]">
-                                          Giá bán niêm yết: <span className="line-through">{formatVND(retailPrice)}</span>
-                                        </span>
-                                      )}
+                                  {/* Dòng 2: Khung đối chiếu Giá nhập lô mới vs Giá bán hiện tại của biến thể */}
+                                  <div
+                                    className={`p-2.5 rounded-lg border text-xs space-y-1.5 ${
+                                      isPriceWarning
+                                        ? 'bg-rose-50/80 border-rose-200'
+                                        : 'bg-white border-slate-200'
+                                    }`}
+                                  >
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div className="flex items-center justify-between sm:justify-start gap-1.5">
+                                        <span className="text-slate-500">Giá nhập lô mới:</span>
+                                        <strong className="text-emerald-700 font-extrabold">
+                                          {formatVND(newImportPrice)}
+                                        </strong>
+                                      </div>
+                                      <div className="flex items-center justify-between sm:justify-start gap-1.5">
+                                        <span className="text-slate-500">Giá bán hiện tại:</span>
+                                        <strong className="text-blue-700 font-extrabold">
+                                          {currentSellPrice > 0
+                                            ? formatVND(currentSellPrice)
+                                            : 'Chưa niêm yết'}
+                                        </strong>
+                                      </div>
                                     </div>
 
+                                    {currentSellPrice > 0 && (
+                                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px]">
+                                        {isPriceWarning ? (
+                                          <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                            Cảnh báo: Giá nhập lô mới ≥ Giá bán hiện tại (Chênh lệch:{' '}
+                                            {formatVND(newImportPrice - currentSellPrice)})
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                            Thấp hơn giá bán {formatVND(priceDiff)} (Biên lợi nhuận gộp ~
+                                            {marginPct}%)
+                                          </span>
+                                        )}
+
+                                        {lastImportPrice > 0 && (
+                                          <span className="text-slate-400">
+                                            Giá nhập gần nhất: {formatVND(lastImportPrice)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Dòng 3: Đối chiếu Tồn kho biến thể */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 font-medium">
+                                    <span>Biến thể #{prod.MaBienThe || prod.MaSanPham}</span>
                                     {receipt.TrangThai === 'DaDuyet' ? (
-                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                                        <span>Tồn kho: {currStock - importQty}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span>Tồn kho biến thể: {Math.max(0, currStock - importQty)}</span>
                                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                                        <span className="font-bold text-emerald-700">{currStock}</span>
+                                        <span className="font-bold text-emerald-700">{currStock} máy</span>
                                       </div>
                                     ) : receipt.TrangThai === 'TuChoi' ? (
-                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                                        <span>Tồn hiện tại: <strong className="font-bold text-slate-700">{currStock}</strong></span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span>
+                                          Tồn biến thể hiện tại:{' '}
+                                          <strong className="font-bold text-slate-700">
+                                            {currStock} máy
+                                          </strong>
+                                        </span>
                                       </div>
                                     ) : (
-                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                                        <span>Tồn hiện tại: {currStock}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span>Tồn biến thể hiện tại: {currStock}</span>
                                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                                        <span className="font-bold text-blue-700">Dự kiến: {expectedStock}</span>
+                                        <span className="font-bold text-blue-700">
+                                          Sau duyệt: {expectedStock} máy
+                                        </span>
                                       </div>
                                     )}
                                   </div>
@@ -896,7 +1048,7 @@ const AdminAdjustmentsPage = () => {
                             {formatVND(receipt.TongTienNhap)}
                           </div>
                           <span className="text-[11px] text-slate-400 block mt-0.5">
-                            {items.length} mặt hàng
+                            {items.length} biến thể SKU
                           </span>
                         </td>
 
@@ -926,7 +1078,7 @@ const AdminAdjustmentsPage = () => {
                                 disabled={Boolean(activeAction)}
                                 onClick={() => handleImportDecision(receipt, 'Approve')}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                title="Phê duyệt phiếu nhập và cộng số lượng vào tồn kho hệ thống"
+                                title="Phê duyệt phiếu nhập và cộng số lượng vào tồn kho biến thể"
                               >
                                 {activeAction === 'Approve' ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -954,7 +1106,7 @@ const AdminAdjustmentsPage = () => {
                           ) : receipt.TrangThai === 'DaDuyet' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span>Đã cộng tồn kho</span>
+                              <span>Đã cộng tồn biến thể</span>
                             </span>
                           ) : receipt.TrangThai === 'TuChoi' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs font-semibold">
@@ -986,7 +1138,7 @@ const AdminAdjustmentsPage = () => {
           )
         ) : (
           /* ═════════════════════════════════════════════════════════════════ */
-          /* ── TABLE 2: PHÊ DUYỆT PHIẾU BÁO LỆCH KHO ── */
+          /* ── TABLE 2: PHÊ DUYỆT PHIẾU BÁO LỆCH KHO (HIỂN THỊ RÕ MÀU SẮC & DUNG LƯỢNG) ── */
           /* ═════════════════════════════════════════════════════════════════ */
           filteredAdjustments.length === 0 ? (
             <div className="p-14 text-center">
@@ -1019,22 +1171,22 @@ const AdminAdjustmentsPage = () => {
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left border-collapse text-slate-700">
+              <table className="w-full min-w-[1020px] text-left border-collapse text-slate-700">
                 <thead className="bg-slate-50/90 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="px-5 py-3.5 w-[130px] whitespace-nowrap">Mã phiếu</th>
-                    <th className="px-4 py-3.5 w-[24%]">Sản phẩm</th>
+                    <th className="px-4 py-3.5 w-[28%]">Biến thể SKU (Màu sắc &amp; Dung lượng)</th>
                     <th className="px-4 py-3.5 w-[150px] text-center whitespace-nowrap">
-                      Đối chiếu tồn kho
+                      Đối chiếu tồn biến thể
                     </th>
                     <th className="px-4 py-3.5 w-[110px] text-center whitespace-nowrap">
                       Chênh lệch
                     </th>
-                    <th className="px-4 py-3.5 w-[25%]">Lý do giải trình</th>
+                    <th className="px-4 py-3.5 w-[23%]">Lý do giải trình</th>
                     <th className="px-4 py-3.5 w-[140px] text-center whitespace-nowrap">
                       Trạng thái
                     </th>
-                    <th className="px-5 py-3.5 min-w-[260px] text-center whitespace-nowrap">
+                    <th className="px-5 py-3.5 min-w-[240px] text-center whitespace-nowrap">
                       Thao tác duyệt
                     </th>
                   </tr>
@@ -1047,9 +1199,15 @@ const AdminAdjustmentsPage = () => {
                     const isPending = item.TrangThai === 'ChoDuyet';
                     const activeAction = processingMap[`adjust_${item.MaPhieuAdjust}`];
 
-                    // Đối chiếu tồn kho:
-                    // - Phiếu đã duyệt/từ chối: tính số tồn trước khi duyệt = SoLuongThucTe - SoLuongChechLech
-                    // - Phiếu chờ duyệt: lấy tồn hệ thống hiện tại (hoặc fallback về SoLuongThucTe - SoLuongChechLech)
+                    const validMauSac =
+                      item.MauSac && String(item.MauSac).trim()
+                        ? String(item.MauSac).trim()
+                        : 'Mặc định';
+                    const validDungLuong =
+                      item.DungLuong && String(item.DungLuong).trim()
+                        ? String(item.DungLuong).trim()
+                        : 'Tiêu chuẩn';
+
                     const tonTruocDuyet =
                       item.TrangThai === 'ChoDuyet'
                         ? (item.TonKhoHeThong ?? item.TonKhoHienTai ?? (actualStock - diff))
@@ -1075,7 +1233,7 @@ const AdminAdjustmentsPage = () => {
                           </div>
                         </td>
 
-                        {/* Sản phẩm */}
+                        {/* Sản phẩm & Pills Biến thể MauSac + DungLuong */}
                         <td className="px-4 py-4 align-middle">
                           <div className="flex items-center gap-3">
                             <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
@@ -1090,42 +1248,52 @@ const AdminAdjustmentsPage = () => {
                               )}
                             </div>
 
-                            <div className="min-w-0">
+                            <div className="min-w-0 space-y-1.5">
                               <p className="font-bold text-slate-900 leading-snug line-clamp-2">
                                 {item.TenSanPham || `Sản phẩm #${item.MaSanPham}`}
                               </p>
-                              {item.MaChiTietDonHang && (
-                                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-                                  <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200/80 font-semibold">
-                                    {`Màu: ${
-                                      item.MauSac && String(item.MauSac).trim()
-                                        ? String(item.MauSac).trim()
-                                        : 'N/A'
-                                    } | Dung lượng: ${
-                                      item.DungLuong && String(item.DungLuong).trim()
-                                        ? String(item.DungLuong).trim()
-                                        : 'N/A'
-                                    }`}
+
+                              {/* Hiển thị chính xác MauSac và DungLuong của biến thể trong phiếu lệch kho */}
+                              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${getColorDotClass(
+                                      validMauSac
+                                    )}`}
+                                  />
+                                  <Palette className="w-3 h-3" />
+                                  <span>Màu: {validMauSac}</span>
+                                </span>
+
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold">
+                                  <HardDrive className="w-3 h-3" />
+                                  <span>Dung lượng: {validDungLuong}</span>
+                                </span>
+
+                                {item.MaSKU && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold text-slate-600">
+                                    <Barcode className="w-3 h-3 text-slate-400" />
+                                    {item.MaSKU}
                                   </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Đối chiếu tồn kho */}
+                        {/* Đối chiếu tồn kho biến thể */}
                         <td className="px-4 py-4 text-center align-middle whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                             <span
                               className="text-slate-500 font-semibold"
-                              title={item.TrangThai === 'ChoDuyet' ? 'Tồn kho hệ thống' : 'Tồn kho trước khi duyệt'}
+                              title={item.TrangThai === 'ChoDuyet' ? 'Tồn kho biến thể trên hệ thống' : 'Tồn kho biến thể trước khi duyệt'}
                             >
                               {Number(tonTruocDuyet).toLocaleString('vi-VN')}
                             </span>
                             <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                             <span
                               className="font-extrabold text-blue-700"
-                              title={item.TrangThai === 'ChoDuyet' ? 'Số lượng thực tế đề xuất' : 'Tồn kho sau khi duyệt'}
+                              title={item.TrangThai === 'ChoDuyet' ? 'Số lượng thực tế đề xuất' : 'Tồn kho biến thể sau khi duyệt'}
                             >
                               {Number(tonSauDuyet).toLocaleString('vi-VN')}
                             </span>
@@ -1206,7 +1374,7 @@ const AdminAdjustmentsPage = () => {
                                 disabled={Boolean(activeAction)}
                                 onClick={() => handleAdjustDecision(item, 'Approve')}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs shadow-emerald-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                title={`Phê duyệt và cập nhật tồn kho thành ${actualStock}`}
+                                title={`Phê duyệt và cập nhật tồn kho biến thể thành ${actualStock}`}
                               >
                                 {activeAction === 'Approve' ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1238,7 +1406,7 @@ const AdminAdjustmentsPage = () => {
                               return (
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
                                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                  <span>Đã cập nhật tồn kho ({before} → {after})</span>
+                                  <span>Đã cập nhật ({before} → {after})</span>
                                 </span>
                               );
                             })()
@@ -1320,11 +1488,23 @@ const AdminAdjustmentsPage = () => {
 
             {/* Content */}
             <div className="p-5 space-y-4 text-xs sm:text-sm">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <p className="font-semibold text-slate-800 line-clamp-1">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                <p className="font-bold text-slate-800 line-clamp-1">
                   {rejectItem.TenSanPham || `Sản phẩm #${rejectItem.MaSanPham}`}
                 </p>
-                <div className="flex items-center justify-between text-xs text-slate-500">
+
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold">
+                    <Palette className="w-3 h-3" />
+                    Màu: {rejectItem.MauSac || 'Mặc định'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold">
+                    <HardDrive className="w-3 h-3" />
+                    Dung lượng: {rejectItem.DungLuong || 'Tiêu chuẩn'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-200/70">
                   <span>
                     Tồn HT: <strong className="text-slate-700">{Number(rejectItem.TonKhoHeThong ?? rejectItem.TonKhoHienTai ?? 0).toLocaleString('vi-VN')}</strong>
                   </span>
@@ -1373,10 +1553,10 @@ const AdminAdjustmentsPage = () => {
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    'Kiểm đếm lại chưa khớp thực tế',
+                    'Kiểm đếm lại biến thể SKU chưa khớp thực tế',
                     'Cần bổ sung biên bản giải trình chi tiết',
                     'Số liệu đề xuất không có cơ sở xác thực',
-                    'Yêu cầu thủ kho kiểm tra lại vị trí kệ',
+                    'Yêu cầu thủ kho kiểm tra lại vị trí kệ theo mã SKU',
                   ].map((preset) => (
                     <button
                       key={preset}

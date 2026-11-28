@@ -16,6 +16,8 @@ import {
   Check,
   Smartphone,
   Barcode,
+  HardDrive,
+  Palette,
   CheckSquare,
   Square,
   FileText,
@@ -57,10 +59,15 @@ const slugToken = (value) => {
     .slice(0, 6);
 };
 
+const normalizeAttrKey = (value) => {
+  if (!value) return '';
+  return String(value).toLowerCase().replace(/\s+/g, '').trim();
+};
+
 const getItemSku = (item) => {
+  if (item?.MaSKU) return String(item.MaSKU).trim();
   if (item?.SKU) return String(item.SKU).trim();
   if (item?.sku) return String(item.sku).trim();
-  if (item?.MaSKU) return String(item.MaSKU).trim();
 
   const base = `SP${String(item?.MaSanPham || 0).padStart(4, '0')}`;
   const storageCode = slugToken(item?.DungLuong);
@@ -112,6 +119,7 @@ const getOrderItems = (order) => {
 
 const WarehouseFulfillmentPage = () => {
   const [orders, setOrders] = useState([]);
+  const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -141,10 +149,17 @@ const WarehouseFulfillmentPage = () => {
     setError(null);
 
     try {
-      const res = await api.get('/warehouse/orders/fulfillment');
+      const [ordersRes, variantsRes] = await Promise.all([
+        api.get('/warehouse/orders/fulfillment'),
+        api
+          .get('/warehouse/inventory/stock-list')
+          .catch(() => ({ data: { data: [] } })),
+      ]);
       if (requestId !== latestRequestIdRef.current) return;
-      const data = Array.isArray(res.data?.data) ? res.data.data : [];
+      const data = Array.isArray(ordersRes.data?.data) ? ordersRes.data.data : [];
+      const variantRows = Array.isArray(variantsRes.data?.data) ? variantsRes.data.data : [];
       setOrders(data);
+      setVariants(variantRows);
     } catch (err) {
       if (requestId !== latestRequestIdRef.current) return;
       const msg =
@@ -199,6 +214,34 @@ const WarehouseFulfillmentPage = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchFulfillmentOrders]);
+
+  // Tra cứu Biến thể SKU tương ứng cho từng dòng chi tiết đơn hàng
+  const resolveOrderItemVariant = useCallback(
+    (item) => {
+      if (!item || variants.length === 0) return null;
+      if (item.MaBienThe) {
+        const byId = variants.find((v) => Number(v.MaBienThe) === Number(item.MaBienThe));
+        if (byId) return byId;
+      }
+      const spVariants = variants.filter(
+        (v) => Number(v.MaSanPham) === Number(item.MaSanPham)
+      );
+      if (spVariants.length === 0) return null;
+
+      const wantMau = normalizeAttrKey(item.MauSac);
+      const wantDl = normalizeAttrKey(item.DungLuong);
+      if (wantMau || wantDl) {
+        const exact = spVariants.find(
+          (v) =>
+            (!wantMau || normalizeAttrKey(v.MauSac) === wantMau) &&
+            (!wantDl || normalizeAttrKey(v.DungLuong) === wantDl)
+        );
+        if (exact) return exact;
+      }
+      return spVariants.length === 1 ? spVariants[0] : null;
+    },
+    [variants]
+  );
 
   // Phân loại đơn theo 2 nấc tác nghiệp chuẩn của Kho
   const pendingPackOrders = useMemo(
@@ -265,10 +308,11 @@ const WarehouseFulfillmentPage = () => {
 
       const items = getOrderItems(order);
       return items.some((item) => {
+        const matchedVariant = resolveOrderItemVariant(item);
         const name = String(item.TenSanPham || '').toLowerCase();
-        const sku = getItemSku(item).toLowerCase();
-        const color = String(item.MauSac || '').toLowerCase();
-        const storage = String(item.DungLuong || '').toLowerCase();
+        const sku = String(matchedVariant?.MaSKU || getItemSku(item)).toLowerCase();
+        const color = String(item.MauSac || matchedVariant?.MauSac || '').toLowerCase();
+        const storage = String(item.DungLuong || matchedVariant?.DungLuong || '').toLowerCase();
         return (
           name.includes(keyword) ||
           sku.includes(keyword) ||
@@ -277,7 +321,7 @@ const WarehouseFulfillmentPage = () => {
         );
       });
     });
-  }, [tabOrders, searchTerm]);
+  }, [tabOrders, searchTerm, resolveOrderItemVariant]);
 
   // Tự động reset về trang 1 khi đổi Tab hoặc nhập từ khóa tìm kiếm
   useEffect(() => {
@@ -305,7 +349,7 @@ const WarehouseFulfillmentPage = () => {
   };
 
   const getItemPickKey = (orderId, item, idx) =>
-    `${orderId}_${item.MaChiTietDonHang || `${item.MaSanPham}_${idx}`}`;
+    `${orderId}_${item.MaChiTietDonHang || `${item.MaBienThe || item.MaSanPham}_${idx}`}`;
 
   const togglePickItem = (orderId, item, idx) => {
     const key = getItemPickKey(orderId, item, idx);
@@ -391,7 +435,6 @@ const WarehouseFulfillmentPage = () => {
   };
 
   // Gọi API PUT /api/v1/warehouse/orders/:id/ship (DangDongGoi -> DangGiao)
-  // Sau khi bàn giao Shipper, đơn rời khỏi hàng đợi của Kho
   const handleShipOrder = async (order) => {
     const orderId = order.MaDonHang;
     if (processingIds[orderId]) return;
@@ -404,9 +447,7 @@ const WarehouseFulfillmentPage = () => {
       const res = await api.put(`/warehouse/orders/${orderId}/ship`);
       const nextStatus = res.data?.data?.TrangThaiDonHang || 'DangGiao';
 
-      setOrders((prev) =>
-        prev.filter((o) => o.MaDonHang !== orderId)
-      );
+      setOrders((prev) => prev.filter((o) => o.MaDonHang !== orderId));
       notifyOrderStatusChanged({ orderId, status: nextStatus, source: 'warehouse' });
 
       toast.success(`Đã bàn giao đơn ${orderCode} cho Shipper! Đơn đã rời hàng đợi kho.`, {
@@ -436,8 +477,12 @@ const WarehouseFulfillmentPage = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2.5">
             <Truck className="w-6 h-6 text-blue-600 shrink-0" />
-            <span>Điều phối Soạn hàng &amp; Đóng gói</span>
+            <span>Điều phối Soạn hàng &amp; Đóng gói theo Biến thể SKU</span>
           </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Kiểm đúng biến thể <strong>Màu sắc</strong>, <strong>Dung lượng</strong> và{' '}
+            <strong>Mã SKU</strong> trên kệ trước khi xác nhận đóng gói.
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -484,7 +529,7 @@ const WarehouseFulfillmentPage = () => {
             <p className="text-[11px] text-slate-500 mt-1">
               Cần nhặt{' '}
               <strong className="text-slate-700">{totalUnitsPendingPack}</strong>{' '}
-              máy trên kệ
+              máy trên kệ theo SKU
             </p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shrink-0">
@@ -571,103 +616,103 @@ const WarehouseFulfillmentPage = () => {
           })}
         </div>
 
-          <div className="p-3.5 sm:p-4 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-end gap-3">
-            <div className="relative w-full sm:w-96">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm mã đơn, tên người nhận, SĐT, SKU, màu sắc..."
-                className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                  aria-label="Xóa từ khóa tìm kiếm"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Orders Content Area ── */}
-        {loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 2 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-pulse space-y-4"
-              >
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                  <div className="h-5 w-44 bg-slate-200 rounded-lg" />
-                  <div className="h-6 w-32 bg-slate-200 rounded-full" />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  <div className="lg:col-span-4 h-36 bg-slate-100 rounded-xl" />
-                  <div className="lg:col-span-8 h-36 bg-slate-100 rounded-xl" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="bg-white border border-rose-200 rounded-2xl p-10 text-center space-y-3 shadow-sm">
-            <AlertCircle className="w-11 h-11 text-rose-500 mx-auto" />
-            <h2 className="text-base font-bold text-slate-800">
-              Không tải được dữ liệu kho
-            </h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto">{error}</p>
-            <button
-              type="button"
-              onClick={() => fetchFulfillmentOrders()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Thử lại
-            </button>
-          </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3 shadow-sm">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-              {activeTab === 'pending_pack' ? (
-                <Package className="w-7 h-7" />
-              ) : (
-                <PackageCheck className="w-7 h-7" />
-              )}
-            </div>
-            <h2 className="text-base font-bold text-slate-800">
-              {searchTerm
-                ? 'Không tìm thấy đơn hàng phù hợp'
-                : activeTab === 'pending_pack'
-                ? 'Không có đơn hàng nào đang chờ đóng gói'
-                : 'Chưa có đơn hàng nào sẵn sàng giao'}
-            </h2>
-            <p className="text-sm text-slate-500 max-w-lg mx-auto">
-              {searchTerm
-                ? `Không có đơn nào khớp với từ khóa "${searchTerm}" trong tab "${currentTabConfig.label}".`
-                : activeTab === 'pending_pack'
-                ? 'Các đơn hàng đã được Admin xác nhận duyệt sẽ xuất hiện tại đây để nhặt hàng & đóng gói.'
-                : 'Hãy xác nhận đóng gói đơn hàng ở tab "Chờ đóng gói" để chuyển đơn sang danh sách chờ bàn giao Shipper.'}
-            </p>
+        <div className="p-3.5 sm:p-4 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+          <div className="relative w-full sm:w-96">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm mã đơn, tên người nhận, SĐT, SKU, màu sắc, dung lượng..."
+              className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+            />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Xóa từ khóa tìm kiếm"
               >
                 <X className="w-3.5 h-3.5" />
-                Xóa bộ lọc tìm kiếm
               </button>
             )}
           </div>
-        ) : (
+        </div>
+      </div>
+
+      {/* ── Orders Content Area ── */}
+      {loading ? (
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-pulse space-y-4"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="h-5 w-44 bg-slate-200 rounded-lg" />
+                <div className="h-6 w-32 bg-slate-200 rounded-full" />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <div className="lg:col-span-4 h-36 bg-slate-100 rounded-xl" />
+                <div className="lg:col-span-8 h-36 bg-slate-100 rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="bg-white border border-rose-200 rounded-2xl p-10 text-center space-y-3 shadow-sm">
+          <AlertCircle className="w-11 h-11 text-rose-500 mx-auto" />
+          <h2 className="text-base font-bold text-slate-800">
+            Không tải được dữ liệu kho
+          </h2>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">{error}</p>
+          <button
+            type="button"
+            onClick={() => fetchFulfillmentOrders()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Thử lại
+          </button>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3 shadow-sm">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+            {activeTab === 'pending_pack' ? (
+              <Package className="w-7 h-7" />
+            ) : (
+              <PackageCheck className="w-7 h-7" />
+            )}
+          </div>
+          <h2 className="text-base font-bold text-slate-800">
+            {searchTerm
+              ? 'Không tìm thấy đơn hàng phù hợp'
+              : activeTab === 'pending_pack'
+              ? 'Không có đơn hàng nào đang chờ đóng gói'
+              : 'Chưa có đơn hàng nào sẵn sàng giao'}
+          </h2>
+          <p className="text-sm text-slate-500 max-w-lg mx-auto">
+            {searchTerm
+              ? `Không có đơn nào khớp với từ khóa "${searchTerm}" trong tab "${currentTabConfig.label}".`
+              : activeTab === 'pending_pack'
+              ? 'Các đơn hàng đã được Admin xác nhận duyệt sẽ xuất hiện tại đây để nhặt hàng & đóng gói theo từng biến thể SKU.'
+              : 'Hãy xác nhận đóng gói đơn hàng ở tab "Chờ đóng gói" để chuyển đơn sang danh sách chờ bàn giao Shipper.'}
+          </p>
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              Xóa bộ lọc tìm kiếm
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-5">
           <div className="space-y-5">
-            <div className="space-y-5">
-              {paginatedOrders.map((order) => {
+            {paginatedOrders.map((order) => {
               const items = getOrderItems(order);
               const orderCode =
                 order.CodeDonHang ||
@@ -725,7 +770,7 @@ const WarehouseFulfillmentPage = () => {
                     <div className="flex flex-wrap items-center gap-2.5">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">
                         <Smartphone className="w-3.5 h-3.5 text-slate-500" />
-                        {totalUnits} máy ({items.length} SKU)
+                        {totalUnits} máy ({items.length} biến thể SKU)
                       </span>
 
                       <span className="text-sm font-bold text-emerald-600">
@@ -847,12 +892,12 @@ const WarehouseFulfillmentPage = () => {
                       </div>
                     </div>
 
-                    {/* Right 8 cols: Danh sách máy từ chitietdonhang (SKU, Màu sắc, Dung lượng) */}
+                    {/* Right 8 cols: Danh sách máy từ chitietdonhang (Biến thể SKU, Màu sắc, Dung lượng) */}
                     <div className="lg:col-span-8 flex flex-col">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                         <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                           <Barcode className="w-4 h-4 text-sky-600" />
-                          Danh sách máy cần soạn ({items.length} dòng)
+                          Danh sách Biến thể SKU cần soạn ({items.length} dòng)
                         </h3>
 
                         {isPendingPack && items.length > 0 && (
@@ -886,7 +931,23 @@ const WarehouseFulfillmentPage = () => {
                       ) : (
                         <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
                           {items.map((item, idx) => {
-                            const sku = getItemSku(item);
+                            const matchedVariant = resolveOrderItemVariant(item);
+                            const sku = matchedVariant?.MaSKU || getItemSku(item);
+                            const displayMauSac =
+                              item.MauSac && String(item.MauSac).trim()
+                                ? String(item.MauSac).trim()
+                                : matchedVariant?.MauSac || 'Mặc định';
+                            const displayDungLuong =
+                              item.DungLuong && String(item.DungLuong).trim()
+                                ? String(item.DungLuong).trim()
+                                : matchedVariant?.DungLuong || 'Tiêu chuẩn';
+                            const variantStock =
+                              matchedVariant?.TonKho !== undefined
+                                ? Number(matchedVariant.TonKho)
+                                : item.TonKho !== undefined
+                                ? Number(item.TonKho)
+                                : null;
+
                             const pickKey = getItemPickKey(
                               order.MaDonHang,
                               item,
@@ -916,7 +977,7 @@ const WarehouseFulfillmentPage = () => {
                                       title={
                                         isPicked
                                           ? 'Bỏ đánh dấu đã nhặt'
-                                          : 'Đánh dấu đã nhặt đúng máy trên kệ'
+                                          : 'Đánh dấu đã nhặt đúng biến thể máy trên kệ'
                                       }
                                       aria-label="Đánh dấu đã nhặt máy"
                                     >
@@ -954,7 +1015,7 @@ const WarehouseFulfillmentPage = () => {
                                     </div>
                                   </div>
 
-                                  {/* Product Name + SKU + Màu sắc + Dung lượng */}
+                                  {/* Product Name + SKU + Pill Màu sắc + Pill Dung lượng */}
                                   <div className="flex-1 min-w-0 space-y-1.5">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h4
@@ -969,41 +1030,37 @@ const WarehouseFulfillmentPage = () => {
                                       {isPicked && (
                                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                                           <CheckCircle2 className="w-3 h-3" />
-                                          Đã nhặt
+                                          Đã nhặt đúng SKU
                                         </span>
                                       )}
                                     </div>
 
-                                    {/* SKU, Màu sắc & Dung lượng (lấy từ chitietdonhang) */}
-                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    {/* Pills Biến thể SKU: Mã SKU, Màu sắc, Dung lượng */}
+                                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-200 font-mono font-bold text-slate-800">
                                         <Barcode className="w-3.5 h-3.5 text-slate-500" />
                                         SKU: {sku}
                                       </span>
 
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-sky-50 border border-sky-200/80 text-sky-900 font-semibold">
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-800 font-semibold">
                                         <span
-                                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${getColorDotClass(
-                                            item.MauSac
+                                          className={`w-2 h-2 rounded-full shrink-0 ${getColorDotClass(
+                                            displayMauSac
                                           )}`}
                                         />
-                                        <span>
-                                          {`Màu: ${
-                                            item.MauSac && String(item.MauSac).trim()
-                                              ? String(item.MauSac).trim()
-                                              : 'N/A'
-                                          } | Dung lượng: ${
-                                            item.DungLuong && String(item.DungLuong).trim()
-                                              ? String(item.DungLuong).trim()
-                                              : 'N/A'
-                                          }`}
-                                        </span>
+                                        <Palette className="w-3 h-3" />
+                                        <span>Màu: {displayMauSac}</span>
+                                      </span>
+
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800 font-semibold">
+                                        <HardDrive className="w-3 h-3" />
+                                        <span>Dung lượng: {displayDungLuong}</span>
                                       </span>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Right: Quantity to Pick & Stock / Price */}
+                                {/* Right: Quantity to Pick & Variant Stock */}
                                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1.5 pl-9 sm:pl-0 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                                   <span
                                     className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-extrabold border ${
@@ -1015,9 +1072,12 @@ const WarehouseFulfillmentPage = () => {
                                     SL: &times;{qty}
                                   </span>
 
-                                  {item.TonKho !== undefined && (
+                                  {variantStock !== null && (
                                     <div className="text-[11px] text-slate-500 font-medium text-right">
-                                      Kho: {item.TonKho}
+                                      Tồn biến thể:{' '}
+                                      <strong className="text-slate-700">
+                                        {variantStock}
+                                      </strong>
                                     </div>
                                   )}
                                 </div>
@@ -1036,11 +1096,11 @@ const WarehouseFulfillmentPage = () => {
                         pickedCount > 0 ? (
                           <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            Đã kiểm trên kệ: {pickedCount}/{items.length} dòng máy
+                            Đã kiểm trên kệ: {pickedCount}/{items.length} biến thể SKU
                           </span>
                         ) : (
                           <span>
-                            Kiểm tra đúng <strong>SKU</strong>,{' '}
+                            Kiểm tra đúng <strong>Biến thể SKU</strong>,{' '}
                             <strong>Màu sắc</strong>, <strong>Dung lượng</strong>{' '}
                             trước khi đóng gói.
                           </span>
@@ -1098,17 +1158,17 @@ const WarehouseFulfillmentPage = () => {
                 </article>
               );
             })}
-            </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredOrders.length}
-              itemsPerPage={ITEMS_PER_PAGE}
-              onPageChange={setCurrentPage}
-              className="rounded-2xl border border-slate-200 shadow-sm"
-            />
           </div>
-        )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+            className="rounded-2xl border border-slate-200 shadow-sm"
+          />
+        </div>
+      )}
     </div>
   );
 };
